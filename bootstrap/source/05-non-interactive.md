@@ -4,10 +4,12 @@ When installing without user confirmation (e.g. "yolo" or CI), you must make saf
 
 ### Defaults
 
+- **Prerequisites:** Silently check for Python `sqlite3` module, then `sqlite3` CLI. If neither is found, attempt installation via the system package manager only if it can be done non-interactively (e.g. `apt install -y sqlite3` in a CI container). If installation fails or is not possible, skip the index build and note in INSTRUCTIONS that the index is not yet built and should be created when SQLite becomes available.
 - **Directory:** Use `.giterloper/` at the repository root unless the project already has a different giterloper path (e.g. existing `.giterloper/` or a config that names one). If in doubt, use `.giterloper/`.
 - **Constitution source:** Use the same repository and branch that provided this bootstrap. Default branch is typically `main`. If CONSTITUTION.md and CONSTITUTION.md5 are at repo root, use those URLs.
 - **GitHub token:** Do not create or write `.giterloper/auth` in non-interactive mode unless the token is provided via environment (e.g. `GITHUB_TOKEN`). If the env var is set, you may document in INSTRUCTIONS that authenticated access is available. Do not prompt for a token.
 - **INSTRUCTIONS location:** Prefer project root `INSTRUCTIONS.md` if the project has no existing INSTRUCTIONS; otherwise place under `.giterloper/INSTRUCTIONS.md` or merge into existing docs as appropriate. Prefer not overwriting existing INSTRUCTIONS.md; append a "Giterloper" section or create `.giterloper/INSTRUCTIONS.md`.
+- **Index build:** If SQLite is available, build the index automatically after cloning the store (step 8). If it fails (e.g. permissions, disk space), log the error in INSTRUCTIONS.md as a deferred step: "Index build failed; run the build procedure in INSTRUCTIONS.md manually when the issue is resolved."
 
 ### Failure handling
 
