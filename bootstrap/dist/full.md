@@ -15,100 +15,174 @@ You are installing giterloper into a project so that agents working on that proj
 3. **Identify the source.** You need the URL of the giterloper knowledge store to install from (e.g. the repo that contains this bootstrap), and the path to the constitution and its MD5 file. Typically: same repo, `CONSTITUTION.md` and `CONSTITUTION.md5` at root.
 ## Installation steps
 
-### 1. Create the giterloper directory
+### 1. Ensure prerequisites
+
+Content is accessed via a depth=1 clone and searched with QMD. Check availability:
+
+1. **git** (required): Run `git --version`. Install via system package manager if needed:
+   - Debian/Ubuntu: `apt install git`
+   - macOS: `brew install git` (or Xcode Command Line Tools)
+   - Alpine: `apk add git`
+2. **Node.js >= 22 or Bun >= 1.0:** Run `node --version` or `bun --version`. QMD requires one of these:
+   - Node.js: install via [nvm](https://github.com/nvm-sh/nvm) (`nvm install 22`), or system package manager
+   - Bun: `curl -fsSL https://bun.sh/install | bash`
+3. **QMD:** Run `qmd status`. If not installed: `npm install -g @tobilu/qmd` (or `bun install -g @tobilu/qmd`).
+
+### 2. Create the giterloper directory
 
 Create the directory you chose (e.g. `.giterloper/`) in the project root. Ensure the name and location match project conventions.
 
-### 2. Copy the constitution
+### 3. Copy the constitution
 
 Copy the constitution file from the source repository **verbatim** into the giterloper directory. The file in the project should be named `constitution.md` (lowercase) inside the giterloper directory. Do not modify the content.
 
 **Verification:** Fetch `CONSTITUTION.md5` from the same source. Compute the MD5 of the copied file and compare. If they differ, the copy is invalid; re-copy from the canonical source.
 
-### 3. Add .gitignore entries
+### 4. Add .gitignore entries
 
-Add (or merge) these entries to the project root `.gitignore` so generated and sensitive files are not committed:
+Add (or merge) this entry to the project root `.gitignore` so cloned repositories are not committed:
 
 ```
-.giterloper/cache/
-.giterloper/index.db
-.giterloper/*.sqlite
-.giterloper/auth
+.giterloper/repos/
 ```
 
 Use the actual path if you chose something other than `.giterloper/`. The directory itself and `constitution.md` (and any other checked-in config) should remain tracked.
 
-### 4. Create the cache directory (optional but recommended)
+### 5. Clone the knowledge store
 
-Create the cache directory (e.g. `.giterloper/cache/`) so that API-fetched or cloned content and index databases have a place to live. It is gitignored.
+Clone the store with depth 1 into the repos directory. The default ref is `main`:
 
-### 5. GitHub token (optional)
+```sh
+git clone --depth 1 <repo_url> .giterloper/repos/main/
+```
 
-If the knowledge store is on GitHub and the user wants higher API rate limits (5,000/hr vs 60/hr unauthenticated), ask whether to configure a token. If yes:
+Use the actual giterloper path and repo URL. For a different ref (branch, tag): `git clone --depth 1 --branch <ref> <repo_url> .giterloper/repos/<ref>/`.
 
-- Have the user create a personal access token (or use an existing one) with `repo` scope for private repos, or no scope for public-only.
-- Store the token in `.giterloper/auth` (one line, the token only) or document that they may set `GITHUB_TOKEN` (or similar) in the environment. Ensure `.giterloper/auth` is in `.gitignore` and never commit it.
+### 6. Set up QMD (present commands; do not auto-run)
 
-If the user declines, proceed with unauthenticated access; the INSTRUCTIONS you generate should mention the 60/hr limit and aggressive caching.
+Per QMD's design, do not automatically run `qmd collection add`, `qmd embed`, or `qmd update`. Instead, present these commands for the user to execute:
 
-### 6. Generate or adapt INSTRUCTIONS.md
+```sh
+# Create QMD collection for the knowledge directory
+qmd collection add .giterloper/repos/main/knowledge --name <store-name>@main --mask "**/*.md"
+
+# Add context from giterloper.yaml description
+qmd context add qmd://<store-name>@main "<store description>"
+
+# (Optional) Generate embeddings for semantic search (~2GB models)
+qmd embed
+```
+
+Replace `<store-name>` with the store name from `giterloper.yaml` and `<store description>` with the `description` field.
+
+### 7. Generate or adapt INSTRUCTIONS.md
 
 The project needs instructions that tell an agent how to perform the six giterloper operations (answer_from_context, retrieve_relevant_context, verify_claim, add_knowledge, subtract_knowledge, intersect_knowledge) when the **knowledge store** is the one you're installing from (or another specified store). All operations accept raw string or asset reference inputs. See the "Instructions template" section below for what to include. Place INSTRUCTIONS.md either at the project root or inside the giterloper directory, depending on project norms. If the project already has an INSTRUCTIONS.md, merge or append a giterloper section rather than overwriting.
 
-**Confirm with the user** (in interactive mode): directory location, constitution source URL, whether to add a GitHub token, and where INSTRUCTIONS.md should live.
+**Confirm with the user** (in interactive mode): directory location, constitution source URL, and where INSTRUCTIONS.md should live.
 ## Instructions template
 
-The INSTRUCTIONS.md you create for the project should cover the following. Adapt to the actual knowledge store URL and structure.
+The INSTRUCTIONS.md you create for the project should cover the following. Adapt to the actual knowledge store URL and structure. The source knowledge store's own INSTRUCTIONS.md (at the store root) is the reference implementation — consult it for QMD setup, search patterns, and per-operation usage.
 
-1. **Retrieval strategy**
-   - Prefer GitHub API: one tree call, then fetch only needed files. Cache everything under the giterloper cache directory.
-   - Rate limits: unauthenticated ~60/hr; with token in `.giterloper/auth` or `GITHUB_TOKEN`, ~5,000/hr.
-   - Fallback: shallow clone into `.giterloper/cache/repo/` with `git clone --depth 1` if bulk access is needed.
-   - If `.giterloper/cache/index.db` exists, use it first to find relevant files.
+1. **Access**
+   - Content is accessed via a depth=1 clone at `.giterloper/repos/<ref>/` (default ref: `main`).
+   - QMD indexes the `knowledge/` directory for search. Each version gets its own QMD collection named `<store>@<ref>`.
+   - No API calls; clone and QMD only. See "QMD: setup, search, and maintenance" below.
 
 2. **Operations** (all accept raw string or asset reference for inputs; enables combining stores)
-   - **answer_from_context:** Use only scoped content; no outside assumptions. Question as string; scope as asset ref (default: this store). Discover via tree/index, read relevant files, answer and cite.
-   - **retrieve_relevant_context:** Same discovery; return summarized excerpts and paths for the query. Query as string; scope as asset ref (default: this store).
-   - **verify_claim:** Find relevant content; state supported / contradicted / not addressed. Claim as string; scope as asset ref (default: this store).
-   - **add_knowledge:** Add and reconcile content. Knowledge as raw string or asset reference. Place content, adjust folder structure (underscore-separated names), update index if present, commit.
-   - **subtract_knowledge:** Remove content that overlaps with the passed knowledge (raw string or asset reference). Keep the rest.
-   - **intersect_knowledge:** Keep only content that overlaps with the passed knowledge (raw string or asset reference). Remove everything else.
+
+   Each operation should describe **two paths**: the QMD path (when QMD collection exists) and the direct-read path (from the clone). Copy the per-operation instructions from the store's INSTRUCTIONS.md and adapt paths and store details as needed.
+
+   - **answer_from_context:** Use `qmd search`/`qmd query` for chunks matching the question; `qmd get` for full files when needed. Fall back to reading files from the clone. Cite file paths and headings. No outside knowledge.
+   - **retrieve_relevant_context:** Use `qmd search`/`qmd query` for 5-10 relevant chunks; return summaries and excerpts with paths. Fall back to folder-name-based file reads.
+   - **verify_claim:** Use `qmd search`/`qmd query` broadly (keywords, synonyms) to find supporting and contradicting evidence. Check multiple results. Report supported / contradicted / not addressed with citations.
+   - **add_knowledge:** Place content in appropriate folders; run `qmd update` after writing files. When combining with another version: clone that version, add its QMD collection, search both independently. Commit.
+   - **subtract_knowledge:** Use `qmd search` to find overlapping chunks; remove overlapping content; run `qmd update`. Commit.
+   - **intersect_knowledge:** Use `qmd search` to identify overlapping vs non-overlapping chunks; remove non-overlapping content; run `qmd update`. Commit.
 
 3. **Store-specific details**
    - Config: link or mention `giterloper.yaml` at the store root (name, topic, description).
    - Knowledge root: typically `knowledge/` with self-identifying folder names. Describe the actual layout of the store you're installing from.
    - Constitution: `.giterloper/constitution.md` is a verbatim copy; verify with CONSTITUTION.md5 from the store repo.
 
-4. **Index (optional)**
-   - Describe how to build or rebuild a SQLite index in `.giterloper/cache/index.db` from the store contents (paths, keywords, summaries) so that most queries need 1–2 file reads. Rebuild when the store changes.
+4. **QMD: setup, search, and maintenance**
 
-Example opening paragraph: "This project has giterloper installed to access the [Name] knowledge store, which contains knowledge about [topic/description]. The store is at [repo URL]. Perform the six operations (answer_from_context, retrieve_relevant_context, verify_claim, add_knowledge, subtract_knowledge, intersect_knowledge) by following the retrieval strategy below and the operation descriptions. All operations accept raw string or asset reference inputs."
-## Optional infrastructure
+   This section should include, adapted from the store's INSTRUCTIONS.md:
 
-### Index database
+   - **Prerequisites:** git, Node.js >= 22 or Bun >= 1.0, QMD (`npm install -g @tobilu/qmd`).
+   - **Collection setup:** `qmd collection add .giterloper/repos/<ref>/knowledge --name <store>@<ref> --mask "**/*.md"`. Add context with `qmd context add qmd://<store>@<ref> "<description>"`.
+   - **Search modes:** `qmd search` (keyword, fast, no models), `qmd query` (hybrid, best quality, needs embeddings), `qmd vsearch` (semantic only), `qmd get` (retrieve by path).
+   - **Multi-version:** When combining operations need two versions, clone the second ref into `.giterloper/repos/<ref>/`, add its QMD collection, search each with `-c <store>@<ref>`.
+   - **Maintenance:** `qmd update` to re-index after changes; `qmd update --pull` to pull upstream and re-index.
 
-For faster retrieval without hitting the API repeatedly, the project can maintain a SQLite index in `.giterloper/cache/index.db`. The index might include:
+Example opening paragraph: "This project has giterloper installed to access the [Name] knowledge store, which contains knowledge about [topic/description]. The store is at [repo URL]. Perform the six operations (answer_from_context, retrieve_relevant_context, verify_claim, add_knowledge, subtract_knowledge, intersect_knowledge) by following the access and search guidance below. All operations accept raw string or asset reference inputs. Detailed QMD setup and search patterns are in the store's own INSTRUCTIONS.md at the repository root."
+## Search and versioning
 
-- File path (relative to repo root or knowledge root)
-- Extracted keywords or a short summary
-- Optional content hash for change detection
+### QMD overview
 
-Build the index by walking the knowledge store (via API or local clone), parsing markdown (or other) files, and inserting rows. Rebuild after ingestion or when the store is updated. Document the schema and rebuild steps in INSTRUCTIONS.md so agents can "rebuild index" when the cache is stale.
+QMD indexes and searches markdown knowledge files. It provides:
 
-### Shallow clone cache
+- **FTS5/BM25 keyword search** — Fast full-text search, no external models
+- **Optional vector semantic search** — Embeddings (~2GB) for similarity search
+- **Smart markdown chunking** — ~900 tokens per chunk, 15% overlap, respects headings and code blocks
+- **Local-first** — Index stored at `~/.cache/qmd/index.sqlite`; no external services
 
-If the agent has `git` available, it can clone the knowledge store into `.giterloper/cache/repo/` with `--depth 1` and read everything locally. INSTRUCTIONS should say to use this when API budget is insufficient (e.g. bulk indexing) and to refresh with `git -C .giterloper/cache/repo fetch --depth 1 origin <default_branch>`.
+Collections point at directories. For giterloper, each clone version gets its own collection.
 
-### Submodules
+### Search modes
 
-Users may add the knowledge store as a git submodule. The instructions can mention this as an option but should note: submodules pull history by default; shallow submodules are not universally well supported. Do not recommend submodules as the default retrieval method.
+| Command | Purpose | Models needed |
+|---------|---------|---------------|
+| `qmd search "<keywords>"` | Keyword search (BM25) | None |
+| `qmd vsearch "<query>"` | Vector semantic search | Embeddings |
+| `qmd query "<question>"` | Hybrid + reranking, best quality | Embeddings + reranker |
+
+Scope to a collection with `-c <store>@<ref>`. Use `qmd get "<path>"` to retrieve full document content.
+
+### Multi-version layout
+
+Each ref (branch, tag, SHA) lives in its own directory:
+
+```
+.giterloper/
+  repos/
+    main/        # Default branch
+    v1.0.0/      # Tagged release
+    feature-x/   # Another branch
+```
+
+Each version gets its own QMD collection: `<store-name>@main`, `<store-name>@v1.0.0`, etc. Searching one version never returns results from another.
+
+**When two versions are needed at once** (e.g., `add_knowledge` from one store into another, or `subtract_knowledge` / `intersect_knowledge` comparing versions):
+
+1. Clone the second ref: `git clone --depth 1 --branch <ref> <url> .giterloper/repos/<ref>/`
+2. Add its QMD collection: `qmd collection add .giterloper/repos/<ref>/knowledge --name <store>@<ref> --mask "**/*.md"`
+3. Search each independently: `qmd search "..." -c <store>@main` and `qmd search "..." -c <store>@<ref>`
+
+### Updating
+
+After pulling upstream changes or modifying files locally:
+
+```sh
+git -C .giterloper/repos/main/ fetch --depth 1 origin main
+git -C .giterloper/repos/main/ reset --hard origin/main
+qmd update
+```
+
+Or: `qmd update --pull` (QMD runs git pull in the collection directory, then re-indexes).
+
+### MCP server (optional)
+
+For tighter agent integration, QMD can run as an MCP server: `qmd mcp`. Exposes tools like `qmd_search`, `qmd_vector_search`, `qmd_deep_search`, `qmd_get`. See QMD docs for configuration.
 ## Verification
 
 After installation:
 
-1. **Constitution:** Confirm `.giterloper/constitution.md` exists and its MD5 matches CONSTITUTION.md5 from the source repo.
-2. **Gitignore:** Confirm `.giterloper/cache/`, `.giterloper/auth`, and `.giterloper/index.db` (and `*.sqlite` if used) are listed in `.gitignore`.
-3. **INSTRUCTIONS:** Confirm INSTRUCTIONS.md exists and describes the six operations and the retrieval strategy (API first, clone fallback, index when present). Confirm it names the knowledge store and its URL or location.
-4. **Optional:** If a token was configured, confirm `.giterloper/auth` exists and is not tracked by git.
+1. **Prerequisites:** Confirm `git` is installed (`git --version`). Confirm QMD is installed (`qmd status`).
+2. **Constitution:** Confirm `.giterloper/constitution.md` exists and its MD5 matches CONSTITUTION.md5 from the source repo.
+3. **Gitignore:** Confirm `.giterloper/repos/` is listed in `.gitignore`.
+4. **Clone:** Confirm the clone exists at `.giterloper/repos/main/` with a `knowledge/` directory and content.
+5. **QMD collection:** Confirm `qmd collection list` shows the collection (e.g. `<store-name>@main`). Run `qmd search "<topic>" -c <store-name>@main` to verify results are returned.
+6. **INSTRUCTIONS:** Confirm INSTRUCTIONS.md exists and describes the six operations, clone-based access, QMD search patterns, and multi-version usage. Confirm it names the knowledge store and its URL or location.
 
-If anything is missing or incorrect, repeat the relevant step. Do not commit the auth file or cache contents.
+If anything is missing or incorrect, repeat the relevant step.

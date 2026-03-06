@@ -30,36 +30,17 @@ blob_base="${repo_url}/blob/${branch}/bootstrap/dist"
 
 mkdir -p "$BOOT_DIST"
 
-# Full interactive: 00 through 04
+# Bootstrap: 00 through 04
 cat "$BOOT_SRC/00-preamble.md" \
     "$BOOT_SRC/01-installation.md" \
     "$BOOT_SRC/02-instructions-template.md" \
-    "$BOOT_SRC/03-optional-infra.md" \
+    "$BOOT_SRC/03-search-and-versioning.md" \
     "$BOOT_SRC/04-verification.md" \
     > "$BOOT_DIST/full.md"
 
-# Lite interactive: same as full but drop the long example paragraph in 02
-{
-  cat "$BOOT_SRC/00-preamble.md" "$BOOT_SRC/01-installation.md"
-  sed '/^Example opening paragraph/,/^$/d' "$BOOT_SRC/02-instructions-template.md" || true
-  cat "$BOOT_SRC/03-optional-infra.md" "$BOOT_SRC/04-verification.md"
-} > "$BOOT_DIST/lite.md"
-
-# Non-interactive: 00 through 05 (includes contingency handling)
-cat "$BOOT_SRC/00-preamble.md" \
-    "$BOOT_SRC/01-installation.md" \
-    "$BOOT_SRC/02-instructions-template.md" \
-    "$BOOT_SRC/03-optional-infra.md" \
-    "$BOOT_SRC/04-verification.md" \
-    "$BOOT_SRC/05-non-interactive.md" \
-    > "$BOOT_DIST/non-interactive.md"
-
-# Generate README.md with one-liners from config
-# One-liner pattern: "The {name} knowledge store contains knowledge about {description}. To install access..."
+# Generate README.md with one-liner from config
 name_cap="$(echo "$name" | sed 's/^./\U&/')"
-oneliner_full="The ${name_cap} knowledge store contains knowledge about ${description}. To install access so that agents working on your project can access that knowledge, read ${blob_base}/full.md and follow the instructions."
-oneliner_lite="The ${name_cap} knowledge store contains knowledge about ${description}. To install access so that agents working on your project can access that knowledge, read ${blob_base}/lite.md and follow the instructions (lite variant for smaller context windows)."
-oneliner_ni="The ${name_cap} knowledge store contains knowledge about ${description}. To install access so that agents working on your project can access that knowledge, read ${blob_base}/non-interactive.md and follow the instructions (non-interactive variant; no human in the loop)."
+oneliner="The ${name_cap} knowledge store contains knowledge about ${description}. To install access so that agents working on your project can access that knowledge, read ${blob_base}/full.md and follow the instructions."
 
 cat > "$ROOT/README.md" << README
 # Giterloper
@@ -70,20 +51,11 @@ This repository is a giterloper knowledge store about giterloper itself.
 
 ## Install access to this knowledge store
 
-Give your agent one of the following (choose by context window and whether you want interactive confirmation):
-
-**Full (interactive):**  
-${oneliner_full}
-
-**Lite (interactive, smaller):**  
-${oneliner_lite}
-
-**Non-interactive:**  
-${oneliner_ni}
+${oneliner}
 
 ## Constitution
 
 The immutable core of the paradigm is [CONSTITUTION.md](CONSTITUTION.md). Verify a copy with [CONSTITUTION.md5](CONSTITUTION.md5). This repo is self-installed: see [.giterloper/constitution.md](.giterloper/constitution.md).
 README
 
-echo "Build done: bootstrap/dist/{full,lite,non-interactive}.md and README.md"
+echo "Build done: bootstrap/dist/full.md and README.md"

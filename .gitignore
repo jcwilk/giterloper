@@ -1,7 +1,4 @@
-# Giterloper: generated and sensitive files (never check in)
-.giterloper/cache/
-.giterloper/index.db
-.giterloper/*.sqlite
-.giterloper/auth
+# Giterloper: cloned repositories (never check in)
+.giterloper/repos/
 
 # Keep .giterloper/ itself and checked-in files (e.g. constitution.md) tracked

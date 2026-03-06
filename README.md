@@ -6,16 +6,7 @@ This repository is a giterloper knowledge store about giterloper itself.
 
 ## Install access to this knowledge store
 
-Give your agent one of the following (choose by context window and whether you want interactive confirmation):
-
-**Full (interactive):**  
-The Giterloper knowledge store contains knowledge about how Giterloper stores and provides knowledge. To install access so that agents working on your project can access that knowledge, read https://github.com/USER/giterloper/blob/main/bootstrap/dist/full.md and follow the instructions.
-
-**Lite (interactive, smaller):**  
-The Giterloper knowledge store contains knowledge about how Giterloper stores and provides knowledge. To install access so that agents working on your project can access that knowledge, read https://github.com/USER/giterloper/blob/main/bootstrap/dist/lite.md and follow the instructions (lite variant for smaller context windows).
-
-**Non-interactive:**  
-The Giterloper knowledge store contains knowledge about how Giterloper stores and provides knowledge. To install access so that agents working on your project can access that knowledge, read https://github.com/USER/giterloper/blob/main/bootstrap/dist/non-interactive.md and follow the instructions (non-interactive variant; no human in the loop).
+The Giterloper knowledge store contains knowledge about how Giterloper stores and provides knowledge. To install access so that agents working on your project can access that knowledge, read https://github.com/USER/giterloper/blob/master/bootstrap/dist/full.md and follow the instructions.
 
 ## Constitution
 
