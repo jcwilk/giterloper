@@ -18,8 +18,12 @@ Installation files:
    - Where config or tooling lives (root, `config/`, `docs/`, etc.)
    - Project conventions for external dependencies (cloned repos, vendored content)
 
-2. **Decide where the store clone will live.** The recommended layout is `.giterloper/<remote>/<version>/` — each cloned version (e.g. `main`, `v1.0.0`) goes in its own subdirectory. Some operations may require checking out multiple versions at the same time.
+2. **Decide on the giterloper root directory.** The default is `.giterloper/`. Inside this directory:
+   - `pinned.yaml` maps human-friendly names to store references. This file is committed to the target project.
+   - `versions/` holds the actual cloned stores (laid out as `versions/<name>/<ref>/`). This directory is gitignored by default — only the lightweight `pinned.yaml` manifest is committed.
 
 3. **Identify the source.** You need the URL of the giterloper knowledge store to connect to, ie, the canonical access point of this repository.
 
-4. **CONFIRM BEFORE PROCEEDING** Present a brief summary of your understanding of the installation process, where you've determined to install things, and what the purpose of the knowledge store is to solicit confirmation as well as to confirm whether the cloned versions should be gitignored (by default they should be gitignored) to your user for confirmation. THE USER MUST CONFIRM AND BE GIVEN AN OPPORTUNITY TO OVERRIDE DEFAULTS. THIS IS ESSENTIAL FOR SUBSEQUENT STEPS.
+4. **Choose a name for this store.** Pick a short, human-friendly name that will serve as both the key in `pinned.yaml` and the subdirectory name under `versions/`. For example, `giterloper` for this store.
+
+5. **CONFIRM BEFORE PROCEEDING** Present a brief summary of your understanding of the installation process, where you've determined to install things, and what the purpose of the knowledge store is to solicit confirmation as well as to confirm whether the `versions/` directory should be gitignored (by default it should be) to your user for confirmation. THE USER MUST CONFIRM AND BE GIVEN AN OPPORTUNITY TO OVERRIDE DEFAULTS. THIS IS ESSENTIAL FOR SUBSEQUENT STEPS.

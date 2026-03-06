@@ -10,37 +10,67 @@ To configure the connection between a target project and this store, see the ins
 
 ## Accessing the knowledge store
 
+### Installation layout
+
+In the target project, giterloper state lives under a single root directory (default `.giterloper/`). This directory contains:
+
+- **`pinned.yaml`** — committed to the target project. Maps human-friendly names to store references using the asset reference scheme (`source@ref`). Example:
+
+  ```yaml
+  giterloper: github.com/jcwilk/giterloper@main
+  ```
+
+- **`versions/`** — gitignored. Contains the actual cloned stores, laid out as `versions/<name>/<ref>/`. The `<name>` corresponds to a key in `pinned.yaml`; the `<ref>` is the Git ref checked out.
+
+This separation means the target project commits only a lightweight manifest (`pinned.yaml`) while the potentially large cloned content stays out of version control.
+
 ### Clone location
 
-Knowledge stores are accessed by cloning with `--depth 1` into a directory chosen by the target project. The default ref is `main`. The default path of a clone is `<giterloper-installation-root>/<path-friendly-repo-identifier>/<version>/`.
+Knowledge stores are accessed by cloning with `--depth 1` into `<giterloper-root>/versions/<name>/<ref>/`. The `<name>` and default `<ref>` come from `pinned.yaml`.
 
 ### Multi-version layout
 
-Each ref (branch, tag, SHA) gets its own directory. Searching one version never returns results from another.
+Each ref (branch, tag, SHA) gets its own directory under its store name. Searching one version never returns results from another.
 
 **When two versions are needed at once** (e.g., add_knowledge from one store into another, or subtract_knowledge / intersect_knowledge comparing versions):
 
-1. Clone the second ref alongside the first.
-2. Add its QMD collection: `qmd collection add <path-to-clone>/knowledge --name <store>@<ref> --mask "**/*.md"`.
-3. Both collections are independently searchable via `-c <store>@main` and `-c <store>@<ref>`.
+1. Clone the second ref alongside the first under `versions/<name>/<ref>`.
+2. Add its QMD collection: `qmd collection add <path-to-clone>/knowledge --name <name>@<ref> --mask "**/*.md"`.
+3. Both collections are independently searchable via `-c <name>@main` and `-c <name>@<ref>`.
 
 ### Setup commands
 
-Run these to set up access:
+Run these to set up access (where `<name>` and `<ref>` match the entry in `pinned.yaml`). All QMD commands here are idempotent — re-running them on an already-configured store is safe.
 
 ```sh
-git clone --depth 1 <repo_url> <path-to-clone>
-qmd collection add <path-to-clone>/knowledge --name <store-name>@main --mask "**/*.md"
-qmd context add qmd://<store-name>@main "<store description>"
+git clone --depth 1 <repo_url> .giterloper/versions/<name>/<ref>
+qmd collection add .giterloper/versions/<name>/<ref>/knowledge --name <name>@<ref> --mask "**/*.md"
+qmd context add qmd://<name>@<ref> "<store description>"
 qmd embed
 ```
 
 ### Updating
 
 ```sh
-git -C <path-to-clone> fetch --depth 1 origin <version>
-git -C <path-to-clone> reset --hard origin/<version>
+git -C .giterloper/versions/<name>/<ref> fetch --depth 1 origin <ref>
+git -C .giterloper/versions/<name>/<ref> reset --hard origin/<ref>
 qmd update
+```
+
+### Teardown
+
+When discarding a cloned version (e.g. removing a temporary working branch, or switching a pinned ref), clean up both the QMD index and the clone directory:
+
+```sh
+qmd context rm qmd://<name>@<ref>
+qmd collection remove <name>@<ref>
+rm -rf .giterloper/versions/<name>/<ref>
+```
+
+If removing the last ref for a given `<name>`, also remove the now-empty parent directory:
+
+```sh
+rmdir .giterloper/versions/<name>
 ```
 
 ---
@@ -103,11 +133,11 @@ Read operations work against the existing depth=1 clone. Do not modify the clone
 
 Write operations mutate knowledge. **Never modify the existing depth=1 clone in place.** The checked-out copy is read-only for operational purposes. Instead:
 
-1. **Create a working clone.** Clone the repo at full depth (or sufficient depth) into a new directory alongside the existing clone, on a new branch named for the change or task (e.g. `add/topic-name`, `subtract/overlap-cleanup`):
+1. **Create a working clone.** Clone the repo at full depth (or sufficient depth) into a new directory under `versions/`, on a new branch named for the change or task (e.g. `add/topic-name`, `subtract/overlap-cleanup`):
 
    ```sh
-   git clone <repo_url> <giterloper-root>/<store>/<branch-name>/
-   git -C <giterloper-root>/<store>/<branch-name>/ checkout -b <branch-name>
+   git clone <repo_url> .giterloper/versions/<name>/<branch-name>/
+   git -C .giterloper/versions/<name>/<branch-name>/ checkout -b <branch-name>
    ```
 
 2. **Make changes** in the working clone (see per-operation steps below).

@@ -1,2 +1,2 @@
-# Cloned knowledge stores when this repo is used as a target (optional)
-# Add your clone directory here if the target should not commit it
+# Cloned knowledge store versions (pinned.yaml is committed; clones are not)
+.giterloper/versions/
