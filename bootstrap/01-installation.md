@@ -1,5 +1,9 @@
 ## Installation steps
 
+STOP! IMPORTANT!
+
+DO NOT START ACTUAL INSTALLATION UNTIL YOUR USER HAS CONFIRMED FROM THE PREAMBLE AND BEEN GIVEN THE OPPORTUNITY TO OVERRIDE DEFAULTS.
+
 ### 1. Ensure prerequisites
 
 Content is accessed via a depth=1 clone and searched with QMD. Check availability:

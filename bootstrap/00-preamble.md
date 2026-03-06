@@ -22,4 +22,4 @@ Installation files:
 
 3. **Identify the source.** You need the URL of the giterloper knowledge store to connect to, ie, the canonical access point of this repository.
 
-4. **Confirm with your user.** Present a brief summary of your understanding of the installation process, where you've determined to install things, and what the purpose of the knowledge store is to solicit confirmation as well as to confirm whether the cloned versions should be gitignored (by default they should be gitignored).
+4. **CONFIRM BEFORE PROCEEDING** Present a brief summary of your understanding of the installation process, where you've determined to install things, and what the purpose of the knowledge store is to solicit confirmation as well as to confirm whether the cloned versions should be gitignored (by default they should be gitignored) to your user for confirmation. THE USER MUST CONFIRM AND BE GIVEN AN OPPORTUNITY TO OVERRIDE DEFAULTS. THIS IS ESSENTIAL FOR SUBSEQUENT STEPS.

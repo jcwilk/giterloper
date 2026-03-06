@@ -26,7 +26,7 @@ Each ref (branch, tag, SHA) gets its own directory. Searching one version never 
 
 ### Setup commands
 
-Run these to set up access (do not auto-run; present to the user):
+Run these to set up access:
 
 ```sh
 git clone --depth 1 <repo_url> <path-to-clone>
