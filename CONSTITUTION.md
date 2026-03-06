@@ -66,8 +66,8 @@ The structure of the knowledge is arbitrary; the instructions are the contract. 
 
 ## 4. Constitution integrity
 
-- The constitution file (this file) must be **copied verbatim** during installation into the target project's giterloper directory. No edits.
-- Agents MAY verify the copy by comparing its MD5 checksum to CONSTITUTION.md5 from the canonical repository.
+- The constitution file (this file) resides in the knowledge store repository. When a target connects by cloning the store, the constitution is available in the clone. No edits.
+- Agents MAY verify it by comparing its MD5 checksum to CONSTITUTION.md5 from the canonical repository.
 - To change the constitution: publish a new version (new semver, new content). Do not edit in place. Installations pin to a constitution version (e.g. 1.0.0).
 
 ---

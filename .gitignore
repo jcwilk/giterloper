@@ -1,4 +1,2 @@
-# Giterloper: cloned repositories (never check in)
-.giterloper/repos/
-
-# Keep .giterloper/ itself and checked-in files (e.g. constitution.md) tracked
+# Cloned knowledge stores when this repo is used as a target (optional)
+# Add your clone directory here if the target should not commit it

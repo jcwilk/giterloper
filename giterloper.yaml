@@ -1,6 +1,5 @@
 # Giterloper knowledge store configuration.
-# Build tooling reads this to generate README one-liners and bootstrap preambles.
-# Forks: update name, topic, description, repo_url; run build script.
+# Forks: update name, topic, description, repo_url.
 
 name: giterloper
 topic: git-backed knowledge storage systems
