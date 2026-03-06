@@ -1,5 +1,7 @@
 ---
+name: persist
 description: Commit and push changes relevant to the current conversation context.
+disable-model-invocation: true
 ---
 
 # Persist Changes 💾
