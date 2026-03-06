@@ -125,9 +125,24 @@ rm -rf .giterloper/staged/<name>/<branch-name>
 ### Search commands
 
 - **`qmd search "<keywords>"`** — Fast keyword search (FTS5/BM25). No models needed.
-- **`qmd query "<question>"`** — Hybrid search with query expansion and reranking. Best quality; needs embeddings (~2GB).
+- **`qmd query "<question>"`** — Hybrid search with query expansion and reranking. Best quality; needs embeddings and local ML models.
 - **`qmd vsearch "<query>"`** — Vector semantic search only. Needs embeddings.
 - **`qmd get "<path>"`** — Retrieve full document content by path or docid.
+
+**Performance note:** Commands that use ML models (`qmd query`, `qmd vsearch`, `qmd embed`) benefit significantly from GPU acceleration via CUDA or Vulkan. On first use, model-backed commands may download about 2 GB of models into `~/.cache/qmd/models/`. If `node-llama-cpp` cannot find a compatible GPU backend, it falls back to CPU, which can produce verbose build output on each invocation and make inference much slower. Use `qmd status` and inspect the `Device` section to confirm whether acceleration is active.
+
+### Troubleshooting
+
+**Known issue: repeated CUDA build noise**
+
+If any `qmd` command prints `CMake Error ... CUDA Toolkit not found`, `node-llama-cpp` is attempting and failing to compile a CUDA backend on each invocation. This usually means the machine has NVIDIA hardware and driver support, but the CUDA Toolkit (`nvcc`) is missing or was installed after an earlier failed build. Install the toolkit, then clear the cached backend build and retry:
+
+```sh
+npx --yes node-llama-cpp clear
+qmd status
+```
+
+If `qmd status` still reports `GPU: none`, continue troubleshooting the CUDA or Vulkan toolchain before assuming QMD is healthy.
 
 ### Collection scoping
 

@@ -10,7 +10,45 @@ Content is accessed via a depth=1 clone and searched with QMD. Check availabilit
 
 1. **git** (required): Run `git --version`. Install via system package manager if needed.
 2. **Node.js >= 22 or Bun >= 1.0:** Run `node --version` or `bun --version`. QMD requires one of these.
-3. **QMD:** Run `qmd status`. If not installed: `npm install -g @tobilu/qmd` (or `bun install -g @tobilu/qmd`).
+3. **QMD:** Run `qmd status`. If not installed: `npm install -g @tobilu/qmd` (or `bun install -g @tobilu/qmd`). Treat the output as an initial health check, not just an install check: if it already shows `GPU: none` on a machine with NVIDIA hardware, or prints `CMake Error ... CUDA Toolkit not found`, investigate before continuing.
+4. **GPU acceleration (recommended):** QMD uses local ML models via `node-llama-cpp`. CPU-only inference works, but `qmd query`, `qmd vsearch`, and `qmd embed` will be much slower. Check hardware and acceleration support:
+
+   ```sh
+   # Check for GPU hardware
+   lspci | grep -iE 'vga|3d|display'
+
+   # If NVIDIA hardware is present, check the driver
+   nvidia-smi
+
+   # If the NVIDIA driver works, check for the CUDA Toolkit
+   nvcc --version
+
+   # If no NVIDIA GPU is present, check for Vulkan support as a fallback backend
+   vulkaninfo --summary 2>/dev/null
+   ```
+
+   Follow this decision tree:
+
+   - **No NVIDIA GPU detected:** Proceed CPU-only unless Vulkan is available. Tell the user that model-backed commands will be slower without GPU acceleration.
+   - **NVIDIA GPU detected but `nvidia-smi` fails:** Stop and tell the user the machine has NVIDIA hardware but no working driver. Provide install guidance such as `sudo apt install nvidia-driver-XXX` or the distro-specific equivalent. Wait for the user to confirm the driver is installed, then re-run the checks.
+   - **NVIDIA GPU detected, `nvidia-smi` works, but `nvcc` is missing:** Stop and tell the user the CUDA Toolkit is missing. `node-llama-cpp` needs it to compile llama.cpp with CUDA support. Provide install guidance such as `sudo apt install nvidia-cuda-toolkit` or the official NVIDIA CUDA Toolkit installer. Wait for the user to confirm installation, then re-run the checks.
+   - **NVIDIA GPU detected, `nvidia-smi` works, and `nvcc` works:** Proceed. CUDA acceleration should be available.
+
+   If the machine has no usable GPU backend and the user explicitly wants to continue CPU-only, note that choice before proceeding.
+5. **QMD acceleration health check:** After QMD is installed and the GPU prerequisite checks above are satisfied, run `qmd status` again and inspect the `Device` section.
+
+   - If it shows `GPU: CUDA (...)` or another expected accelerated backend such as Vulkan, proceed.
+   - If it shows `GPU: none (running on CPU ...)` on a machine with no usable GPU backend, note that this is expected and proceed.
+   - If it shows `GPU: none` even though the machine has NVIDIA hardware, a working driver, and a working CUDA Toolkit, clear any cached failed `node-llama-cpp` build and retry:
+
+     ```sh
+     npx --yes node-llama-cpp clear
+     qmd status
+     ```
+
+     If QMD still reports CPU-only execution, report the diagnostics to the user before continuing.
+
+   At any point during setup, if any `qmd` command emits `CMake Error ... CUDA Toolkit not found`, treat that as a failed CUDA backend build attempt. Revisit the GPU prerequisite step instead of ignoring the warning.
 
 ### 2. Create the giterloper directory and pinned.yaml
 
@@ -79,7 +117,33 @@ Moving forward, use the `CONSTITUTION.md`, `INSTRUCTIONS.md`, and `bootstrap/` f
 
 ### 6. Set up QMD (present commands; do not auto-run)
 
-See this store's `INSTRUCTIONS.md` about how to index a new checked-out version into QMD.
+See this store's `INSTRUCTIONS.md` about how to index a new checked-out version into QMD. When presenting or following that setup, handle QMD state explicitly instead of treating it as a binary "installed or not" dependency.
+
+Before adding the collection, inspect existing QMD collections:
+
+```sh
+qmd collection list
+```
+
+- If a collection named `<name>@<sha>` already exists for the exact SHA being set up, stop and ask the user whether to:
+  - **Purge and rebuild** the existing index (`qmd collection remove <name>@<sha>`) and recreate it from scratch, or
+  - **Keep the existing index** and skip re-adding that collection.
+- If the same store name already exists at a different SHA (for example `<name>@<other-sha>`), tell the user that another version is already indexed and ask whether they want to leave it alongside the new version or tear it down.
+- Do not silently remove or reuse a colliding collection. Wait for the user's answer before proceeding.
+
+During setup:
+
+1. Add the collection and context as described in `INSTRUCTIONS.md`.
+2. Run `qmd embed`.
+3. Run `qmd status` and verify that the collection's `Vectors` count is non-zero and roughly matches the `Documents: Total` count. If vectors are missing or much lower than expected, the embeddings may not have been generated for the collection you just added. Re-check for a stale or colliding collection and consider purging and rebuilding it.
+4. Use `qmd search "<topic>" -c <name>@<sha>` for quick sanity checks. Prefer this over `qmd query` during initial setup because it does not require model downloads.
+5. Proactively trigger model downloads before declaring setup complete. Tell the user that the first model-backed query downloads about 2 GB of models, then run a small test query with a long timeout:
+
+   ```sh
+   qmd query "test" -c <name>@<sha> --json
+   ```
+
+   Expect the first run to take time because it may download the query expansion model and reranker. Use a generous timeout, inform the user about the download, and retry if the first attempt times out.
 
 ### 7. Surface operations to agents
 
