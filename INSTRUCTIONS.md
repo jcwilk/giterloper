@@ -88,10 +88,9 @@ Read operations work against the existing depth=1 clone. Do not modify the clone
 
 #### retrieve_relevant_context
 
-1. Resolve scope; read `giterloper.yaml` for store metadata.
-2. Run `qmd search` or `qmd query` for 5–10 results. Run multiple searches if the query spans topics.
-3. Use `qmd get "<path>" --full` when broader context is needed.
-4. Return a concise summary and/or key excerpts, with file paths and headings.
+1. Run `qmd search` or `qmd query` for 5–10 results. Run multiple searches if the query spans topics.
+2. Use `qmd get "<path>" --full` when broader context is needed.
+3. Return a concise summary and/or key excerpts, with file paths and headings.
 
 #### verify_claim
 

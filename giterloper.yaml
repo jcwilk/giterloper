@@ -1,8 +1,0 @@
-# Giterloper knowledge store configuration.
-# Forks: update name, topic, description, repo_url.
-
-name: giterloper
-topic: git-backed knowledge storage systems
-description: how Giterloper stores and provides knowledge
-repo_url: https://github.com/USER/giterloper  # Replace USER with actual org/user
-constitution_version: "1.1.0"
