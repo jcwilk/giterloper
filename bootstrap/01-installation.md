@@ -153,6 +153,8 @@ Use the installed `gl` skill at `<skills-dir>/gl/` for operations and workflow g
 If local materialization is missing, run:
 
     node <skills-dir>/gl/scripts/gl.mjs setup --help
+
+**Never edit `.giterloper/pinned.yaml` directly.** Use `gl pin add`, `gl pin update`, and `gl pin remove` so the CLI can keep clones and indexes in sync.
 ```
 
 ## 9. If both skill directories were selected
