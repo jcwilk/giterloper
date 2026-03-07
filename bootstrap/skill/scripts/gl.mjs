@@ -170,7 +170,7 @@ function collectionExists(collection) {
 
 function contextExists(collection) {
   const out = run("qmd", ["context", "list"]);
-  return out.includes(`qmd://${collection}`);
+  return out.includes(collection);
 }
 
 function verifyCloneAtSha(pin, clonePath) {
