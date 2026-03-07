@@ -191,9 +191,73 @@ function resolveSha(source, ref = "HEAD") {
   return sha;
 }
 
+function readLocalConfig(state) {
+  const p = state.localConfigPath ?? path.join(state.rootDir, "local.json");
+  if (!existsSync(p)) return {};
+  try {
+    return JSON.parse(readFileSync(p, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeLocalConfig(state, config) {
+  const p = state.localConfigPath ?? path.join(state.rootDir, "local.json");
+  ensureDir(path.dirname(p));
+  const temp = `${p}.tmp`;
+  writeFileSync(temp, JSON.stringify(config, null, 2), "utf8");
+  renameSync(temp, p);
+}
+
+function detectGpuMode() {
+  const nvcc = runSoft("nvcc", ["--version"]);
+  if (nvcc.ok) return { mode: "cuda" };
+  const nvidiaSmi = runSoft("nvidia-smi");
+  if (nvidiaSmi.ok) return { mode: "cpu", reason: "no-toolkit" };
+  return { mode: "cpu", reason: "no-gpu" };
+}
+
+function printCudaInstallInstructions() {
+  info("");
+  info("CUDA Toolkit is required for GPU acceleration. Install from:");
+  info("  https://developer.nvidia.com/cuda-downloads");
+  info("");
+  info("Ubuntu/Debian example:");
+  info("  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb");
+  info("  sudo dpkg -i cuda-keyring_1.1-1_all.deb");
+  info("  sudo apt update && sudo apt install cuda-toolkit-13-1");
+  info("");
+}
+
+function ensureGpuConfig(state) {
+  if (state.gpuMode === "cuda") return;
+  if (state.gpuMode === "cpu") {
+    info("GPU disabled. Install CUDA Toolkit and run `gl gpu` to re-detect.");
+    return;
+  }
+  const detected = detectGpuMode();
+  if (detected.mode === "cuda") {
+    writeLocalConfig(state, { gpuMode: "cuda" });
+    state.gpuMode = "cuda";
+    return;
+  }
+  if (detected.reason === "no-gpu") {
+    info("No NVIDIA GPU detected; using CPU mode.");
+    writeLocalConfig(state, { gpuMode: "cpu" });
+    state.gpuMode = "cpu";
+    process.env.NODE_LLAMA_CPP_GPU = "false";
+    return;
+  }
+  printCudaInstallInstructions();
+  fail(
+    "NVIDIA GPU detected but CUDA Toolkit not found. Install CUDA Toolkit and run `gl gpu`, or run `gl gpu --cpu` to continue in CPU-only mode.",
+    EXIT.USER
+  );
+}
+
 function ensureGitignoreEntries(state) {
   const ignorePath = path.join(state.projectRoot, ".gitignore");
-  const required = [".giterloper/versions/", ".giterloper/staged/"];
+  const required = [".giterloper/versions/", ".giterloper/staged/", ".giterloper/local.json"];
   let current = "";
   if (existsSync(ignorePath)) {
     current = readFileSync(ignorePath, "utf8");
@@ -255,6 +319,7 @@ function printTopHelp() {
       "Commands:",
       "  init",
       "  status",
+      "  gpu [--cpu]",
       "  pin list|add|remove|update",
       "  clone [--pin <name>|--all]",
       "  index [--pin <name>|--all]",
@@ -298,6 +363,49 @@ function cmdInit(state, args) {
   }
   ensureGitignoreEntries(state);
   commandOutput({ ok: true, root: state.rootDir, pinned: state.pinnedPath }, state.globalJson);
+}
+
+function cmdGpu(state, args) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl gpu [--cpu]",
+      "Detects GPU/CUDA availability and updates local config.",
+      "Use --cpu to force CPU-only mode without detection.",
+    ].join("\n")
+  );
+  const cpuFlag = consumeBooleanFlag(args, "--cpu");
+  const rest = cpuFlag.args;
+  if (rest.length > 0) fail("unexpected arguments: gl gpu [--cpu]", EXIT.USER);
+  ensureDir(state.rootDir);
+  ensureGitignoreEntries(state);
+  if (cpuFlag.found) {
+    writeLocalConfig(state, { gpuMode: "cpu" });
+    state.gpuMode = "cpu";
+    process.env.NODE_LLAMA_CPP_GPU = "false";
+    const out = { gpuMode: "cpu", forced: true };
+    commandOutput(out, state.globalJson);
+    if (!state.globalJson) info("GPU mode set to CPU. Run `gl gpu` without --cpu to re-detect after installing CUDA.");
+    return;
+  }
+  const detected = detectGpuMode();
+  writeLocalConfig(state, { gpuMode: detected.mode });
+  state.gpuMode = detected.mode;
+  if (detected.mode === "cpu") {
+    process.env.NODE_LLAMA_CPP_GPU = "false";
+  }
+  const out = { gpuMode: detected.mode, reason: detected.reason };
+  commandOutput(out, state.globalJson);
+  if (!state.globalJson) {
+    if (detected.mode === "cuda") {
+      info("CUDA detected. GPU acceleration enabled.");
+    } else if (detected.reason === "no-gpu") {
+      info("No NVIDIA GPU detected. Using CPU mode.");
+    } else {
+      info("NVIDIA GPU detected but CUDA Toolkit not found. Using CPU mode.");
+      info("Install CUDA Toolkit from https://developer.nvidia.com/cuda-downloads and run `gl gpu` to re-detect.");
+    }
+  }
 }
 
 function cmdStatus(state, args) {
@@ -422,6 +530,7 @@ function cmdPinUpdate(state, args) {
   }
   const newPin = { ...oldPin, sha: newSha };
   clonePin(state, newPin);
+  ensureGpuConfig(state);
   indexPin(state, newPin);
   teardownPinData(state, oldPin);
   const updated = pins.filter((p) => p.name !== name);
@@ -508,6 +617,7 @@ function cmdIndex(state, args) {
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   if (allParsed.found && pinParsed.found) fail("use either --all or --pin, not both", EXIT.USER);
   const pins = allParsed.found ? readPins(state) : [resolvePin(state, pinParsed.found ? pinParsed.value : null)];
+  ensureGpuConfig(state);
   for (const pin of pins) indexPin(state, pin);
   commandOutput({ indexed: pins.map(collectionName) }, state.globalJson);
 }
@@ -535,6 +645,7 @@ function cmdSetup(state, args) {
   pins.unshift(pin);
   writePinsAtomic(state, pins);
   clonePin(state, pin);
+  ensureGpuConfig(state);
   indexPin(state, pin);
   commandOutput({ setup: true, pin }, state.globalJson);
 }
@@ -643,6 +754,7 @@ function cmdPromote(state, args) {
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   const newPin = { ...pin, sha: newSha };
   clonePin(state, newPin);
+  ensureGpuConfig(state);
   indexPin(state, newPin);
   teardownPinData(state, pin);
   const pins = readPins(state).filter((p) => p.name !== pin.name);
@@ -736,9 +848,15 @@ function main() {
     versionsDir: path.join(projectRoot, ".giterloper", "versions"),
     stagedRoot: path.join(projectRoot, ".giterloper", "staged"),
     pinnedPath: path.join(projectRoot, ".giterloper", "pinned.yaml"),
+    localConfigPath: path.join(projectRoot, ".giterloper", "local.json"),
     globalJson: false,
   };
   state.globalJson = helpJsonParsed.found;
+  const localConfig = readLocalConfig(state);
+  state.gpuMode = localConfig.gpuMode || null;
+  if (state.gpuMode === "cpu") {
+    process.env.NODE_LLAMA_CPP_GPU = "false";
+  }
 
   const [cmd, ...rest] = args;
 
@@ -753,6 +871,7 @@ function main() {
     if (sub === "update") return cmdPinUpdate(state, subArgs);
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
+  if (cmd === "gpu") return cmdGpu(state, rest);
   if (cmd === "clone") return cmdClone(state, rest);
   if (cmd === "index") return cmdIndex(state, rest);
   if (cmd === "setup") return cmdSetup(state, rest);

@@ -7,11 +7,19 @@ STOP. Do not run installation until the preamble confirmation is complete.
 1. `git` available: `git --version`
 2. Node.js >= 22 (or Bun): `node --version` (or `bun --version`)
 3. QMD available: `qmd status`
-4. Optional acceleration checks (recommended):
-   - `nvidia-smi` and `nvcc --version` for CUDA
-   - `vulkaninfo --summary` for Vulkan fallback
-
-If QMD repeatedly reports CUDA Toolkit build failures, resolve toolchain before continuing.
+4. **CUDA Toolkit** (recommended for GPU acceleration):
+   - Run `nvcc --version` to confirm CUDA Toolkit is installed.
+   - Run `nvidia-smi` to check if an NVIDIA GPU and driver are present.
+   - If `nvidia-smi` succeeds but `nvcc` fails, install the CUDA Toolkit. Missing CUDA causes slow qmd commands on *every* invocation, not just the first run.
+   - Install: https://developer.nvidia.com/cuda-downloads (choose Linux, your distro).
+   - Ubuntu/Debian example:
+     ```sh
+     wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+     sudo dpkg -i cuda-keyring_1.1-1_all.deb
+     sudo apt update && sudo apt install cuda-toolkit-13-1
+     ```
+   - After installing, run `gl gpu` to re-detect. If you prefer CPU-only, run `gl gpu --cpu`.
+5. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
 ## 2. Create `.giterloper/pinned.yaml`
 
@@ -37,6 +45,7 @@ Ensure these entries exist:
 ```gitignore
 .giterloper/versions/
 .giterloper/staged/
+.giterloper/local.json
 ```
 
 Do not ignore the entire `.giterloper/` directory because `pinned.yaml` must be committed.
@@ -69,32 +78,14 @@ Use the installed `gl` skill (`gl.mjs`) as the primary operation interface.
 Clone to:
 
 ```sh
+mkdir -p .giterloper/versions/<name>
 git clone --depth 1 https://<source> .giterloper/versions/<name>/<sha>
 git -C .giterloper/versions/<name>/<sha> checkout <sha>
 ```
 
 Use `INSTRUCTIONS.md` in that checked-out store as canonical mechanics documentation.
 
-## 6. Set up QMD (present commands; do not blindly auto-run)
-
-Run:
-
-```sh
-qmd collection add .giterloper/versions/<name>/<sha>/knowledge --name <name>@<sha> --mask "**/*.md"
-qmd context add qmd://<name>@<sha> "<store description>"
-qmd embed
-```
-
-Then verify:
-
-```sh
-qmd status
-qmd search "<topic>" -c <name>@<sha>
-```
-
-If vectors are unexpectedly missing or zero, re-check collection collisions and rebuild if needed.
-
-## 7. Install the unified `gl` skill
+## 6. Install the unified `gl` skill
 
 The store clone includes source files at:
 
@@ -117,6 +108,32 @@ chmod +x <skills-dir>/gl/scripts/gl.mjs
 IMPORTANT: use `cp` (or equivalent literal copy). Do **not** read and regenerate `gl.mjs` or `SKILL.md`.
 
 Optional: if read-only scope was chosen, add a short note in copied `SKILL.md` stating write workflows are disabled for this project.
+
+## 7. Set up QMD via `gl`
+
+Run from the target project root:
+
+```sh
+node <skills-dir>/gl/scripts/gl.mjs setup <name> <source> [--ref <ref>]
+```
+
+Or, if the pin and clone are already in place:
+
+```sh
+node <skills-dir>/gl/scripts/gl.mjs index
+```
+
+The `gl setup` command clones (or reuses an existing clone), detects CUDA/GPU, and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions to install the toolkit or run `gl gpu --cpu` to continue in CPU-only mode.
+
+Then verify:
+
+```sh
+node <skills-dir>/gl/scripts/gl.mjs status
+node <skills-dir>/gl/scripts/gl.mjs verify
+node <skills-dir>/gl/scripts/gl.mjs search "<topic>"
+```
+
+If vectors are unexpectedly missing or zero, re-check collection collisions and rebuild if needed.
 
 ## 8. Optional `AGENTS.md` reference
 

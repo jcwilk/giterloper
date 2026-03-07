@@ -1,2 +1,5 @@
 # Cloned knowledge store versions (pinned.yaml is committed; clones are not)
 .giterloper/versions/
+
+.giterloper/staged/
+.giterloper/local.json
