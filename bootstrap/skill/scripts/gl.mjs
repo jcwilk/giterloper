@@ -529,7 +529,8 @@ function cmdPinUpdate(state, args) {
     return;
   }
   const newPin = { ...oldPin, sha: newSha };
-  clonePin(state, newPin);
+  const branch = ref !== "HEAD" ? ref : undefined;
+  clonePin(state, newPin, { branch });
   ensureGpuConfig(state);
   indexPin(state, newPin);
   teardownPinData(state, oldPin);
@@ -539,7 +540,7 @@ function cmdPinUpdate(state, args) {
   commandOutput({ name, oldSha: oldPin.sha, newSha, updated: true }, state.globalJson);
 }
 
-function clonePin(state, pin) {
+function clonePin(state, pin, opts = {}) {
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir) && verifyCloneAtSha(pin, cdir)) {
     info(`clone already exists for ${collectionName(pin)}`);
@@ -547,7 +548,10 @@ function clonePin(state, pin) {
   }
   ensureDir(path.dirname(cdir));
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
-  run("git", ["clone", "--depth", "1", toRemoteUrl(pin.source), cdir]);
+  const cloneArgs = ["clone", "--depth", "1"];
+  if (opts.branch) cloneArgs.push("--branch", opts.branch);
+  cloneArgs.push(toRemoteUrl(pin.source), cdir);
+  run("git", cloneArgs);
   run("git", ["-C", cdir, "checkout", pin.sha]);
   if (!verifyCloneAtSha(pin, cdir)) {
     fail(`cloned repository at ${cdir} is not at expected SHA ${pin.sha}`, EXIT.STATE);
@@ -644,7 +648,8 @@ function cmdSetup(state, args) {
   const pin = { name, source, sha };
   pins.unshift(pin);
   writePinsAtomic(state, pins);
-  clonePin(state, pin);
+  const branch = ref !== "HEAD" ? ref : undefined;
+  clonePin(state, pin, { branch });
   ensureGpuConfig(state);
   indexPin(state, pin);
   commandOutput({ setup: true, pin }, state.globalJson);
@@ -753,7 +758,7 @@ function cmdPromote(state, args) {
   run("git", ["-C", dir, "push", "-u", "origin", branch]);
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   const newPin = { ...pin, sha: newSha };
-  clonePin(state, newPin);
+  clonePin(state, newPin, { branch });
   ensureGpuConfig(state);
   indexPin(state, newPin);
   teardownPinData(state, pin);
