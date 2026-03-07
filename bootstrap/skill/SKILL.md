@@ -95,6 +95,7 @@ For write-style operations:
 - The **reference** is the second input (raw text, conversation context, or another pin).
 - **Subtract**: remove reference-overlapping content **from** the base.
 - **Intersect**: keep only content in the base that overlaps **with** the reference.
+- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`, then promoted). When any knowledge operation fails—promote, index, clone, etc.—do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide. Orphaned copies outside the store are unindexed, inconsistent, and unhelpful.
 
 If directionality is ambiguous, ask the user before making changes.
 
