@@ -1,5 +1,61 @@
 # Giterloper bootstrap
 
+You are configuring a target repository to use this giterloper knowledge store.
+
+Essential files in this store:
+- `CONSTITUTION.md`: normative operation contract
+- `INSTRUCTIONS.md`: concrete mechanics and under-the-hood behavior
+- `bootstrap/`: install sequence for target projects
+
+Read those before executing installation.
+
+## Before you start
+
+1. **Examine the target project**
+   - Language/framework and docs conventions
+   - Existing agent surfaces (`AGENTS.md`, `.agents/skills/`, `.cursor/skills/`)
+   - Repo policy for external materialization
+
+2. **Use fixed giterloper layout**
+   - Root is always `.giterloper/`
+   - `.giterloper/pinned.yaml` is committed
+   - `.giterloper/versions/` and `.giterloper/staged/` are gitignored
+
+3. **Identify store source and initial ref**
+   - Source should be a Git-hostable path (for example `github.com/org/repo`)
+   - Resolve branch/tag refs to full SHAs during installation
+
+4. **Choose pin name**
+   - Short, human-friendly key for `pinned.yaml`
+   - Also becomes directory name under `.giterloper/versions/<name>/`
+
+5. **Choose skill surface**
+   Ask the user which location to use:
+   1. `.agents/skills/gl/` (recommended default)
+   2. `.cursor/skills/gl/` (Cursor-primary workflows)
+   3. Both (one canonical directory + symlink to the other)
+
+   Ask separately whether to add an `AGENTS.md` reference section (default: yes).  
+   The reference should point to the installed `gl` skill path and not duplicate full instructions.
+
+6. **Choose operation scope**
+   - Read workflows only (default), or
+   - Read + write workflows
+
+   Note: all commands exist in `gl.mjs`; this choice controls guidance/safety wording, not script availability.
+
+7. **Confirm before proceeding**
+   Summarize and ask for explicit confirmation:
+   - Store source and initial ref
+   - Pin name
+   - `.giterloper/` fixed layout and gitignore behavior
+   - Skill surface choice and canonical directory (if both)
+   - Whether `AGENTS.md` reference will be added
+   - Whether write workflows are enabled
+
+Do not continue to installation until the user confirms and can override defaults.
+# Giterloper bootstrap
+
 You are configuring the connection between a target repository (the project you're working on) and a giterloper knowledge store (this repository) so that agents working on the target project can access this store's knowledge.
 
 Essential files in this store:
