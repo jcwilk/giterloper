@@ -80,7 +80,7 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 - Add: `node .cursor/skills/gl/scripts/gl.mjs pin add <name> <source> [--ref <ref>]`
 - Remove: `node .cursor/skills/gl/scripts/gl.mjs pin remove <name>`
 - Update SHA: `node .cursor/skills/gl/scripts/gl.mjs pin update <name> [--ref <ref>]`
-- Full setup: `node .cursor/skills/gl/scripts/gl.mjs setup <name> <source> [--ref <ref>]`
+- Add pin, then materialize: `gl pin add <name> <source> [--ref <ref>]` then `gl clone` and `gl index`
 
 ## Write Directionality (Critical)
 
@@ -105,7 +105,7 @@ If the input type is unclear, ask a clarifying question first.
 ## Guidance and Safety
 
 - Prefer `node .cursor/skills/gl/scripts/gl.mjs status` before making assumptions about local state.
-- Use `node .cursor/skills/gl/scripts/gl.mjs verify` after setup or promotions.
+- Use `node .cursor/skills/gl/scripts/gl.mjs verify` after clone/index or promotions.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
 - Confirm with the user before destructive actions (teardown, subtract, intersect).
 - Never edit `.giterloper/versions/` directly; write via staged clones only.

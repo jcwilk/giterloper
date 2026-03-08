@@ -78,13 +78,10 @@ function findProjectRoot(startDir = process.cwd()) {
 
 function ensureGiterloperRoot(state) {
   if (!existsSync(state.rootDir)) {
-    fail(
-      `missing ${state.rootDir}. Run "gl init" first or move to a git project configured for giterloper.`,
-      EXIT.STATE
-    );
+    fail(`missing ${state.rootDir}. Ensure .giterloper/ and pinned.yaml exist.`, EXIT.STATE);
   }
   if (!existsSync(state.pinnedPath)) {
-    fail(`missing ${state.pinnedPath}. Run "gl init" first.`, EXIT.STATE);
+    fail(`missing ${state.pinnedPath}. Add pins via "gl pin add" then run "gl clone" and "gl index".`, EXIT.STATE);
   }
 }
 
@@ -317,13 +314,11 @@ function printTopHelp() {
       "  gl <command> [subcommand] [options]",
       "",
       "Commands:",
-      "  init",
       "  status",
       "  gpu [--cpu]",
       "  pin list|add|remove|update",
       "  clone [--pin <name>|--all]",
       "  index [--pin <name>|--all]",
-      "  setup <name> <source> [--ref <ref>]",
       "  teardown <name>",
       "  search <query> [--pin <name>] [-n N] [--json]",
       "  query <question> [--pin <name>] [--json]",
@@ -343,26 +338,6 @@ function ensureHelpNotRequested(args, text) {
     commandOutput(text);
     process.exit(EXIT.OK);
   }
-}
-
-function cmdInit(state, args) {
-  ensureHelpNotRequested(
-    args,
-    [
-      "Usage: gl init",
-      "Creates .giterloper/ and required files.",
-      "Ensures .gitignore includes .giterloper/versions/ and .giterloper/staged/.",
-    ].join("\n")
-  );
-  ensureDir(state.rootDir);
-  ensureDir(state.versionsDir);
-  ensureDir(state.stagedRoot);
-  if (!existsSync(state.pinnedPath)) {
-    writeFileSync(state.pinnedPath, "", "utf8");
-    info(`created ${state.pinnedPath}`);
-  }
-  ensureGitignoreEntries(state);
-  commandOutput({ ok: true, root: state.rootDir, pinned: state.pinnedPath }, state.globalJson);
 }
 
 function cmdGpu(state, args) {
@@ -626,35 +601,6 @@ function cmdIndex(state, args) {
   commandOutput({ indexed: pins.map(collectionName) }, state.globalJson);
 }
 
-function cmdSetup(state, args) {
-  ensureHelpNotRequested(
-    args,
-    [
-      "Usage: gl setup <name> <source> [--ref <ref>]",
-      "Adds a pin, clones it, and indexes it with qmd.",
-    ].join("\n")
-  );
-  if (args.length < 2) fail("usage: gl setup <name> <source> [--ref <ref>]", EXIT.USER);
-  const name = args[0];
-  const source = args[1];
-  let rest = args.slice(2);
-  const refParsed = parseFlag(rest, "--ref");
-  rest = refParsed.args;
-  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
-  if (!existsSync(state.rootDir)) cmdInit(state, []);
-  const ref = refParsed.found ? refParsed.value : "HEAD";
-  const sha = resolveSha(source, ref);
-  const pins = readPins(state).filter((p) => p.name !== name);
-  const pin = { name, source, sha };
-  pins.unshift(pin);
-  writePinsAtomic(state, pins);
-  const branch = ref !== "HEAD" ? ref : undefined;
-  clonePin(state, pin, { branch });
-  ensureGpuConfig(state);
-  indexPin(state, pin);
-  commandOutput({ setup: true, pin }, state.globalJson);
-}
-
 function cmdTeardown(state, args) {
   ensureHelpNotRequested(args, ["Usage: gl teardown <name>", "Tears down pin, clone, and qmd collection."].join("\n"));
   if (args.length !== 1) fail("usage: gl teardown <name>", EXIT.USER);
@@ -865,7 +811,6 @@ function main() {
 
   const [cmd, ...rest] = args;
 
-  if (cmd === "init") return cmdInit(state, rest);
   if (cmd === "status") return cmdStatus(state, rest);
   if (cmd === "pin") {
     if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
@@ -879,7 +824,6 @@ function main() {
   if (cmd === "gpu") return cmdGpu(state, rest);
   if (cmd === "clone") return cmdClone(state, rest);
   if (cmd === "index") return cmdIndex(state, rest);
-  if (cmd === "setup") return cmdSetup(state, rest);
   if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "search") return cmdSearchLike(state, "search", rest);
   if (cmd === "query") return cmdSearchLike(state, "query", rest);

@@ -23,20 +23,15 @@
    - After installing, run `gl gpu` to re-detect. If the user prefers CPU-only, run `gl gpu --cpu` (only after they have explicitly approved).
 5. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
-## 2. Set up the knowledge store
+## 2. Materialize the knowledge store
 
-From the Giterloper project root:
-
-```sh
-node .cursor/skills/gl/scripts/gl.mjs setup knowledge github.com/jcwilk/giterloper_knowledge [--ref master]
-```
-
-Or, if the pin and clone are already in place (e.g. after clone):
+From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
+node .cursor/skills/gl/scripts/gl.mjs clone
 node .cursor/skills/gl/scripts/gl.mjs index
 ```
 
-`gl setup` clones the store, detects CUDA/GPU, and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
+`gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
 
 See `02-verification.md` for verification steps.
