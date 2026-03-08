@@ -30,12 +30,6 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 Run the CLI script:
 
 ```bash
-node .agents/skills/gl/scripts/gl.mjs --help
-```
-
-If the project uses `.cursor/skills/`, use:
-
-```bash
 node .cursor/skills/gl/scripts/gl.mjs --help
 ```
 
@@ -45,14 +39,14 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 
 ### Answering from context
 
-1. Run `gl query "<question>"` or `gl search "<keywords>"`.
-2. If needed, run `gl get "<path>" --full`.
+1. Run `node .cursor/skills/gl/scripts/gl.mjs query "<question>"` or `node .cursor/skills/gl/scripts/gl.mjs search "<keywords>"`.
+2. If needed, run `node .cursor/skills/gl/scripts/gl.mjs get "<path>" --full`.
 3. Respond with citations to file paths/headings from retrieved content.
 
 ### Retrieving context
 
-1. Run multiple `gl search` or `gl query` commands if the request spans topics.
-2. Fetch full docs with `gl get`.
+1. Run multiple `node .cursor/skills/gl/scripts/gl.mjs search` or `node .cursor/skills/gl/scripts/gl.mjs query` commands if the request spans topics.
+2. Fetch full docs with `node .cursor/skills/gl/scripts/gl.mjs get`.
 3. Summarize what is relevant and where it was found.
 
 ### Verifying claims
@@ -64,29 +58,29 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 ### Adding knowledge
 
 1. Search for overlap first.
-2. Create staged clone: `gl stage <branch>`.
+2. Create staged clone: `node .cursor/skills/gl/scripts/gl.mjs stage <branch>`.
 3. Edit content in `.giterloper/staged/...`.
-4. Promote: `gl promote <branch>`.
+4. Promote: `node .cursor/skills/gl/scripts/gl.mjs promote <branch>`.
 
 ### Subtracting knowledge
 
 1. Identify overlap between base store and reference content.
 2. Stage a branch and remove overlapping content in staged clone.
-3. Promote with `gl promote <branch>`.
+3. Promote with `node .cursor/skills/gl/scripts/gl.mjs promote <branch>`.
 
 ### Intersecting knowledge
 
 1. Identify overlapping vs non-overlapping content.
 2. Stage a branch and remove non-overlapping content from staged clone.
-3. Promote with `gl promote <branch>`.
+3. Promote with `node .cursor/skills/gl/scripts/gl.mjs promote <branch>`.
 
 ### Pin management
 
-- List: `gl pin list`
-- Add: `gl pin add <name> <source> [--ref <ref>]`
-- Remove: `gl pin remove <name>`
-- Update SHA: `gl pin update <name> [--ref <ref>]`
-- Full setup: `gl setup <name> <source> [--ref <ref>]`
+- List: `node .cursor/skills/gl/scripts/gl.mjs pin list`
+- Add: `node .cursor/skills/gl/scripts/gl.mjs pin add <name> <source> [--ref <ref>]`
+- Remove: `node .cursor/skills/gl/scripts/gl.mjs pin remove <name>`
+- Update SHA: `node .cursor/skills/gl/scripts/gl.mjs pin update <name> [--ref <ref>]`
+- Full setup: `node .cursor/skills/gl/scripts/gl.mjs setup <name> <source> [--ref <ref>]`
 
 ## Write Directionality (Critical)
 
@@ -103,15 +97,15 @@ If directionality is ambiguous, ask the user before making changes.
 
 Treat reference input as one of:
 - Raw text from the conversation
-- Another pin name (resolve via `gl pin list` and `--pin`)
+- Another pin name (resolve via `node .cursor/skills/gl/scripts/gl.mjs pin list` and `--pin`)
 - A full asset reference (`source@sha`) that must be resolved/cloned/indexed
 
 If the input type is unclear, ask a clarifying question first.
 
 ## Guidance and Safety
 
-- Prefer `gl status` before making assumptions about local state.
-- Use `gl verify` after setup or promotions.
+- Prefer `node .cursor/skills/gl/scripts/gl.mjs status` before making assumptions about local state.
+- Use `node .cursor/skills/gl/scripts/gl.mjs verify` after setup or promotions.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
 - Confirm with the user before destructive actions (teardown, subtract, intersect).
 - Never edit `.giterloper/versions/` directly; write via staged clones only.
