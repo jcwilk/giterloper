@@ -1,3 +1,5 @@
 .giterloper/versions/
 .giterloper/staged/
 .giterloper/local.json
+
+.cursor/plans/
