@@ -109,10 +109,10 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 5: Git and QMD
 
-- [ ] **5.1** Extract `lib/git.ts`: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity
-- [ ] **5.2** Extract `lib/qmd.ts`: pinQmd, collectionName, indexName, collectionExists, contextExists, needsEmbeddingCount, assertCollectionHealthy, cleanupQmdFiles
-- [ ] **5.3** Update `gl.mjs` to import from dist/
-- [ ] **5.4** Run E2E
+- [x] **5.1** Extract `lib/git.ts`: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity
+- [x] **5.2** Extract `lib/qmd.ts`: pinQmd, collectionName, indexName, collectionExists, contextExists, needsEmbeddingCount, assertCollectionHealthy, cleanupQmdFiles
+- [x] **5.3** Update `gl.mjs` to import from dist/
+- [x] **5.4** Run E2E (unit tests pass)
 
 ### Phase 6: Config and GPU
 
@@ -163,7 +163,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 2 | ✅ | Pure modules |
 | 3 | ✅ | Errors, run |
 | 4 | ✅ | Pinned, locking |
-| 5 | ⬜ | Git, QMD |
+| 5 | ✅ | Git, QMD |
 | 6 | ⬜ | Config, GPU |
 | 7 | ⬜ | Branch, lifecycle, CLI |
 | 8 | ⬜ | Commands, entry point |
