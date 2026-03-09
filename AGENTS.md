@@ -75,3 +75,38 @@ name:
 ```
 
 Branchless pins are read-only.
+
+## Cursor Cloud specific instructions
+
+### Prerequisites
+
+- **Node.js >= 22** and **Git** are available in the VM by default.
+- **QMD** (`@tobilu/qmd`) must be installed globally: `npm install -g @tobilu/qmd`. The update script handles this.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+
+### Git access
+
+SSH is not available in Cloud VMs. Git is configured to rewrite `git@github.com:` URLs to HTTPS via `git config --global url."https://github.com/".insteadOf "git@github.com:"`. The `gh` CLI credential helper provides authentication for HTTPS git operations (`gh auth setup-git`).
+
+The GitHub App installation token only covers the `jcwilk/giterloper` repo itself. The main knowledge store (`giterloper_knowledge`) is private and inaccessible. The test knowledge repo (`giterloper_test_knowledge`) is public (reads work) but push access is denied to `cursor[bot]`, so E2E tests that create branches/push will fail.
+
+### Running the CLI
+
+All `gl` commands run from the workspace root:
+```bash
+node .cursor/skills/gl/scripts/gl.mjs <command>
+```
+
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
+
+### Running tests
+
+```bash
+node scripts/run-e2e.mjs
+```
+
+E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge`. Without it, only the two branchless-pin tests pass. This is a known Cloud VM limitation due to the scoped GitHub App token.
+
+### No lint or build step
+
+This project has no `package.json`, no ESLint, and no build step. The entire application is `gl.mjs` (~1400 lines of pure Node.js with zero npm runtime dependencies). QMD is the only external CLI dependency.
