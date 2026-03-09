@@ -547,9 +547,23 @@ function updatePinSha(state, pinName, newSha, opts = {}) {
   const newPin = { ...target, sha: newSha };
   const cloneBranch = opts.branch ?? newPin.branch;
 
-  clonePin(state, newPin, { branch: cloneBranch });
-  ensureGpuConfig(state);
-  indexPin(state, newPin);
+  try {
+    clonePin(state, newPin, { branch: cloneBranch });
+    ensureGpuConfig(state);
+    indexPin(state, newPin);
+  } catch (err) {
+    const newCloneDir = cloneDir(state, newPin);
+    if (existsSync(newCloneDir)) {
+      try {
+        rmSync(newCloneDir, { recursive: true, force: true });
+      } catch {}
+    }
+    try {
+      cleanupQmdFiles(state, newPin);
+    } catch {}
+    throw err;
+  }
+
   teardownPinData(state, oldPin);
 
   mutatePins(state, (pins) => {

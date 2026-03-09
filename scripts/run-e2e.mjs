@@ -4,6 +4,7 @@
  * Random pin/branch names (RUN_ID) avoid collisions. pinned.yaml writes are protected by a lock.
  */
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,6 +41,24 @@ function cleanupLeakedTestPins() {
   }
 }
 
+function cleanupOrphanedTestQmdFiles() {
+  const dirs = [
+    path.join(root, ".giterloper", "qmd", "config", "qmd"),
+    path.join(root, ".giterloper", "qmd", "cache", "qmd"),
+  ];
+  for (const dir of dirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir)) {
+      if (f.includes(E2E_MARKER)) {
+        try {
+          fs.unlinkSync(path.join(dir, f));
+          console.error(`Cleaned orphaned qmd file: ${path.join(dir, f)}`);
+        } catch {}
+      }
+    }
+  }
+}
+
 const result = spawnSync(
   "node",
   ["--test", "--test-concurrency=2", knowledgePath, writeOpsPath],
@@ -47,4 +66,5 @@ const result = spawnSync(
 );
 
 cleanupLeakedTestPins();
+cleanupOrphanedTestQmdFiles();
 process.exit(result.status ?? 1);

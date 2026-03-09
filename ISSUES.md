@@ -2,7 +2,7 @@
 
 Issues identified during recent work on the fail/lock fix and test suite. Not exhaustive; these are the ones surfaced in this session.
 
-## 1. Orphaned version when `updatePinSha` fails mid-flow
+## 1. Orphaned version when `updatePinSha` fails mid-flow (resolved)
 
 **Observed:** The failed "promote pushes and updates pin" test left behind
 `.giterloper/versions/scratch-promote_gle2e_.../2d044f69e413aa6d1a119732b4d2fb254d6a66ba/` even though the test's `finally` block runs `ensurePinRemoved(pinName)`.
@@ -15,11 +15,11 @@ Issues identified during recent work on the fail/lock fix and test suite. Not ex
 
 If step 1 or 2 fails (e.g. `git checkout` in clonePin fails with "unable to read tree"), we never reach steps 3–4. The pin in pinned.yaml still points at oldSha. When `gl pin remove` runs in the test's finally, it tears down the *old* clone only. The new clone at `versions/<pin>/<newSha>/` is never associated with the pin and is orphaned.
 
-**Fix direction:** On failure after `clonePin` but before `mutatePins`, explicitly remove the newly created clone at `versions/<pin>/<newSha>/` (or wrap the flow so a shared cleanup path removes it on error).
+**Fix (applied):** Wrapped clonePin + indexPin in try/catch. On failure, remove the newly created clone at `versions/<pin>/<newSha>/` and any QMD files for newPin before rethrowing.
 
 ---
 
-## 2. QMD cache/config files left behind after test runs
+## 2. QMD cache/config files left behind after test runs (resolved)
 
 **Observed:** Files remain in `.giterloper/qmd/cache/qmd/` and `.giterloper/qmd/config/qmd/` after tests, e.g.:
 - `merge-tgt_gle2e_...sqlite` (test pin that should have been removed)
@@ -29,7 +29,7 @@ If step 1 or 2 fails (e.g. `git checkout` in clonePin fails with "unable to read
 
 **Cause:** `cleanupQmdFiles` in teardown only runs when `pin remove` or `teardownPinData` completes. When a test fails before that (or when pin remove skips cleanup because the pin state is inconsistent), these index DBs/configs are never deleted. The `cleanupLeakedTestPins` runner only removes pins by name from pinned.yaml; it does not scrub orphaned qmd files.
 
-**Fix direction:** Broader cleanup of qmd files whose index name matches the E2E marker (e.g. `gle2e_*`) when tests finish, or ensure teardown always runs even on partial failure.
+**Fix (applied):** Added `cleanupOrphanedTestQmdFiles()` to the E2E runner. After `cleanupLeakedTestPins`, it scans `.giterloper/qmd/config/qmd` and `.giterloper/qmd/cache/qmd` and deletes any file whose name contains the E2E marker (`gle2e_`).
 
 ---
 
@@ -54,6 +54,8 @@ fatal: unable to read tree (2d044f69e413aa6d1a119732b4d2fb254d6a66ba)
 ```
 
 **Cause:** Occurs during `clonePin` inside `updatePinSha` when running `git checkout <sha>` in a fresh clone. Possible causes: shallow clone missing objects, race with remote, or transient git/network issue. Needs investigation to see if it's flaky or environment-specific.
+
+**Investigation (no fix applied):** The promote flow pushes the branch and then clones with `--depth 1 --branch <branch>`. The new SHA should be the tip of that branch; a shallow clone should include it. Potential causes: (1) GitHub eventual consistency — brief window where a fresh clone might not see the just-pushed commit; (2) shallow fetch edge case. Mitigation options (not implemented without more data): retry clone on this specific error, or fetch the SHA explicitly. Would need reproducible failure to validate a fix.
 
 ---
 
