@@ -169,3 +169,34 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 8 | ✅ | Commands, entry point |
 
 *(Agents: update the Status column as you complete phases.)*
+
+---
+
+## Migration Debrief (Completed)
+
+### Summary
+
+All 8 phases completed. The monolithic `gl.mjs` (~1,487 lines) is now a thin ~55-line router; application logic lives in TypeScript under `lib/` and compiles to `dist/`.
+
+### Divergences from Plan
+
+1. **Phase 1.4**: TypeScript erases interfaces at compile time. To satisfy "`gl.mjs` can `import { Pin }`", added `export const Pin = null` as a runtime placeholder in `types.ts`. The import was later removed when gl.mjs became a thin router.
+2. **Phase 2.2/2.4**: Unit tests use `node --experimental-strip-types --test` to run `.ts` files directly (no tsx). Tests import from `dist/` after build.
+3. **Phase 5.1**: Extracted `verifyCloneAtSha` into `git.ts` (not listed in original plan); it is a git-centric operation used by clone verification.
+4. **Phase 6.2**: `gpu.ts` uses an internal `log()` that calls `console.error("gl: " + msg)` instead of importing `info` from cli (avoiding phase-order dependency).
+5. **Phase 8.1**: Used a single `lib/commands/index.ts` plus `utils.ts` instead of splitting into `pin.ts`, `search.ts`, `stage.ts`, `reconcile.ts`. All handlers live in one file; can be split later if desired.
+6. **@types/node**: Added as devDependency for Node built-in typings (`node:fs`, `node:path`, `process`, etc.).
+
+### Notable / Unexpected
+
+- **runSoft SpawnSync types**: `result.stdout`/`result.stderr` from `spawnSync` can be `string | Buffer`; used `String(...).trim()` to satisfy TypeScript.
+- **parseFlag value: string | null**: `ParseFlagResult.value` is `string | null` when found; several call sites needed `?? undefined` or `?? "HEAD"` to satisfy `string | undefined` expectations.
+- **E2E not run**: E2E tests require `GITERLOPER_GH_TOKEN` for push access to the shared test repo. In the cloud environment without the token, E2E would hang on git operations. All phases were committed with unit tests and typecheck passing; E2E should be run locally with the token.
+- **gl.mjs remains JS**: Phase 8.4 (optional conversion to gl.ts) was not done. The entry point stays as a small JS file for zero-friction Node execution.
+
+### Resulting Layout
+
+- `lib/`: 15 TypeScript modules (types, errors, run, paths, reconcile, locking, pinned, git, qmd, config, gpu, branch, pin-lifecycle, cli, commands)
+- `dist/`: Emitted JS; gl.mjs imports from here
+- `tests/unit/`: 3 test files, 31 tests
+- `gl.mjs`: Thin router only
