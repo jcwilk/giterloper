@@ -84,17 +84,13 @@ Branchless pins are read-only.
 - **QMD** (`@tobilu/qmd`) must be installed globally: `npm install -g @tobilu/qmd`. The update script handles this.
 - No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
 
-### Git access
+### Git access to knowledge repos
 
-SSH is not available in Cloud VMs. The default GitHub App installation token (`cursor[bot]`) only covers the `jcwilk/giterloper` repo, so a `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is required for access to the knowledge repos.
-
-The update script configures git to rewrite `git@github.com:` to HTTPS and sets up a credential helper using `GITERLOPER_GH_TOKEN`. The token needs:
+The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
 - **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
-**Important:** The default `~/.gitconfig` shipped by the VM embeds the `cursor[bot]` token in URL rewrite rules (`url.https://x-access-token:...@github.com/.insteadOf`). The update script replaces these with plain HTTPS rewrites and a credential helper that reads `GITERLOPER_GH_TOKEN`. Without this override, git operations to the knowledge repos will fail with 403/404.
-
-**Origin URL caveat:** The credential helper provides `GITERLOPER_GH_TOKEN` for all `github.com` URLs. The origin remote (`jcwilk/giterloper`) must keep the `cursor[bot]` token embedded in its URL (e.g. `https://x-access-token:TOKEN@github.com/jcwilk/giterloper`) so pushes to the main repo work. If pushes fail with "denied to jcwilk", re-embed the cursor[bot] token: `git remote set-url origin "https://x-access-token:$(gh auth token)@github.com/jcwilk/giterloper"`.
+Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).
 
 ### Running the CLI
 
