@@ -107,6 +107,32 @@ export interface BranchFreshResult {
   remoteSha: string | null;
 }
 
+export function commitIfDirty(dir: string, message: string): boolean {
+  const status = run("git", ["-C", dir, "status", "--porcelain"]);
+  if (!status) return false;
+  run("git", ["-C", dir, "add", "-A"]);
+  run("git", ["-C", dir, "commit", "-m", message]);
+  return true;
+}
+
+export function pushBranchOrFail(
+  dir: string,
+  pin: Pin,
+  operationName: string
+): void {
+  const pushed = runSoft("git", ["-C", dir, "push", "-u", "origin", pin.branch!]);
+  if (pushed.ok) return;
+  fail(
+    [
+      `${operationName} failed while pushing branch "${pin.branch}" for pin "${pin.name}".`,
+      "The branch may be stale or diverged on remote.",
+      `Git output: ${(pushed.stderr || pushed.stdout || "push failed").trim()}`,
+      `Try syncing with "gl pin update ${pin.name}" and retry.`,
+    ].join("\n"),
+    EXIT.STATE
+  );
+}
+
 export function branchFreshSoft(state: GlState, pin: Pin): BranchFreshResult {
   if (!pin.branch)
     return { fresh: null, localSha: null, remoteSha: null };
