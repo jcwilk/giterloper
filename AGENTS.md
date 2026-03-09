@@ -81,7 +81,7 @@ Branchless pins are read-only.
 ### Prerequisites
 
 - **Node.js >= 22** and **Git** are available in the VM by default.
-- **QMD** (`@tobilu/qmd`) must be installed globally: `npm install -g @tobilu/qmd`. The update script handles this.
+- **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
 - No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
 
 ### Git access to knowledge repos
@@ -107,8 +107,8 @@ See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl
 node scripts/run-e2e.mjs
 ```
 
-E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`). The `reconcile` test (1 of 22) fails due to a known issue (`ISSUES.md` #3: missing `@tobilu/qmd/dist/store.js`).
+E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`).
 
-### No lint or build step
+### Build and typecheck
 
-This project has no `package.json`, no ESLint, and no build step. The entire application is `gl.mjs` (~1400 lines of pure Node.js with zero npm runtime dependencies). QMD is the only external CLI dependency.
+Run `npm install` before first use. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. No build step; `gl.mjs` runs directly via Node.

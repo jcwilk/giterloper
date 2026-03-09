@@ -3,11 +3,9 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-const require = createRequire(import.meta.url);
+import { chunkDocument } from "@tobilu/qmd/dist/store.js";
 
 const EXIT = {
   OK: 0,
@@ -1176,13 +1174,6 @@ function cmdReconcile(state, args) {
   requirePinBranch(pin, "reconcile");
   const dir = ensureWorkingClone(state, pin);
   assertBranchFresh(state, pin, dir);
-
-  let chunkDocument;
-  try {
-    ({ chunkDocument } = require("@tobilu/qmd/dist/store.js"));
-  } catch (error) {
-    fail(`failed to load QMD chunking module: ${error?.message || error}`, EXIT.EXTERNAL);
-  }
 
   const processQueue = (queueName) => {
     const queueDir = path.join(dir, queueName);

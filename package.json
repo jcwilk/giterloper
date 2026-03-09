@@ -1,0 +1,19 @@
+{
+  "name": "giterloper",
+  "version": "0.1.0",
+  "description": "Git-based knowledge store manager",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "gl": "node .cursor/skills/gl/scripts/gl.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tobilu/qmd": "1.1.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.7"
+  }
+}
