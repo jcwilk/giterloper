@@ -8,7 +8,6 @@ import { test } from "node:test";
 
 import {
   E2E_MARKER,
-  CLEAN_MAIN_SHA,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
@@ -19,7 +18,6 @@ import { runGl, runGlJson } from "../helpers/gl.mjs";
 
 /** Unique per test file run; ALL collision-prone names must include this. */
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
-const WORK_BRANCH = RUN_ID;
 
 function randomPin(prefix) {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
@@ -67,25 +65,6 @@ function createRemoteBranchFromMain(branchName, contentPath, contentBody) {
     runGit(["commit", "-m", `Test branch ${branchName}`], { cwd: repoDir });
     runGit(["push", "origin", `HEAD:${branchName}`], { cwd: repoDir });
     return runGit(["rev-parse", "HEAD"], { cwd: repoDir });
-  } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
-  }
-}
-
-function pushCommitToBranch(branch, contentPath, contentBody) {
-  const tempRoot = fs.mkdtempSync(path.join(tmpdir(), "giterloper-stale-"));
-  const repoDir = path.join(tempRoot, "repo");
-  try {
-    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
-    runGit(["checkout", branch], { cwd: repoDir });
-    runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
-    runGit(["config", "user.email", "giterloper-test@example.com"], { cwd: repoDir });
-    const fullPath = path.join(repoDir, contentPath);
-    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-    fs.writeFileSync(fullPath, contentBody, "utf8");
-    runGit(["add", path.relative(repoDir, fullPath)], { cwd: repoDir });
-    runGit(["commit", "-m", `stale update ${Date.now()}`], { cwd: repoDir });
-    runGit(["push", "origin", `HEAD:${branch}`], { cwd: repoDir });
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -144,26 +123,6 @@ test("add with --name uses requested file name", () => {
   }
 });
 
-test("add fails for branchless pin", () => {
-  const branchlessPin = randomPin("branchless");
-  try {
-    runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
-    assert.throws(() => runGl(["add", "--pin", branchlessPin], { stdin: "x" }), /has no branch/i);
-  } finally {
-    ensurePinRemoved(branchlessPin);
-  }
-});
-
-test("promote fails for branchless pin", () => {
-  const branchlessPin = randomPin("branchless");
-  try {
-    runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
-    assert.throws(() => runGl(["promote", "--pin", branchlessPin]), /has no branch/i);
-  } finally {
-    ensurePinRemoved(branchlessPin);
-  }
-});
-
 test("reconcile processes queued files", () => {
   const pinName = randomPin("reconcile");
   const branch = `${pinName}-branch`;
@@ -180,43 +139,3 @@ test("reconcile processes queued files", () => {
   }
 });
 
-test("merge combines two branched pins", () => {
-  const sourcePin = randomPin("merge-src");
-  const targetPin = randomPin("merge-tgt");
-  const sharedBranch = `merge_${RUN_ID}_${randomBytes(4).toString("hex")}`;
-  try {
-    createRemoteBranchFromMain(sharedBranch, "knowledge/scratch.md", "# base");
-    runGlJson(["pin", "add", sourcePin, TEST_SOURCE, "--ref", sharedBranch, "--branch", sharedBranch]);
-    runGlJson(["pin", "add", targetPin, TEST_SOURCE, "--ref", sharedBranch, "--branch", sharedBranch]);
-    runGlJson(["add", "--pin", sourcePin, "--name", "source-only"], {
-      stdin: "# source-only\n\nmerge source marker",
-    });
-    runGlJson(["merge", sourcePin, targetPin]);
-    const merged = pinByName(runGlJson(["pin", "list"]), targetPin);
-    assert.ok(merged.sha);
-  } finally {
-    ensurePinRemoved(sourcePin);
-    ensurePinRemoved(targetPin);
-  }
-});
-
-test("stale branch is detected for write operations", () => {
-  const pinName = randomPin("stale");
-  const branch = `${pinName}-branch`;
-  try {
-    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlJson(["stage", branch, "--pin", pinName]);
-    pushCommitToBranch(
-      branch,
-      `knowledge/stale_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
-      `# stale marker\n\n${Date.now()}`
-    );
-    assert.throws(
-      () => runGl(["add", "--pin", pinName], { stdin: "should fail as stale" }),
-      /stale|remote branch has commits/i
-    );
-  } finally {
-    ensurePinRemoved(pinName);
-  }
-});

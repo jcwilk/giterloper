@@ -14,6 +14,7 @@ const root = path.join(__dirname, "..");
 const testDir = path.join(root, "tests", "e2e");
 const knowledgePath = path.join(testDir, "gl-knowledge.test.mjs");
 const writeOpsPath = path.join(testDir, "gl-write-ops.test.mjs");
+const branchingPath = path.join(testDir, "gl-branching.test.mjs");
 
 function cleanupLeakedTestPins() {
   const glScript = path.join(root, ".cursor", "skills", "gl", "scripts", "gl.mjs");
@@ -42,7 +43,7 @@ function cleanupLeakedTestPins() {
 
 const result = spawnSync(
   "node",
-  ["--test", "--test-concurrency=2", knowledgePath, writeOpsPath],
+  ["--test", "--test-concurrency=2", knowledgePath, writeOpsPath, branchingPath],
   { cwd: root, stdio: "inherit" }
 );
 
