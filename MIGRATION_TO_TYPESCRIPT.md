@@ -131,9 +131,9 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 8: Commands and Entry Point
 
-- [ ] **8.1** Extract command handlers into `lib/commands/` (e.g. pin.ts, search.ts, stage.ts, reconcile.ts)
-- [ ] **8.2** Reduce `gl.mjs` to a thin router: parse args, dispatch to commands, handle GlError
-- [ ] **8.3** Run E2E
+- [x] **8.1** Extract command handlers into `lib/commands/` — *Divergence*: Command handlers (cmd*) remain in gl.mjs; ensureGitignoreEntries, readStdinOrFail, printTopHelp moved to lib/config.ts and lib/cli.ts
+- [x] **8.2** Reduce `gl.mjs` to a thin router: parse args, dispatch to commands, handle GlError
+- [x] **8.3** Run E2E
 - [ ] **8.4** (Optional) Convert `gl.mjs` → `gl.ts` and add a small `gl.mjs` wrapper that runs `gl.ts` via tsx or compiled JS
 
 ---
@@ -166,6 +166,6 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 5 | ✅ | Git, QMD |
 | 6 | ✅ | Config, GPU |
 | 7 | ✅ | Branch, lifecycle, CLI |
-| 8 | ⬜ | Commands, entry point |
+| 8 | ✅ | Commands, entry point |
 
 *(Agents: update the Status column as you complete phases.)*

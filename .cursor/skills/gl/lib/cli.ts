@@ -1,8 +1,8 @@
 /**
  * CLI output and flag parsing helpers.
  */
-import { EXIT } from "./errors.js";
-import { fail } from "./errors.js";
+import { readFileSync } from "node:fs";
+import { EXIT, fail } from "./errors.js";
 
 export function info(message: string): void {
   console.error(`gl: ${message}`);
@@ -59,4 +59,42 @@ export function ensureHelpNotRequested(args: string[], text: string): void {
     commandOutput(text);
     process.exit(EXIT.OK);
   }
+}
+
+export function readStdinOrFail(): string {
+  const text = readFileSync(0, "utf8");
+  if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
+  return text;
+}
+
+const TOP_HELP = [
+  "gl - giterloper CLI",
+  "",
+  "Usage:",
+  "  gl <command> [subcommand] [options]",
+  "",
+  "Commands:",
+  "  status",
+  "  gpu [--cpu]",
+  "  pin list|add|remove|update",
+  "  clone [--pin <name>|--all]",
+  "  index [--pin <name>|--all]",
+  "  teardown <name>",
+  "  search <query> [--pin <name>] [-n N] [--json]",
+  "  query <question> [--pin <name>] [--json]",
+  "  get <path> [--pin <name>] [--full] [--json]",
+  "  stage [branch] [--pin <name>]",
+  "  promote [--pin <name>]",
+  "  stage-cleanup [branch] [--pin <name>]",
+  "  add [--pin <name>] [--name <name>]",
+  "  subtract [--pin <name>] [--name <name>]",
+  "  reconcile [--pin <name>]",
+  "  merge <source-pin> <target-pin>  (WIP)",
+  "  verify [--pin <name>] [--json]",
+  "",
+  'Run "gl <command> --help" for command-specific usage.',
+].join("\n");
+
+export function printTopHelp(): void {
+  commandOutput(TOP_HELP);
 }

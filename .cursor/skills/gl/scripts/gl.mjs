@@ -38,7 +38,7 @@ import {
   assertCollectionHealthy,
   cleanupQmdFiles,
 } from "../dist/qmd.js";
-import { readLocalConfig, writeLocalConfig } from "../dist/config.js";
+import { readLocalConfig, writeLocalConfig, ensureGitignoreEntries } from "../dist/config.js";
 import { detectGpuMode, ensureGpuConfig, printCudaInstallInstructions } from "../dist/gpu.js";
 import {
   requirePinBranch,
@@ -62,70 +62,13 @@ import {
   parseFlag,
   consumeBooleanFlag,
   ensureHelpNotRequested,
+  readStdinOrFail,
+  printTopHelp,
 } from "../dist/cli.js";
 import { existsSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chunkDocument } from "@tobilu/qmd/dist/store.js";
-
-function ensureGitignoreEntries(state) {
-  const ignorePath = path.join(state.projectRoot, ".gitignore");
-  const required = [".giterloper/versions/", ".giterloper/staged/", ".giterloper/local.json"];
-  let current = "";
-  if (existsSync(ignorePath)) {
-    current = readFileSync(ignorePath, "utf8");
-  }
-  const lines = current ? current.split(/\r?\n/) : [];
-  let changed = false;
-  for (const entry of required) {
-    if (!lines.some((line) => line.trim() === entry)) {
-      lines.push(entry);
-      changed = true;
-    }
-  }
-  if (changed) {
-    const cleaned = lines.filter((_, idx, arr) => !(idx === arr.length - 1 && arr[idx] === "")).join("\n");
-    writeFileSync(ignorePath, `${cleaned}\n`, "utf8");
-  }
-}
-
-function readStdinOrFail() {
-  const text = readFileSync(0, "utf8");
-  if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
-  return text;
-}
-
-function printTopHelp() {
-  commandOutput(
-    [
-      "gl - giterloper CLI",
-      "",
-      "Usage:",
-      "  gl <command> [subcommand] [options]",
-      "",
-      "Commands:",
-      "  status",
-      "  gpu [--cpu]",
-      "  pin list|add|remove|update",
-      "  clone [--pin <name>|--all]",
-      "  index [--pin <name>|--all]",
-      "  teardown <name>",
-      "  search <query> [--pin <name>] [-n N] [--json]",
-      "  query <question> [--pin <name>] [--json]",
-      "  get <path> [--pin <name>] [--full] [--json]",
-      "  stage [branch] [--pin <name>]",
-      "  promote [--pin <name>]",
-      "  stage-cleanup [branch] [--pin <name>]",
-      "  add [--pin <name>] [--name <name>]",
-      "  subtract [--pin <name>] [--name <name>]",
-      "  reconcile [--pin <name>]",
-      "  merge <source-pin> <target-pin>  (WIP)",
-      "  verify [--pin <name>] [--json]",
-      "",
-      'Run "gl <command> --help" for command-specific usage.',
-    ].join("\n")
-  );
-}
 
 function cmdGpu(state, args) {
   ensureHelpNotRequested(
