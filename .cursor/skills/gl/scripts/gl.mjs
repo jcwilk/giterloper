@@ -4,8 +4,11 @@ import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { chunkDocument } from "@tobilu/qmd/dist/store.js";
+
+const require = createRequire(import.meta.url);
 
 const EXIT = {
   OK: 0,
@@ -839,6 +842,29 @@ function clonePin(state, pin, opts = {}) {
   }
 }
 
+function needsEmbed(state, pin) {
+  const cacheDir = process.env.XDG_CACHE_HOME || path.join(require("os").homedir(), ".cache");
+  const dbPath = path.join(cacheDir, "qmd", `${indexName(pin)}.sqlite`);
+  if (!existsSync(dbPath)) return true;
+  try {
+    const Database = require("better-sqlite3");
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const row = db.prepare(
+        `SELECT COUNT(DISTINCT d.hash) as count
+         FROM documents d
+         LEFT JOIN content_vectors v ON d.hash = v.hash AND v.seq = 0
+         WHERE d.active = 1 AND v.hash IS NULL`
+      ).get();
+      return (row?.count ?? 0) > 0;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return true;
+  }
+}
+
 function indexPin(state, pin) {
   const cdir = cloneDir(state, pin);
   if (!existsSync(cdir)) fail(`clone missing: ${cdir}`, EXIT.STATE);
@@ -855,7 +881,14 @@ function indexPin(state, pin) {
     run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
   }
   const embedLockDir = path.join(state.rootDir, "locks", "embed");
-  withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
+  const runEmbed = () => {
+    if (!needsEmbed(state, pin)) {
+      info("all content already embedded, skipping qmd embed");
+      return;
+    }
+    run("qmd", pinQmd(pin, ["embed"]));
+  };
+  withFifoLock(embedLockDir, runEmbed, { maxWaitMs: 300000 });
   assertCollectionHealthy(pin, collection);
 }
 
