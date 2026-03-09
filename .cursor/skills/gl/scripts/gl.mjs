@@ -676,7 +676,7 @@ function printTopHelp() {
       "  add [--pin <name>] [--name <name>]",
       "  subtract [--pin <name>] [--name <name>]",
       "  reconcile [--pin <name>]",
-      "  merge <source-pin> <target-pin>",
+      "  merge <source-pin> <target-pin>  (WIP)",
       "  verify [--pin <name>] [--json]",
       "",
       'Run "gl <command> --help" for command-specific usage.',
@@ -1348,7 +1348,10 @@ function cmdReconcile(state, args) {
 function cmdMerge(state, args) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl merge <source-pin> <target-pin>", "Merges one branched pin into another branched pin."].join("\n")
+    [
+      "Usage: gl merge <source-pin> <target-pin>",
+      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+    ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
   const source = resolvePin(state, args[0]);
