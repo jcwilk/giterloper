@@ -9,6 +9,8 @@
   "scripts": {
     "gl": "node .cursor/skills/gl/scripts/gl.mjs",
     "build": "tsc -p .cursor/skills/gl/tsconfig.json",
+    "prepare": "npm run build",
+    "test:unit": "npm run build && node --test tests/unit/reconcile.test.mjs tests/unit/paths.test.mjs",
     "typecheck": "tsc --noEmit",
     "benchmark:embed": "node scripts/benchmark-embed.mjs"
   },
@@ -16,6 +18,7 @@
     "@tobilu/qmd": "1.1.5"
   },
   "devDependencies": {
+    "@types/node": "^25.4.0",
     "typescript": "^5.7"
   }
 }

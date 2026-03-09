@@ -115,7 +115,7 @@ E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledg
 
 ### Build and typecheck
 
-Run `npm install` before first use. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. No build step; `gl.mjs` runs directly via Node.
+Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
 
 ### Embed performance benchmark
 
