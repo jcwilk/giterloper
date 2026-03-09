@@ -94,6 +94,8 @@ The update script configures git to rewrite `git@github.com:` to HTTPS and sets 
 
 **Important:** The default `~/.gitconfig` shipped by the VM embeds the `cursor[bot]` token in URL rewrite rules (`url.https://x-access-token:...@github.com/.insteadOf`). The update script replaces these with plain HTTPS rewrites and a credential helper that reads `GITERLOPER_GH_TOKEN`. Without this override, git operations to the knowledge repos will fail with 403/404.
 
+**Origin URL caveat:** The credential helper provides `GITERLOPER_GH_TOKEN` for all `github.com` URLs. The origin remote (`jcwilk/giterloper`) must keep the `cursor[bot]` token embedded in its URL (e.g. `https://x-access-token:TOKEN@github.com/jcwilk/giterloper`) so pushes to the main repo work. If pushes fail with "denied to jcwilk", re-embed the cursor[bot] token: `git remote set-url origin "https://x-access-token:$(gh auth token)@github.com/jcwilk/giterloper"`.
+
 ### Running the CLI
 
 All `gl` commands run from the workspace root:
