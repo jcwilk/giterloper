@@ -88,6 +88,34 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 - Update SHA: `node .cursor/skills/gl/scripts/gl.mjs pin update <name> [--ref <ref>]`
 - Add pin, then materialize: `gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `gl clone` and `gl index`
 
+### Creating a new branch (no manual git)
+
+When adding a pin with `--branch`, if the branch does not yet exist on the remote, gl creates it automatically. No manual `git clone` or `git push` is needed.
+
+**Branch off from main (or any ref):**
+```bash
+gl pin add my_feature github.com/owner/knowledge --ref main --branch my_feature
+```
+Then run `gl add`, `gl reconcile`, etc. The first push during a write operation creates the remote branch.
+
+**Branch from an earlier state:** Use `--ref` to specify the starting point (branch name, tag, or SHA):
+```bash
+gl pin add snapshot github.com/owner/knowledge --ref v1.0.0 --branch snapshot-v1
+gl pin add experiment github.com/owner/knowledge --ref abc1234 --branch experiment
+```
+
+**Save a snapshot of current:** Pin the existing branch and work there, or create a new branch from the same ref:
+```bash
+gl pin add backup github.com/owner/knowledge --ref main --branch backup-2024-03
+```
+
+If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
+
+**Read vs write:** Read operations (search, query, get, verify) never push or create branches. Write operations (add, subtract, reconcile, promote, stage) check branch state before proceeding:
+- **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately (before creating staged copy) with remote SHA. Pin the remote head under a different named pin to investigate.
+- **Branch does not exist:** Proceed; the branch is created atomically when the first push runs (no empty branch, then commits).
+- **Branch exists and matches:** Proceed normally.
+
 ## Write Directionality (Critical)
 
 For write-style operations:

@@ -74,6 +74,16 @@ function runSoft(cmd, args, opts = {}) {
   };
 }
 
+function isBranchNotFoundError(r) {
+  if (r.ok) return false;
+  const msg = (r.stderr + "\n" + r.stdout).toLowerCase();
+  return (
+    (msg.includes("remote branch") && msg.includes("not found")) ||
+    msg.includes("could not find remote branch") ||
+    (msg.includes("pathspec") && msg.includes("did not match"))
+  );
+}
+
 function findProjectRoot(startDir = process.cwd()) {
   let current = path.resolve(startDir);
   while (true) {
@@ -450,11 +460,37 @@ function resolveBranchSha(source, branch) {
   return sha;
 }
 
+function resolveBranchShaSoft(source, branch) {
+  const remote = toRemoteUrl(source);
+  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
+  if (!out.ok || !out.stdout) return null;
+  const first = out.stdout.split(/\r?\n/).find(Boolean);
+  const sha = first?.split(/\s+/)?.[0];
+  return sha && /^[0-9a-f]{40}$/i.test(sha) ? sha : null;
+}
+
 function requirePinBranch(pin, operation) {
   if (pin.branch) return;
   fail(
     `pin "${pin.name}" has no branch. ${operation} requires a branched pin. Add one with "gl pin add ${pin.name} ${pin.source} --branch <branch>".`,
     EXIT.USER
+  );
+}
+
+function assertBranchReadyForWrite(state, pin) {
+  requirePinBranch(pin, "write operation");
+  const remoteSha = resolveBranchShaSoft(pin.source, pin.branch);
+  if (remoteSha === null) return;
+  if (remoteSha.toLowerCase() === pin.sha.toLowerCase()) return;
+  fail(
+    [
+      `branch "${pin.branch}" exists on remote but pin "${pin.name}" SHA does not match remote HEAD.`,
+      `  Pin SHA:     ${pin.sha}`,
+      `  Remote HEAD: ${remoteSha}`,
+      "  Pin the remote head and investigate under a different named pin:",
+      `  gl pin add <new-name> ${pin.source} --ref ${pin.branch}`,
+    ].join("\n"),
+    EXIT.STATE
   );
 }
 
@@ -470,11 +506,22 @@ function setCloneIdentity(dir) {
 }
 
 function ensureWorkingClone(state, pin) {
-  requirePinBranch(pin, "write operation");
+  assertBranchReadyForWrite(state, pin);
   const dir = stagedDir(state, pin.name, pin.branch);
   if (!existsSync(dir)) {
     ensureDir(path.dirname(dir));
-    run("git", ["clone", "--depth", "1", "--branch", pin.branch, toRemoteUrl(pin.source), dir]);
+    const url = toRemoteUrl(pin.source);
+    const result = runSoft("git", ["clone", "--depth", "1", "--branch", pin.branch, url, dir]);
+    if (!result.ok) {
+      if (isBranchNotFoundError(result)) {
+        if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+        info(`branch "${pin.branch}" not found; creating from default branch`);
+        run("git", ["clone", "--depth", "1", url, dir]);
+        run("git", ["-C", dir, "checkout", "-b", pin.branch]);
+      } else {
+        fail(`git clone failed: ${(result.stderr || result.stdout).trim()}`, EXIT.EXTERNAL);
+      }
+    }
   }
   setCloneIdentity(dir);
   return dir;
@@ -483,7 +530,8 @@ function ensureWorkingClone(state, pin) {
 function assertBranchFresh(state, pin, workingDir) {
   if (!pin.branch) return;
   const localSha = run("git", ["-C", workingDir, "rev-parse", "HEAD"]);
-  const remoteSha = resolveBranchSha(pin.source, pin.branch);
+  const remoteSha = resolveBranchShaSoft(pin.source, pin.branch);
+  if (!remoteSha) return;
   if (localSha.toLowerCase() === remoteSha.toLowerCase()) return;
   fail(
     [
@@ -755,6 +803,8 @@ function cmdPinAdd(state, args) {
     [
       "Usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]",
       "Adds or replaces a pin entry. Resolves source+ref to a full SHA.",
+      "If --branch is given and the branch does not exist on the remote, gl creates it",
+      "from the ref (use --ref main --branch my_branch to branch off main).",
     ].join("\n")
   );
   if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]", EXIT.USER);
@@ -775,7 +825,8 @@ function cmdPinAdd(state, args) {
     updated.unshift(newPin);
     return updated;
   });
-  clonePin(state, newPin, { branch });
+  const fallbackRef = ref !== branch ? ref : "HEAD";
+  clonePin(state, newPin, { branch, fallbackRef });
   ensureGpuConfig(state);
   indexPin(state, newPin);
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
@@ -841,11 +892,28 @@ function clonePin(state, pin, opts = {}) {
   }
   ensureDir(path.dirname(cdir));
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
-  const cloneArgs = ["clone", "--depth", "1"];
   const branch = opts.branch || pin.branch;
-  if (branch) cloneArgs.push("--branch", branch);
-  cloneArgs.push(toRemoteUrl(pin.source), cdir);
-  run("git", cloneArgs);
+  const fallbackRef = opts.fallbackRef;
+  const url = toRemoteUrl(pin.source);
+
+  if (branch) {
+    const result = runSoft("git", ["clone", "--depth", "1", "--branch", branch, url, cdir]);
+    if (!result.ok) {
+      if (isBranchNotFoundError(result)) {
+        if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
+        info(`branch "${branch}" not found; cloning from ${fallbackRef || "default"} and checking out ${pin.sha}`);
+        if (fallbackRef && fallbackRef !== branch) {
+          run("git", ["clone", "--depth", "1", "--branch", fallbackRef, url, cdir]);
+        } else {
+          run("git", ["clone", "--depth", "1", url, cdir]);
+        }
+      } else {
+        fail(`git clone failed: ${(result.stderr || result.stdout).trim()}`, EXIT.EXTERNAL);
+      }
+    }
+  } else {
+    run("git", ["clone", "--depth", "1", url, cdir]);
+  }
   run("git", ["-C", cdir, "checkout", pin.sha]);
   if (!verifyCloneAtSha(pin, cdir)) {
     fail(`cloned repository at ${cdir} is not at expected SHA ${pin.sha}`, EXIT.STATE);
@@ -1018,11 +1086,25 @@ function cmdStage(state, args) {
     commandOutput({ staged: dir, branch, pin: pin.name, created: false }, state.globalJson);
     return;
   }
-  ensureDir(path.dirname(dir));
   if (pin.branch && branch === pin.branch) {
-    run("git", ["clone", "--depth", "1", "--branch", branch, toRemoteUrl(pin.source), dir]);
+    assertBranchReadyForWrite(state, pin);
+  }
+  ensureDir(path.dirname(dir));
+  const url = toRemoteUrl(pin.source);
+  if (pin.branch && branch === pin.branch) {
+    const result = runSoft("git", ["clone", "--depth", "1", "--branch", branch, url, dir]);
+    if (!result.ok) {
+      if (isBranchNotFoundError(result)) {
+        if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+        info(`branch "${branch}" not found; creating from default branch`);
+        run("git", ["clone", "--depth", "1", url, dir]);
+        run("git", ["-C", dir, "checkout", "-b", branch]);
+      } else {
+        fail(`git clone failed: ${(result.stderr || result.stdout).trim()}`, EXIT.EXTERNAL);
+      }
+    }
   } else {
-    run("git", ["clone", "--depth", "1", toRemoteUrl(pin.source), dir]);
+    run("git", ["clone", "--depth", "1", url, dir]);
     run("git", ["-C", dir, "checkout", "-b", branch]);
   }
   setCloneIdentity(dir);

@@ -35,4 +35,14 @@ node .cursor/skills/gl/scripts/gl.mjs index
 
 `gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
 
+## 3. Creating a new branch (optional)
+
+To work on a new branch without manual git:
+
+```sh
+gl pin add my_branch github.com/owner/knowledge --ref main --branch my_branch
+```
+
+If the branch does not exist on the remote, gl creates it automatically on the first write (add, reconcile). Use `--ref` to branch from main, a tag, or another ref.
+
 See `02-verification.md` for verification steps.
