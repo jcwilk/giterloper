@@ -1,3 +1,7 @@
+knowledge_self_identify:
+  repo: github.com/jcwilk/giterloper_knowledge
+  sha: cd34351408b110126d06aad4d7dccf0dace18867
+  branch: self_identify
 knowledge:
   repo: github.com/jcwilk/giterloper_knowledge
   sha: 8f35bdf55d10cc2d093b84055766ef468a185130
