@@ -14,6 +14,7 @@ import {
   TEST_TOPIC_TITLE,
   CLEAN_MAIN_SHA,
   TEST_MAIN_REF,
+  toRemoteUrl,
 } from "./config.mjs";
 
 /** Unique per test file run; ALL collision-prone names must include this. */
@@ -81,7 +82,7 @@ function createRemoteBranchFromMain(branchName, contentPath, contentBody) {
   const repoDir = path.join(tempRoot, "repo");
 
   try {
-    runGit(["clone", "--quiet", `git@github.com:jcwilk/giterloper_test_knowledge.git`, repoDir]);
+    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
     runGit(["checkout", TEST_MAIN_REF], { cwd: repoDir });
     runGit(["checkout", "-b", branchName], { cwd: repoDir });
 

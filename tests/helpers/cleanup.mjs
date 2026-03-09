@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { toRemoteUrl } from "../e2e/config.mjs";
 
 function runGit(args, { cwd = null, silent = false } = {}) {
   const result = spawnSync("git", args, {
@@ -43,9 +44,7 @@ export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null
 
   cleanupLocalCopies(pinName);
 
-  const remoteUrl = remoteSource.startsWith("http")
-    ? remoteSource
-    : `git@github.com:${remoteSource.replace(/^github\.com\//, "")}.git`;
+  const remoteUrl = toRemoteUrl(remoteSource);
 
   const remoteHeads = runGit(["ls-remote", "--heads", remoteUrl]);
   const branches = remoteHeads

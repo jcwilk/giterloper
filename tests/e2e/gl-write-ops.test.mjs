@@ -13,6 +13,7 @@ import {
   TEST_MAIN_REF,
   TEST_SOURCE,
   TEST_SUBTRACT_CONTENT,
+  toRemoteUrl,
 } from "./config.mjs";
 import { runGl, runGlJson } from "../helpers/gl.mjs";
 
@@ -54,7 +55,7 @@ function createRemoteBranchFromMain(branchName, contentPath, contentBody) {
   const tempRoot = fs.mkdtempSync(path.join(tmpdir(), "giterloper-branch-"));
   const repoDir = path.join(tempRoot, "repo");
   try {
-    runGit(["clone", "--quiet", `git@github.com:jcwilk/giterloper_test_knowledge.git`, repoDir]);
+    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
     runGit(["checkout", TEST_MAIN_REF], { cwd: repoDir });
     runGit(["checkout", "-b", branchName], { cwd: repoDir });
     runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
@@ -75,7 +76,7 @@ function pushCommitToBranch(branch, contentPath, contentBody) {
   const tempRoot = fs.mkdtempSync(path.join(tmpdir(), "giterloper-stale-"));
   const repoDir = path.join(tempRoot, "repo");
   try {
-    runGit(["clone", "--quiet", `git@github.com:jcwilk/giterloper_test_knowledge.git`, repoDir]);
+    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
     runGit(["checkout", branch], { cwd: repoDir });
     runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
     runGit(["config", "user.email", "giterloper-test@example.com"], { cwd: repoDir });

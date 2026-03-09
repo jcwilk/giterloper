@@ -105,6 +105,10 @@ function toRemoteUrl(source) {
   if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("git@")) {
     return source;
   }
+  const token = process.env.GITERLOPER_GH_TOKEN;
+  if (token && source.includes("github.com")) {
+    return `https://x-access-token:${token}@${source}`;
+  }
   return `https://${source}`;
 }
 
