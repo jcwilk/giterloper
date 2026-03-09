@@ -6,7 +6,7 @@ import assert from "node:assert";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { findProjectRoot, cloneDir, stagedDir } from "../../.cursor/skills/gl/lib/paths.ts";
+import { findProjectRoot, cloneDir, stagedDir } from "../../.cursor/skills/gl/dist/paths.js";
 
 function makeTempDir(): string {
   const dir = path.join(tmpdir(), `paths-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);

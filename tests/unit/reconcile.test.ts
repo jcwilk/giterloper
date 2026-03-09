@@ -9,7 +9,7 @@ import {
   parseSearchJson,
   normalizeKnowledgeRelPath,
   chooseMatchedKnowledgePath,
-} from "../../.cursor/skills/gl/lib/reconcile.ts";
+} from "../../.cursor/skills/gl/dist/reconcile.js";
 
 describe("safeName", () => {
   it("trims and sanitizes input", () => {

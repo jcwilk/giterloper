@@ -101,11 +101,11 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 4: Pinned and I/O
 
-- [ ] **4.1** Extract `lib/locking.ts`: withFifoLock
-- [ ] **4.2** Extract `lib/pinned.ts`: parsePinned, serializePins, readPins, mutatePins, writePinsAtomic, resolvePin, ensureGiterloperRoot
-- [ ] **4.3** Add `tests/unit/pinned.test.ts` for parsePinned, serializePins (roundtrip, edge cases)
-- [ ] **4.4** Update `gl.mjs` to import from dist/
-- [ ] **4.5** Run E2E
+- [x] **4.1** Extract `lib/locking.ts`: withFifoLock
+- [x] **4.2** Extract `lib/pinned.ts`: parsePinned, serializePins, readPins, mutatePins, writePinsAtomic, resolvePin, ensureGiterloperRoot
+- [x] **4.3** Add `tests/unit/pinned.test.ts` for parsePinned, serializePins (roundtrip, edge cases)
+- [x] **4.4** Update `gl.mjs` to import from dist/
+- [x] **4.5** Run E2E
 
 ### Phase 5: Git and QMD
 
@@ -162,7 +162,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 1 | ✅ | Foundation |
 | 2 | ✅ | Pure modules |
 | 3 | ✅ | Errors, run |
-| 4 | ⬜ | Pinned, locking |
+| 4 | ✅ | Pinned, locking |
 | 5 | ⬜ | Git, QMD |
 | 6 | ⬜ | Config, GPU |
 | 7 | ⬜ | Branch, lifecycle, CLI |

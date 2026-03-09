@@ -8,6 +8,16 @@ import {
   safeName,
 } from "../dist/reconcile.js";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "../dist/paths.js";
+import {
+  ensureGiterloperRoot,
+  mutatePins,
+  parsePinned,
+  readPins,
+  resolvePin,
+  serializePins,
+  writePinsAtomic,
+} from "../dist/pinned.js";
+import { withFifoLock } from "../dist/locking.js";
 import { EXIT, fail, GlError } from "../dist/errors.js";
 import { isBranchNotFoundError, run, runSoft } from "../dist/run.js";
 import { createHash, randomBytes } from "node:crypto";
@@ -32,15 +42,6 @@ function commandOutput(data, asJson = false) {
   process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 }
 
-function ensureGiterloperRoot(state) {
-  if (!existsSync(state.rootDir)) {
-    fail(`missing ${state.rootDir}. Ensure .giterloper/ and pinned.yaml exist.`, EXIT.STATE);
-  }
-  if (!existsSync(state.pinnedPath)) {
-    fail(`missing ${state.pinnedPath}. Add pins via "gl pin add" then run "gl clone" and "gl index".`, EXIT.STATE);
-  }
-}
-
 function toRemoteUrl(source) {
   if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("git@")) {
     return source;
@@ -50,146 +51,6 @@ function toRemoteUrl(source) {
     return `https://x-access-token:${token}@${source}`;
   }
   return `https://${source}`;
-}
-
-function parsePinned(content) {
-  const pins = [];
-  let current = null;
-  const lines = content.split(/\r?\n/);
-  for (const rawLine of lines) {
-    const line = rawLine.replace(/\t/g, "  ");
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const indent = line.match(/^ */)?.[0]?.length ?? 0;
-    const colon = trimmed.indexOf(":");
-    if (colon < 0) continue;
-
-    if (indent === 0) {
-      const name = trimmed.slice(0, colon).trim();
-      const value = trimmed.slice(colon + 1).trim();
-      if (!name) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
-
-      // Backward-compatible with legacy "name: source@sha" one-liner format.
-      if (value) {
-        const at = value.lastIndexOf("@");
-        if (at < 0) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
-        const source = value.slice(0, at).trim();
-        const sha = value.slice(at + 1).trim();
-        if (!source || !/^[0-9a-f]{40}$/i.test(sha)) {
-          fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
-        }
-        pins.push({ name, source, sha });
-        current = null;
-        continue;
-      }
-
-      current = { name, source: null, sha: null, branch: undefined };
-      pins.push(current);
-      continue;
-    }
-
-    if (!current) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
-    const key = trimmed.slice(0, colon).trim();
-    const value = trimmed.slice(colon + 1).trim();
-    if (!value) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
-    if (key === "repo") current.source = value;
-    if (key === "sha") current.sha = value;
-    if (key === "branch") current.branch = value;
-  }
-
-  for (const pin of pins) {
-    if (!pin.source || !/^[0-9a-f]{40}$/i.test(pin.sha || "")) {
-      fail(`invalid pinned.yaml entry for "${pin.name}"`, EXIT.STATE);
-    }
-  }
-  return pins;
-}
-
-function serializePins(pins) {
-  const body = pins
-    .map((pin) => {
-      const lines = [`${pin.name}:`, `  repo: ${pin.source}`, `  sha: ${pin.sha}`];
-      if (pin.branch) lines.push(`  branch: ${pin.branch}`);
-      return lines.join("\n");
-    })
-    .join("\n");
-  return `${body}${body ? "\n" : ""}`;
-}
-
-function readPins(state) {
-  ensureGiterloperRoot(state);
-  const content = readFileSync(state.pinnedPath, "utf8");
-  return parsePinned(content);
-}
-
-function withFifoLock(lockDir, fn, opts = {}) {
-  const maxWaitMs = opts.maxWaitMs ?? 5000;
-  const pollMs = opts.pollMs ?? 25;
-  ensureDir(lockDir);
-
-  const staleCutoff = Date.now() - maxWaitMs * 2;
-  const entries = readdirSync(lockDir);
-  for (const e of entries) {
-    const m = e.match(/^(\d+)_/);
-    if (m && parseInt(m[1], 10) < staleCutoff) {
-      try {
-        unlinkSync(path.join(lockDir, e));
-      } catch {}
-    }
-  }
-
-  const ts = String(Date.now()).padStart(15, "0");
-  const ticket = `${ts}_${process.pid}_${randomBytes(4).toString("hex")}`;
-  const ticketPath = path.join(lockDir, ticket);
-  writeFileSync(ticketPath, "", "utf8");
-
-  try {
-    const deadline = Date.now() + maxWaitMs;
-    while (Date.now() < deadline) {
-      const files = readdirSync(lockDir).sort();
-      if (files[0] === ticket) break;
-      const d = Date.now() + pollMs;
-      while (Date.now() < d) {}
-    }
-    const files = readdirSync(lockDir).sort();
-    if (files[0] !== ticket) {
-      unlinkSync(ticketPath);
-      fail(`could not acquire lock at ${lockDir} within ${maxWaitMs}ms`, EXIT.STATE);
-    }
-    return fn();
-  } finally {
-    try {
-      unlinkSync(ticketPath);
-    } catch {}
-  }
-}
-
-/** Holds exclusive lock for read-modify-write on pinned.yaml. */
-function mutatePins(state, mutator) {
-  const lockDir = path.join(state.rootDir, "locks", "pins");
-  withFifoLock(lockDir, () => {
-    const content = readFileSync(state.pinnedPath, "utf8");
-    const pins = parsePinned(content);
-    const updated = mutator(pins);
-    const temp = `${state.pinnedPath}.tmp`;
-    writeFileSync(temp, serializePins(updated), "utf8");
-    renameSync(temp, state.pinnedPath);
-  }, { maxWaitMs: 5000 });
-}
-
-function writePinsAtomic(state, pins) {
-  const temp = `${state.pinnedPath}.tmp`;
-  writeFileSync(temp, serializePins(pins), "utf8");
-  renameSync(temp, state.pinnedPath);
-}
-
-function resolvePin(state, pinName) {
-  const pins = readPins(state);
-  if (pins.length === 0) fail("no pins configured in .giterloper/pinned.yaml", EXIT.STATE);
-  if (!pinName) return pins[0];
-  const pin = pins.find((p) => p.name === pinName);
-  if (!pin) fail(`pin "${pinName}" not found`, EXIT.USER);
-  return pin;
 }
 
 function collectionName(pin) {
