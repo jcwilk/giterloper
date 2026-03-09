@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chunkDocument } from "@tobilu/qmd/dist/store.js";
 
+import { EXIT, GlError, fail } from "../dist/errors.js";
 import {
   chooseMatchedKnowledgePath,
   makeQueueFilename,
@@ -14,25 +14,8 @@ import {
   parseSearchJson,
   safeName,
 } from "../dist/reconcile.js";
+import { isBranchNotFoundError, run, runSoft } from "../dist/run.js";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "../dist/paths.js";
-
-const EXIT = {
-  OK: 0,
-  USER: 1,
-  STATE: 2,
-  EXTERNAL: 3,
-};
-
-class GlError extends Error {
-  constructor(message, code) {
-    super(message);
-    this.code = code;
-  }
-}
-
-function fail(message, code = EXIT.USER) {
-  throw new GlError(message, code);
-}
 
 function info(message) {
   console.error(`gl: ${message}`);
@@ -48,49 +31,6 @@ function commandOutput(data, asJson = false) {
     return;
   }
   process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
-}
-
-function run(cmd, args, opts = {}) {
-  const result = spawnSync(cmd, args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    ...opts,
-  });
-  if (result.error) {
-    fail(`failed to run ${cmd}: ${result.error.message}`, EXIT.EXTERNAL);
-  }
-  if (result.status !== 0) {
-    const stderr = (result.stderr || "").trim();
-    const stdout = (result.stdout || "").trim();
-    const details = stderr || stdout || `exit code ${result.status}`;
-    fail(`${cmd} ${args.join(" ")} failed: ${details}`, EXIT.EXTERNAL);
-  }
-  return result.stdout.trim();
-}
-
-function runSoft(cmd, args, opts = {}) {
-  const result = spawnSync(cmd, args, {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-    ...opts,
-  });
-  return {
-    ok: !result.error && result.status === 0,
-    status: result.status ?? 1,
-    stdout: (result.stdout || "").trim(),
-    stderr: (result.stderr || "").trim(),
-    error: result.error,
-  };
-}
-
-function isBranchNotFoundError(r) {
-  if (r.ok) return false;
-  const msg = (r.stderr + "\n" + r.stdout).toLowerCase();
-  return (
-    (msg.includes("remote branch") && msg.includes("not found")) ||
-    msg.includes("could not find remote branch") ||
-    (msg.includes("pathspec") && msg.includes("did not match"))
-  );
 }
 
 function ensureGiterloperRoot(state) {
