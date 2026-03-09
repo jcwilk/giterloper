@@ -23,6 +23,23 @@ import {
   mutatePins,
   resolvePin,
 } from "../dist/pinned.js";
+import {
+  toRemoteUrl,
+  resolveSha,
+  resolveBranchSha,
+  resolveBranchShaSoft,
+  setCloneIdentity,
+} from "../dist/git.js";
+import {
+  collectionName,
+  indexName,
+  pinQmd,
+  collectionExists,
+  contextExists,
+  needsEmbeddingCount,
+  assertCollectionHealthy,
+  cleanupQmdFiles,
+} from "../dist/qmd.js";
 import { existsSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,29 +61,6 @@ function commandOutput(data, asJson = false) {
   process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
 }
 
-function toRemoteUrl(source) {
-  if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("git@")) {
-    return source;
-  }
-  const token = process.env.GITERLOPER_GH_TOKEN;
-  if (token && source.includes("github.com")) {
-    return `https://x-access-token:${token}@${source}`;
-  }
-  return `https://${source}`;
-}
-
-function collectionName(pin) {
-  return `${pin.name}@${pin.sha}`;
-}
-
-function indexName(pin) {
-  return `${pin.name}_${pin.sha}`;
-}
-
-function pinQmd(pin, args) {
-  return ["--index", indexName(pin), ...args];
-}
-
 function removeStagedDir(state, pinName, branch) {
   if (!branch) return;
   const dir = stagedDir(state, pinName, branch);
@@ -74,46 +68,11 @@ function removeStagedDir(state, pinName, branch) {
   runSoft("rmdir", [path.join(state.stagedRoot, pinName)]);
 }
 
-function collectionExists(pin, collection) {
-  const out = run("qmd", pinQmd(pin, ["collection", "list"]));
-  return out.includes(collection);
-}
-
-/** Returns count of document hashes needing embedding, or null if DB missing/unreadable. */
-function needsEmbeddingCount(state, pin) {
-  const dbPath = path.join(state.rootDir, "qmd", "cache", "qmd", `${indexName(pin)}.sqlite`);
-  if (!existsSync(dbPath)) return null;
-  const result = runSoft("sqlite3", [
-    dbPath,
-    "SELECT COUNT(DISTINCT d.hash) FROM documents d LEFT JOIN content_vectors v ON d.hash=v.hash AND v.seq=0 WHERE d.active=1 AND v.hash IS NULL",
-  ]);
-  if (!result.ok) return null;
-  const n = parseInt(result.stdout?.trim() ?? "", 10);
-  return Number.isNaN(n) ? null : n;
-}
-
-function contextExists(pin, collection) {
-  const out = run("qmd", pinQmd(pin, ["context", "list"]));
-  return out.includes(collection);
-}
-
 function verifyCloneAtSha(pin, clonePath) {
   if (!existsSync(clonePath)) return false;
   const result = runSoft("git", ["-C", clonePath, "rev-parse", "HEAD"]);
   if (!result.ok || !result.stdout) return false;
   return result.stdout.trim().toLowerCase() === pin.sha.toLowerCase();
-}
-
-function resolveSha(source, ref = "HEAD") {
-  const remote = toRemoteUrl(source);
-  const out = run("git", ["ls-remote", remote, ref]);
-  const first = out.split(/\r?\n/).find(Boolean);
-  if (!first) fail(`could not resolve ref "${ref}" for ${source}`, EXIT.EXTERNAL);
-  const sha = first.split(/\s+/)[0];
-  if (!/^[0-9a-f]{40}$/i.test(sha)) {
-    fail(`unexpected SHA while resolving ${source}@${ref}: ${sha}`, EXIT.EXTERNAL);
-  }
-  return sha;
 }
 
 function readLocalConfig(state) {
@@ -201,19 +160,6 @@ function ensureGitignoreEntries(state) {
   }
 }
 
-function assertCollectionHealthy(pin, collection) {
-  const status = run("qmd", pinQmd(pin, ["status"]));
-  const vectorsLine = status
-    .split(/\r?\n/)
-    .find((line) => line.toLowerCase().includes(collection.toLowerCase()) && line.toLowerCase().includes("vector"));
-  if (vectorsLine) {
-    const numberMatch = vectorsLine.match(/vectors[^0-9]*(\d+)/i);
-    if (numberMatch && Number(numberMatch[1]) <= 0) {
-      fail(`collection ${collection} has zero vectors`, EXIT.STATE);
-    }
-  }
-}
-
 function parseFlag(args, longName, shortName = null) {
   const idxLong = args.indexOf(longName);
   const idxShort = shortName ? args.indexOf(shortName) : -1;
@@ -231,29 +177,6 @@ function consumeBooleanFlag(args, longName) {
   const idx = args.indexOf(longName);
   if (idx < 0) return { found: false, args };
   return { found: true, args: args.slice(0, idx).concat(args.slice(idx + 1)) };
-}
-
-function resolveBranchSha(source, branch) {
-  const remote = toRemoteUrl(source);
-  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
-  if (!out.ok || !out.stdout) {
-    fail(`could not resolve branch "${branch}" for ${source}`, EXIT.EXTERNAL);
-  }
-  const first = out.stdout.split(/\r?\n/).find(Boolean);
-  const sha = first?.split(/\s+/)?.[0];
-  if (!sha || !/^[0-9a-f]{40}$/i.test(sha)) {
-    fail(`unexpected SHA while resolving ${source}@${branch}: ${sha || "<none>"}`, EXIT.EXTERNAL);
-  }
-  return sha;
-}
-
-function resolveBranchShaSoft(source, branch) {
-  const remote = toRemoteUrl(source);
-  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
-  if (!out.ok || !out.stdout) return null;
-  const first = out.stdout.split(/\r?\n/).find(Boolean);
-  const sha = first?.split(/\s+/)?.[0];
-  return sha && /^[0-9a-f]{40}$/i.test(sha) ? sha : null;
 }
 
 function requirePinBranch(pin, operation) {
@@ -279,17 +202,6 @@ function assertBranchReadyForWrite(state, pin) {
     ].join("\n"),
     EXIT.STATE
   );
-}
-
-function setCloneIdentity(dir) {
-  const name = runSoft("git", ["-C", dir, "config", "user.name"]);
-  if (!name.ok || !name.stdout.trim()) {
-    run("git", ["-C", dir, "config", "user.name", "giterloper"]);
-  }
-  const email = runSoft("git", ["-C", dir, "config", "user.email"]);
-  if (!email.ok || !email.stdout.trim()) {
-    run("git", ["-C", dir, "config", "user.email", "giterloper@localhost"]);
-  }
 }
 
 function ensureWorkingClone(state, pin) {
@@ -691,24 +603,6 @@ function indexPin(state, pin) {
     withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
   }
   assertCollectionHealthy(pin, collection);
-}
-
-function cleanupQmdFiles(state, pin) {
-  const prefix = `${indexName(pin)}.`;
-  const dirs = [
-    path.join(state.rootDir, "qmd", "config", "qmd"),
-    path.join(state.rootDir, "qmd", "cache", "qmd"),
-  ];
-  for (const dir of dirs) {
-    if (!existsSync(dir)) continue;
-    for (const f of readdirSync(dir)) {
-      if (f.startsWith(prefix)) {
-        try {
-          unlinkSync(path.join(dir, f));
-        } catch {}
-      }
-    }
-  }
 }
 
 function teardownPinData(state, pin) {
