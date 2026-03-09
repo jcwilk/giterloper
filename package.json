@@ -10,12 +10,14 @@
     "gl": "node .cursor/skills/gl/scripts/gl.mjs",
     "build": "tsc -p .cursor/skills/gl/tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "benchmark:embed": "node scripts/benchmark-embed.mjs"
+    "benchmark:embed": "node scripts/benchmark-embed.mjs",
+    "test:unit": "node --experimental-strip-types --test tests/unit/reconcile.test.ts tests/unit/paths.test.ts"
   },
   "dependencies": {
     "@tobilu/qmd": "1.1.5"
   },
   "devDependencies": {
+    "@types/node": "^25.4.0",
     "typescript": "^5.7"
   }
 }
