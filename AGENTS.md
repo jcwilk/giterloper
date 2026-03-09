@@ -86,9 +86,13 @@ Branchless pins are read-only.
 
 ### Git access
 
-SSH is not available in Cloud VMs. Git is configured to rewrite `git@github.com:` URLs to HTTPS via `git config --global url."https://github.com/".insteadOf "git@github.com:"`. The `gh` CLI credential helper provides authentication for HTTPS git operations (`gh auth setup-git`).
+SSH is not available in Cloud VMs. The default GitHub App installation token (`cursor[bot]`) only covers the `jcwilk/giterloper` repo, so a `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is required for access to the knowledge repos.
 
-The GitHub App installation token only covers the `jcwilk/giterloper` repo itself. The main knowledge store (`giterloper_knowledge`) is private and inaccessible. The test knowledge repo (`giterloper_test_knowledge`) is public (reads work) but push access is denied to `cursor[bot]`, so E2E tests that create branches/push will fail.
+The update script configures git to rewrite `git@github.com:` to HTTPS and sets up a credential helper using `GITERLOPER_GH_TOKEN`. The token needs:
+- **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
+- **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
+
+**Important:** The default `~/.gitconfig` shipped by the VM embeds the `cursor[bot]` token in URL rewrite rules (`url.https://x-access-token:...@github.com/.insteadOf`). The update script replaces these with plain HTTPS rewrites and a credential helper that reads `GITERLOPER_GH_TOKEN`. Without this override, git operations to the knowledge repos will fail with 403/404.
 
 ### Running the CLI
 
@@ -105,7 +109,7 @@ See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl
 node scripts/run-e2e.mjs
 ```
 
-E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge`. Without it, only the two branchless-pin tests pass. This is a known Cloud VM limitation due to the scoped GitHub App token.
+E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`). The `reconcile` test (1 of 22) fails due to a known issue (`ISSUES.md` #3: missing `@tobilu/qmd/dist/store.js`).
 
 ### No lint or build step
 
