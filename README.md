@@ -20,7 +20,7 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 
 ## Quick start
 
-1. Ensure prerequisites: git, Node.js >= 22. Run `npm install`, then `qmd status` (or `npm install -g @tobilu/qmd`).
+1. Ensure prerequisites: git, Node.js >= 22, sqlite3. Run `npm install`, then `qmd status` (or `npm install -g @tobilu/qmd`).
 2. From this repo: `node .cursor/skills/gl/scripts/gl.mjs clone` then `node .cursor/skills/gl/scripts/gl.mjs index`
 3. See `bootstrap/02-verification.md` for verification steps.
 
