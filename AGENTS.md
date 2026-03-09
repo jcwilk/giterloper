@@ -82,6 +82,7 @@ Branchless pins are read-only.
 
 - **Node.js >= 22** and **Git** are available in the VM by default.
 - **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
+- **sqlite3** — Required for `gl index` embed optimization. Install via system package manager (e.g. `apt install sqlite3`).
 - No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
 
 ### Git access to knowledge repos

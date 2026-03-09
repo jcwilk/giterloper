@@ -292,17 +292,31 @@ function collectionExists(pin, collection) {
   return out.includes(collection);
 }
 
-/** Returns count of document hashes needing embedding, or null if DB missing/unreadable. */
+/** Returns count of document hashes needing embedding, or null if DB does not exist yet (new collection). */
 function needsEmbeddingCount(state, pin) {
   const dbPath = path.join(state.rootDir, "qmd", "cache", "qmd", `${indexName(pin)}.sqlite`);
   if (!existsSync(dbPath)) return null;
+
   const result = runSoft("sqlite3", [
     dbPath,
     "SELECT COUNT(DISTINCT d.hash) FROM documents d LEFT JOIN content_vectors v ON d.hash=v.hash AND v.seq=0 WHERE d.active=1 AND v.hash IS NULL",
   ]);
-  if (!result.ok) return null;
+
+  if (result.error) {
+    fail(`sqlite3 not found or failed to run. Install sqlite3 to use embed optimization: ${result.error.message}`, EXIT.EXTERNAL);
+  }
+  if (!result.ok) {
+    fail(
+      `sqlite3 failed to query embed count: ${(result.stderr || result.stdout || `exit code ${result.status}`).trim()}`,
+      EXIT.EXTERNAL
+    );
+  }
+
   const n = parseInt(result.stdout?.trim() ?? "", 10);
-  return Number.isNaN(n) ? null : n;
+  if (Number.isNaN(n)) {
+    fail(`sqlite3 returned invalid embed count: "${result.stdout?.trim() ?? ""}"`, EXIT.EXTERNAL);
+  }
+  return n;
 }
 
 function contextExists(pin, collection) {
@@ -595,16 +609,21 @@ function updatePinSha(state, pinName, newSha, opts = {}) {
   const newPin = { ...target, sha: newSha };
   const cloneBranch = opts.branch ?? newPin.branch;
 
-  clonePin(state, newPin, { branch: cloneBranch });
-  ensureGpuConfig(state);
-  indexPin(state, newPin);
-  teardownPinData(state, oldPin);
+  try {
+    clonePin(state, newPin, { branch: cloneBranch });
+    ensureGpuConfig(state);
+    indexPin(state, newPin);
+    teardownPinData(state, oldPin);
 
-  mutatePins(state, (pins) => {
-    const updated = pins.filter((p) => p.name !== pinName);
-    updated.unshift(newPin);
-    return updated;
-  });
+    mutatePins(state, (pins) => {
+      const updated = pins.filter((p) => p.name !== pinName);
+      updated.unshift(newPin);
+      return updated;
+    });
+  } catch (e) {
+    teardownPinData(state, newPin, { strict: false });
+    throw e;
+  }
 }
 
 function readStdinOrFail() {
@@ -963,10 +982,26 @@ function cleanupQmdFiles(state, pin) {
   }
 }
 
-function teardownPinData(state, pin) {
+function teardownPinData(state, pin, opts = {}) {
+  const strict = opts.strict !== false;
   const collection = collectionName(pin);
-  runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
-  runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
+
+  const contextResult = runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
+  if (strict && !contextResult.ok) {
+    fail(
+      `failed to remove qmd context for ${collection}: ${(contextResult.stderr || contextResult.stdout || "unknown error").trim()}`,
+      EXIT.EXTERNAL
+    );
+  }
+
+  const collectionResult = runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
+  if (strict && !collectionResult.ok) {
+    fail(
+      `failed to remove qmd collection ${collection}: ${(collectionResult.stderr || collectionResult.stdout || "unknown error").trim()}`,
+      EXIT.EXTERNAL
+    );
+  }
+
   cleanupQmdFiles(state, pin);
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
@@ -1379,14 +1414,37 @@ function cmdMerge(state, args) {
     `gl: merge ${source.name} into ${target.name}`,
   ]);
   if (!merge.ok) {
+    const msg = (merge.stderr + "\n" + merge.stdout).toLowerCase();
+    const isShallowOrMergeBase =
+      msg.includes("could not find merge base") ||
+      msg.includes("refusing to merge unrelated histories") ||
+      msg.includes("shallow") ||
+      msg.includes("does not have enough commits");
     const conflicts = runSoft("git", ["-C", dir, "diff", "--name-only", "--diff-filter=U"])
       .stdout.split(/\r?\n/)
       .filter(Boolean)
       .map((f) => `  - ${f}`)
       .join("\n");
+    const hasConflicts = conflicts.length > 0;
+
+    if (isShallowOrMergeBase && !hasConflicts) {
+      fail(
+        [
+          `Merge failed merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
+          "Shallow clones (depth=1) often cannot find a merge base between branches.",
+          "Git output:",
+          (merge.stderr || merge.stdout || "merge failed").trim(),
+          "See ISSUES.md #6 for planned improvements. Workaround: run the merge manually in the staged clone.",
+          `  Staged clone: ${stagedDir(state, target.name, target.branch)}`,
+          `  After resolving: run "gl promote --pin ${target.name}".`,
+        ].join("\n"),
+        EXIT.STATE
+      );
+    }
+
     fail(
       [
-        `merge conflict merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
+        `Merge conflict merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
         "Conflicting files:",
         conflicts || "  - (unable to determine)",
         "The working clone is left in a conflicted state at:",
