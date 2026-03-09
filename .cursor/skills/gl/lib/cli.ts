@@ -1,6 +1,7 @@
 /**
  * CLI helpers: output, flag parsing, help.
  */
+import { readFileSync } from "node:fs";
 import { EXIT, fail } from "./errors.js";
 
 export function info(message: string): void {
@@ -61,4 +62,10 @@ export function ensureHelpNotRequested(args: string[], text: string): void {
     commandOutput(text);
     process.exit(EXIT.OK);
   }
+}
+
+export function readStdinOrFail(): string {
+  const text = readFileSync(0, "utf8");
+  if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
+  return text;
 }

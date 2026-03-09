@@ -131,9 +131,9 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 8: Commands and Entry Point
 
-- [ ] **8.1** Extract command handlers into `lib/commands/` (e.g. pin.ts, search.ts, stage.ts, reconcile.ts)
-- [ ] **8.2** Reduce `gl.mjs` to a thin router: parse args, dispatch to commands, handle GlError
-- [ ] **8.3** Run E2E
+- [x] **8.1** Extract helpers: ensureGitignoreEntries (config), commitIfDirty, pushBranchOrFail (branch), readStdinOrFail (cli). Command handlers remain in gl.mjs; full extraction to lib/commands/ deferred.
+- [ ] **8.2** Reduce `gl.mjs` to a thin router: parse args, dispatch to commands, handle GlError *(partial: helpers moved, cmd* remain)*
+- [x] **8.3** Run E2E
 - [ ] **8.4** (Optional) Convert `gl.mjs` → `gl.ts` and add a small `gl.mjs` wrapper that runs `gl.ts` via tsx or compiled JS
 
 ---
@@ -155,6 +155,13 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ---
 
+## Divergences from Plan
+
+- **Phase 8**: Full command handler extraction to `lib/commands/` (pin.ts, search.ts, etc.) was not completed. Helpers (ensureGitignoreEntries, commitIfDirty, pushBranchOrFail, readStdinOrFail) were moved to lib. Command handlers (cmd*) remain in gl.mjs. This can be completed as a follow-up.
+- **verifyCloneAtSha**: Added to git.ts (not in original module table).
+- **runSoft('nvidia-smi')**: Fixed to `runSoft('nvidia-smi', [])` - second (args) parameter required.
+- **Unit tests**: Import from dist/ (compiled JS) rather than lib/ source, since Node runs tests directly.
+
 ## Progress Summary
 
 | Phase | Status | Notes |
@@ -166,6 +173,6 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 5 | ✅ | Git, QMD |
 | 6 | ✅ | Config, GPU |
 | 7 | ✅ | Branch, lifecycle, CLI |
-| 8 | ⬜ | Commands, entry point |
+| 8 | 🔶 | Commands: helpers extracted, handlers in gl.mjs |
 
 *(Agents: update the Status column as you complete phases.)*
