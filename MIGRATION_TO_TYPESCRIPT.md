@@ -168,4 +168,4 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 7 | ✅ | Branch, lifecycle, CLI |
 | 8 | ✅ | Commands, entry point |
 
-*(Agents: update the Status column as you complete phases.)*
+**Migration complete.** gl.mjs reduced from ~1,487 to ~776 lines. Lib modules: types, errors, run, paths, reconcile, locking, pinned, git, qmd, config, gpu, branch, pin-lifecycle, cli, index.
