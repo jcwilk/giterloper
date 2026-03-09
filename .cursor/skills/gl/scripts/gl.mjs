@@ -36,6 +36,12 @@ import {
   needsEmbeddingCount,
   pinQmd,
 } from "../dist/qmd.js";
+import { readLocalConfig, writeLocalConfig } from "../dist/config.js";
+import {
+  detectGpuMode,
+  ensureGpuConfig,
+  printCudaInstallInstructions,
+} from "../dist/gpu.js";
 import { EXIT, fail, GlError } from "../dist/errors.js";
 import { isBranchNotFoundError, run, runSoft } from "../dist/run.js";
 import { createHash, randomBytes } from "node:crypto";
@@ -65,70 +71,6 @@ function removeStagedDir(state, pinName, branch) {
   const dir = stagedDir(state, pinName, branch);
   if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   runSoft("rmdir", [path.join(state.stagedRoot, pinName)]);
-}
-
-function readLocalConfig(state) {
-  const p = state.localConfigPath ?? path.join(state.rootDir, "local.json");
-  if (!existsSync(p)) return {};
-  try {
-    return JSON.parse(readFileSync(p, "utf8"));
-  } catch {
-    return {};
-  }
-}
-
-function writeLocalConfig(state, config) {
-  const p = state.localConfigPath ?? path.join(state.rootDir, "local.json");
-  ensureDir(path.dirname(p));
-  const temp = `${p}.tmp`;
-  writeFileSync(temp, JSON.stringify(config, null, 2), "utf8");
-  renameSync(temp, p);
-}
-
-function detectGpuMode() {
-  const nvcc = runSoft("nvcc", ["--version"]);
-  if (nvcc.ok) return { mode: "cuda" };
-  const nvidiaSmi = runSoft("nvidia-smi");
-  if (nvidiaSmi.ok) return { mode: "cpu", reason: "no-toolkit" };
-  return { mode: "cpu", reason: "no-gpu" };
-}
-
-function printCudaInstallInstructions() {
-  info("");
-  info("CUDA Toolkit is required for GPU acceleration. Install from:");
-  info("  https://developer.nvidia.com/cuda-downloads");
-  info("");
-  info("Ubuntu/Debian example:");
-  info("  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb");
-  info("  sudo dpkg -i cuda-keyring_1.1-1_all.deb");
-  info("  sudo apt update && sudo apt install cuda-toolkit-13-1");
-  info("");
-}
-
-function ensureGpuConfig(state) {
-  if (state.gpuMode === "cuda") return;
-  if (state.gpuMode === "cpu") {
-    info("GPU disabled. Install CUDA Toolkit and run `gl gpu` to re-detect.");
-    return;
-  }
-  const detected = detectGpuMode();
-  if (detected.mode === "cuda") {
-    writeLocalConfig(state, { gpuMode: "cuda" });
-    state.gpuMode = "cuda";
-    return;
-  }
-  if (detected.reason === "no-gpu") {
-    info("No NVIDIA GPU detected; using CPU mode.");
-    writeLocalConfig(state, { gpuMode: "cpu" });
-    state.gpuMode = "cpu";
-    process.env.NODE_LLAMA_CPP_GPU = "false";
-    return;
-  }
-  printCudaInstallInstructions();
-  fail(
-    "NVIDIA GPU detected but CUDA Toolkit not found. Install CUDA Toolkit and run `gl gpu`, or run `gl gpu --cpu` to continue in CPU-only mode.",
-    EXIT.USER
-  );
 }
 
 function ensureGitignoreEntries(state) {
@@ -287,7 +229,7 @@ function updatePinSha(state, pinName, newSha, opts = {}) {
   const cloneBranch = opts.branch ?? newPin.branch;
 
   clonePin(state, newPin, { branch: cloneBranch });
-  ensureGpuConfig(state);
+  ensureGpuConfig(state, info);
   indexPin(state, newPin);
   teardownPinData(state, oldPin);
 
@@ -479,7 +421,7 @@ function cmdPinAdd(state, args) {
   });
   const fallbackRef = ref !== branch ? ref : "HEAD";
   clonePin(state, newPin, { branch, fallbackRef });
-  ensureGpuConfig(state);
+  ensureGpuConfig(state, info);
   indexPin(state, newPin);
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
 }
@@ -643,7 +585,7 @@ function cmdIndex(state, args) {
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   if (allParsed.found && pinParsed.found) fail("use either --all or --pin, not both", EXIT.USER);
   const pins = allParsed.found ? readPins(state) : [resolvePin(state, pinParsed.found ? pinParsed.value : null)];
-  ensureGpuConfig(state);
+  ensureGpuConfig(state, info);
   for (const pin of pins) indexPin(state, pin);
   commandOutput({ indexed: pins.map(collectionName) }, state.globalJson);
 }
