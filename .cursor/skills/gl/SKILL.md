@@ -10,7 +10,7 @@ description: Interact with giterloper knowledge stores connected to this project
 Use this skill for giterloper operations in this project.
 
 Project state lives in `.giterloper/`:
-- `.giterloper/pinned.yaml`: pin name -> `source@sha`
+- `.giterloper/pinned.yaml`: pin name -> object with `repo`, `sha`, optional `branch`
 - `.giterloper/versions/`: read-only clones at exact SHAs
 - `.giterloper/staged/`: temporary working clones for write operations
 
@@ -18,7 +18,9 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 
 ## Core Concepts
 
-- **Pin**: A named store reference (`name`, `source`, `sha`).
+- **Pin**: A named store reference (`name`, `source`, `sha`, optional `branch`).
+- **Branched pin**: Supports write operations (`add`, `subtract`, `reconcile`, `promote`, `merge`).
+- **Branchless pin**: Read-only for `search`, `query`, `get`, `verify`.
 - **Collection**: QMD index name derived as `<name>@<sha>`.
 - **Base store**: The pin being modified for write operations.
 - **Reference input**: The comparison source (raw text, conversation context, or another pin).
@@ -57,16 +59,20 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 
 ### Adding knowledge
 
-1. Search for overlap first.
-2. Create staged clone: `node .cursor/skills/gl/scripts/gl.mjs stage <branch>`.
-3. Edit content in `.giterloper/staged/...`.
-4. Promote: `node .cursor/skills/gl/scripts/gl.mjs promote <branch>`.
+1. Queue new content (stdin): `echo "<markdown>" | node .cursor/skills/gl/scripts/gl.mjs add --pin <name> [--name <file>]`.
+2. Repeat `add` as needed to build a paper trail of queued changes.
+3. Reconcile queue into `knowledge/`: `node .cursor/skills/gl/scripts/gl.mjs reconcile --pin <name>`.
+4. Optional finalization: `node .cursor/skills/gl/scripts/gl.mjs promote --pin <name>`.
 
 ### Subtracting knowledge
 
-1. Identify overlap between base store and reference content.
-2. Stage a branch and remove overlapping content in staged clone.
-3. Promote with `node .cursor/skills/gl/scripts/gl.mjs promote <branch>`.
+1. Queue subtraction intent (stdin): `echo "<markdown>" | node .cursor/skills/gl/scripts/gl.mjs subtract --pin <name> [--name <file>]`.
+2. Reconcile queue into `knowledge/`: `node .cursor/skills/gl/scripts/gl.mjs reconcile --pin <name>`.
+
+### Merging knowledge branches
+
+1. Ensure both pins are branched.
+2. Merge source pin branch into target pin branch: `node .cursor/skills/gl/scripts/gl.mjs merge <source-pin> <target-pin>`.
 
 ### Intersecting knowledge
 
@@ -77,10 +83,10 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 ### Pin management
 
 - List: `node .cursor/skills/gl/scripts/gl.mjs pin list`
-- Add: `node .cursor/skills/gl/scripts/gl.mjs pin add <name> <source> [--ref <ref>]`
+- Add: `node .cursor/skills/gl/scripts/gl.mjs pin add <name> <source> [--ref <ref>] [--branch <branch>]`
 - Remove: `node .cursor/skills/gl/scripts/gl.mjs pin remove <name>`
 - Update SHA: `node .cursor/skills/gl/scripts/gl.mjs pin update <name> [--ref <ref>]`
-- Add pin, then materialize: `gl pin add <name> <source> [--ref <ref>]` then `gl clone` and `gl index`
+- Add pin, then materialize: `gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `gl clone` and `gl index`
 
 ## Write Directionality (Critical)
 
@@ -107,5 +113,6 @@ If the input type is unclear, ask a clarifying question first.
 - Prefer `node .cursor/skills/gl/scripts/gl.mjs status` before making assumptions about local state.
 - Use `node .cursor/skills/gl/scripts/gl.mjs verify` after clone/index or promotions.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
+- Write operations fail if the tracked branch is stale; run `gl pin update <name>` and retry.
 - Confirm with the user before destructive actions (teardown, subtract, intersect).
 - Never edit `.giterloper/versions/` directly; write via staged clones only.

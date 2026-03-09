@@ -1,5 +1,8 @@
 .giterloper/versions/
 .giterloper/staged/
 .giterloper/local.json
+.giterloper/pinned.yaml.lock
+.giterloper/qmd/
+.giterloper/locks/
 
 .cursor/plans/

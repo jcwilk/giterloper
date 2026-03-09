@@ -25,3 +25,13 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 3. See `bootstrap/02-verification.md` for verification steps.
 
 See `bootstrap/` for detailed setup.
+
+## Tests
+
+E2E tests use random pin/branch names per run and can execute in parallel:
+
+```bash
+node scripts/run-e2e.mjs
+```
+
+See `AGENTS.md` for collision-avoidance guidance.

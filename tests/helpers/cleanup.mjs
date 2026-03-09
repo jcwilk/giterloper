@@ -32,7 +32,15 @@ function cleanupLocalCopies(pinName) {
   rmSync(stagedDir, { recursive: true, force: true });
 }
 
-export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, pinName = null) {
+/**
+ * @param {string} remoteSource - e.g. "github.com/jcwilk/giterloper_test_knowledge"
+ * @param {string} cleanMainSha - SHA to reset main to
+ * @param {string|null|{ pinName?: string, branchName?: string }} opts - If string: legacy pinName for local cleanup only (deletes ALL remote branches). If object: { pinName, branchName } for parallel-safe cleanup (only deletes our branch, creates it from main).
+ */
+export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null) {
+  const pinName = typeof opts === "string" ? opts : opts?.pinName ?? null;
+  const branchName = typeof opts === "object" && opts?.branchName ? opts.branchName : null;
+
   cleanupLocalCopies(pinName);
 
   const remoteUrl = remoteSource.startsWith("http")
@@ -50,9 +58,15 @@ export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, pinName = n
     })
     .filter(Boolean);
 
-  for (const branch of branches) {
-    if (branch === "main") continue;
-    runGit(["push", remoteUrl, "--delete", branch]);
+  if (branchName) {
+    if (branches.includes(branchName)) {
+      runGit(["push", remoteUrl, "--delete", branchName]);
+    }
+  } else {
+    for (const branch of branches) {
+      if (branch === "main") continue;
+      runGit(["push", remoteUrl, "--delete", branch]);
+    }
   }
 
   const tempRoot = mkdtempSync(path.join(tmpdir(), "giterloper-test-"));
@@ -61,6 +75,10 @@ export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, pinName = n
     const repoDir = path.join(tempRoot, "repo");
     runGit(["checkout", cleanMainSha], { cwd: repoDir });
     runGit(["push", "--force", "origin", `${cleanMainSha}:refs/heads/main`], { cwd: repoDir });
+    if (branchName) {
+      runGit(["checkout", "-b", branchName], { cwd: repoDir });
+      runGit(["push", "--force", "origin", `HEAD:refs/heads/${branchName}`], { cwd: repoDir });
+    }
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }

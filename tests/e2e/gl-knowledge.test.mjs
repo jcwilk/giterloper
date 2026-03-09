@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
 
 import {
-  TEST_BRANCH,
-  TEST_PIN_NAME,
   TEST_SOURCE,
   TEST_TOPIC_BODY,
   TEST_TOPIC_PATH,
@@ -15,6 +14,12 @@ import {
   CLEAN_MAIN_SHA,
   TEST_MAIN_REF,
 } from "./config.mjs";
+
+/** Unique per test file run; ALL collision-prone names must include this. */
+const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
+const TEST_PIN_NAME = `test_knowledge_${RUN_ID}`;
+const WORKFLOW_BRANCH = RUN_ID;
+
 import { runGl, runGlJson } from "../helpers/gl.mjs";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.mjs";
 
@@ -35,8 +40,6 @@ function stagedDir(pinName, branch) {
 function cloneDir(pinName, sha) {
   return path.join(process.cwd(), ".giterloper", "versions", pinName, sha);
 }
-
-const WORKFLOW_BRANCH = `${TEST_BRANCH}-${Date.now()}`;
 
 function branchContentText() {
   return [`# ${TEST_TOPIC_TITLE}`, "", TEST_TOPIC_BODY].join("\n");
@@ -62,7 +65,7 @@ function runGit(args, { cwd = process.cwd(), silent = false } = {}) {
 }
 
 function scratchPinName(prefix) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
 function ensurePinRemoved(pinName) {
@@ -100,65 +103,80 @@ function createRemoteBranchFromMain(branchName, contentPath, contentBody) {
 }
 
 before(() => {
-  cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, TEST_PIN_NAME);
-  runGlJson(["pin", "add", TEST_PIN_NAME, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
-  runGlJson(["clone", "--pin", TEST_PIN_NAME]);
-  runGlJson(["index", "--pin", TEST_PIN_NAME]);
+  cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: TEST_PIN_NAME, branchName: WORKFLOW_BRANCH });
+  createRemoteBranchFromMain(WORKFLOW_BRANCH, TEST_TOPIC_PATH, branchContentText());
+  runGlJson(["pin", "add", TEST_PIN_NAME, TEST_SOURCE, "--ref", WORKFLOW_BRANCH, "--branch", WORKFLOW_BRANCH]);
 });
 
 test("stage creates a working clone", () => {
-  fs.rmSync(stagedDir(TEST_PIN_NAME, WORKFLOW_BRANCH), { recursive: true, force: true });
-  const stageResult = runGlJson(["stage", WORKFLOW_BRANCH, "--pin", TEST_PIN_NAME]);
-  assert.equal(stageResult.created, true, "stage should create branch for first run");
-
-  const dir = stagedDir(TEST_PIN_NAME, WORKFLOW_BRANCH);
-  assert.equal(stageResult.staged, dir, "stage command should return expected path");
-  assert.ok(fs.existsSync(dir), "staged dir should exist");
-  assert.ok(fs.existsSync(path.join(dir, "CONSTITUTION.md")), "staged dir should contain repository files");
+  const pinName = scratchPinName("scratch-stage");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const stageResult = runGlJson(["stage", branch, "--pin", pinName]);
+    assert.equal(stageResult.created, true, "stage should create branch for first run");
+    const dir = stagedDir(pinName, branch);
+    assert.equal(stageResult.staged, dir, "stage command should return expected path");
+    assert.ok(fs.existsSync(dir), "staged dir should exist");
+    assert.ok(fs.existsSync(path.join(dir, "CONSTITUTION.md")), "staged dir should contain repository files");
+  } finally {
+    ensurePinRemoved(pinName);
+  }
 });
 
 test("write content to staged clone", () => {
-  const dir = stagedDir(TEST_PIN_NAME, WORKFLOW_BRANCH);
-  assert.ok(fs.existsSync(dir), "staged dir should still exist from prior step");
-
-  const filePath = path.join(dir, TEST_TOPIC_PATH);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, branchContentText(), "utf8");
-
-  const content = fs.readFileSync(filePath, "utf8");
-  assert.match(content, /Test Topic for E2E/);
-  assert.match(content, /e2e-topic-keyword/);
+  const pinName = scratchPinName("scratch-write");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const dir = stagedDir(pinName, branch);
+    runGlJson(["stage", branch, "--pin", pinName]);
+    const filePath = path.join(dir, TEST_TOPIC_PATH);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, branchContentText(), "utf8");
+    const content = fs.readFileSync(filePath, "utf8");
+    assert.match(content, /Test Topic for E2E/);
+    assert.match(content, /e2e-topic-keyword/);
+  } finally {
+    ensurePinRemoved(pinName);
+  }
 });
 
 test("promote pushes and updates pin", () => {
-  const beforePins = runGlJson(["pin", "list"]);
-  const beforePin = getPin(beforePins, TEST_PIN_NAME);
-  assert.ok(beforePin, "test pin should exist before promote");
-
-  runGlJson(["promote", WORKFLOW_BRANCH, "--pin", TEST_PIN_NAME]);
-
-  const afterPins = runGlJson(["pin", "list"]);
-  const afterPin = getPin(afterPins, TEST_PIN_NAME);
-  assert.ok(afterPin, "test pin should exist after promote");
-  assert.notEqual(afterPin.sha, beforePin.sha, "pin sha should change after promote");
-  assert.ok(
-    fs.existsSync(cloneDir(TEST_PIN_NAME, afterPin.sha)),
-    "pinned clone should exist for new sha"
-  );
+  const pinName = scratchPinName("scratch-promote");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const beforePins = runGlJson(["pin", "list"]);
+    const beforePin = getPin(beforePins, pinName);
+    assert.ok(beforePin, "test pin should exist before promote");
+    const dir = stagedDir(pinName, branch);
+    runGlJson(["stage", branch, "--pin", pinName]);
+    const filePath = path.join(dir, TEST_TOPIC_PATH);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, branchContentText(), "utf8");
+    runGlJson(["promote", "--pin", pinName]);
+    const afterPins = runGlJson(["pin", "list"]);
+    const afterPin = getPin(afterPins, pinName);
+    assert.ok(afterPin, "test pin should exist after promote");
+    assert.notEqual(afterPin.sha, beforePin.sha, "pin sha should change after promote");
+    assert.ok(fs.existsSync(cloneDir(pinName, afterPin.sha)), "pinned clone should exist for new sha");
+  } finally {
+    ensurePinRemoved(pinName);
+  }
 });
 
 test("search finds added content", () => {
   const result = runGlJson(["search", "test topic for e2e", "--pin", TEST_PIN_NAME]);
   const haystack = asText(result).toLowerCase();
-  assert.ok(
-    result.length > 0,
-    `expected search output to return at least one result, got: ${haystack}`
-  );
+  assert.ok(result.length > 0, `expected search output to return at least one result, got: ${haystack}`);
   const topicFound = result.some((entry) => {
     const text = asText(entry).toLowerCase();
     return (
-      text.includes(TEST_TOPIC_TITLE.toLowerCase()) ||
-      text.includes(TEST_TOPIC_PATH.toLowerCase())
+      text.includes(TEST_TOPIC_TITLE.toLowerCase()) || text.includes(TEST_TOPIC_PATH.toLowerCase())
     );
   });
   assert.ok(topicFound, `expected search output to reference the added test topic, got: ${haystack}`);
@@ -200,11 +218,10 @@ test("verify reports healthy state", () => {
 });
 
 test("stage-cleanup removes staged clone", () => {
-  const branch = `${TEST_BRANCH}-cleanup`;
+  const branch = `${RUN_ID}_cleanup`;
   const staged = runGlJson(["stage", branch, "--pin", TEST_PIN_NAME]);
-  const stagedPath = path.join(staged.staged);
+  const stagedPath = staged.staged;
   assert.ok(fs.existsSync(stagedPath), "staged path should exist before cleanup");
-
   const cleanup = runGlJson(["stage-cleanup", branch, "--pin", TEST_PIN_NAME]);
   assert.ok(cleanup.cleaned, "cleanup should report cleaned");
   assert.equal(cleanup.path, stagedPath, "cleanup path should match stage path");
@@ -212,15 +229,20 @@ test("stage-cleanup removes staged clone", () => {
 });
 
 test("stage same branch reuses existing", () => {
-  const branch = `${TEST_BRANCH}-reused`;
-  const first = runGlJson(["stage", branch, "--pin", TEST_PIN_NAME]);
-  assert.equal(first.created, true, "first stage call should create clone");
-
-  const second = runGlJson(["stage", branch, "--pin", TEST_PIN_NAME]);
-  assert.equal(second.created, false, "second stage call should reuse existing clone");
-  assert.equal(second.staged, first.staged, "stage should reuse same path");
-
-  runGlJson(["stage-cleanup", branch, "--pin", TEST_PIN_NAME]);
+  const pinName = scratchPinName("scratch-reuse");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const first = runGlJson(["stage", branch, "--pin", pinName]);
+    assert.equal(first.created, true, "first stage call should create clone");
+    const second = runGlJson(["stage", branch, "--pin", pinName]);
+    assert.equal(second.created, false, "second stage call should reuse existing clone");
+    assert.equal(second.staged, first.staged, "stage should reuse same path");
+    runGlJson(["stage-cleanup", branch, "--pin", pinName]);
+  } finally {
+    ensurePinRemoved(pinName);
+  }
 });
 
 test("pin list includes the test pin", () => {
@@ -234,18 +256,18 @@ test("pin list includes the test pin", () => {
 
 test("pin remove removes local pin data", () => {
   const pinName = scratchPinName("scratch-remove");
-  let added;
   try {
-    added = runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
+    const added = runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assert.equal(added.name, pinName);
-    runGlJson(["clone", "--pin", pinName]);
-    runGlJson(["index", "--pin", pinName]);
     assert.ok(fs.existsSync(cloneDir(pinName, added.sha)), "clone should create pin version");
-
     const removed = runGlJson(["pin", "remove", pinName]);
     assert.equal(removed.removed, true, "pin remove should report removed");
     assert.equal(getPin(runGlJson(["pin", "list"]), pinName), undefined, "pin should no longer exist");
-    assert.equal(fs.existsSync(path.join(process.cwd(), ".giterloper", "versions", pinName)), false, "pin versions directory should be removed");
+    assert.equal(
+      fs.existsSync(path.join(process.cwd(), ".giterloper", "versions", pinName)),
+      false,
+      "pin versions directory should be removed"
+    );
   } finally {
     ensurePinRemoved(pinName);
   }
@@ -254,26 +276,19 @@ test("pin remove removes local pin data", () => {
 test("pin update advances pin sha", () => {
   const pinName = scratchPinName("scratch-update");
   const branchName = `${pinName}-branch`;
-  let branchSha = "";
-
   try {
-    const added = runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
-    const originalSha = added.sha;
-    runGlJson(["clone", "--pin", pinName]);
-    runGlJson(["index", "--pin", pinName]);
-
-    branchSha = createRemoteBranchFromMain(
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
+    const originalSha = getPin(runGlJson(["pin", "list"]), pinName).sha;
+    const branchSha = createRemoteBranchFromMain(
       branchName,
-      `knowledge/e2e-update-${pinName}.md`,
+      `knowledge/e2e-update_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
       `# Update marker for ${pinName}\n`
     );
-
     const update = runGlJson(["pin", "update", pinName, "--ref", branchName]);
     assert.equal(update.updated, true, "pin update should report updated");
     assert.equal(update.name, pinName);
     assert.equal(update.oldSha, originalSha, "pin update should record previous SHA");
     assert.equal(update.newSha, branchSha, "pin update should update to branch SHA");
-
     const pin = getPin(runGlJson(["pin", "list"]), pinName);
     assert.ok(pin, "pin should still exist after update");
     assert.equal(pin.sha, branchSha, "pinned sha should match updated hash");
@@ -299,6 +314,6 @@ after(() => {
   try {
     runGlJson(["teardown", TEST_PIN_NAME]);
   } finally {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, TEST_PIN_NAME);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: TEST_PIN_NAME, branchName: WORKFLOW_BRANCH });
   }
 });

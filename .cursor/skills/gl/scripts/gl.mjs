@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
 
 const EXIT = {
   OK: 0,
@@ -100,30 +104,65 @@ function toRemoteUrl(source) {
 
 function parsePinned(content) {
   const pins = [];
+  let current = null;
   const lines = content.split(/\r?\n/);
   for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const colon = line.indexOf(":");
+    const line = rawLine.replace(/\t/g, "  ");
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const indent = line.match(/^ */)?.[0]?.length ?? 0;
+    const colon = trimmed.indexOf(":");
     if (colon < 0) continue;
-    const name = line.slice(0, colon).trim();
-    const value = line.slice(colon + 1).trim();
-    const at = value.lastIndexOf("@");
-    if (!name || at < 0) {
-      fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+
+    if (indent === 0) {
+      const name = trimmed.slice(0, colon).trim();
+      const value = trimmed.slice(colon + 1).trim();
+      if (!name) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+
+      // Backward-compatible with legacy "name: source@sha" one-liner format.
+      if (value) {
+        const at = value.lastIndexOf("@");
+        if (at < 0) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+        const source = value.slice(0, at).trim();
+        const sha = value.slice(at + 1).trim();
+        if (!source || !/^[0-9a-f]{40}$/i.test(sha)) {
+          fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+        }
+        pins.push({ name, source, sha });
+        current = null;
+        continue;
+      }
+
+      current = { name, source: null, sha: null, branch: undefined };
+      pins.push(current);
+      continue;
     }
-    const source = value.slice(0, at).trim();
-    const sha = value.slice(at + 1).trim();
-    if (!source || !/^[0-9a-f]{40}$/i.test(sha)) {
-      fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+
+    if (!current) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+    const key = trimmed.slice(0, colon).trim();
+    const value = trimmed.slice(colon + 1).trim();
+    if (!value) fail(`invalid pinned.yaml entry: "${rawLine}"`, EXIT.STATE);
+    if (key === "repo") current.source = value;
+    if (key === "sha") current.sha = value;
+    if (key === "branch") current.branch = value;
+  }
+
+  for (const pin of pins) {
+    if (!pin.source || !/^[0-9a-f]{40}$/i.test(pin.sha || "")) {
+      fail(`invalid pinned.yaml entry for "${pin.name}"`, EXIT.STATE);
     }
-    pins.push({ name, source, sha });
   }
   return pins;
 }
 
 function serializePins(pins) {
-  const body = pins.map((pin) => `${pin.name}: ${pin.source}@${pin.sha}`).join("\n");
+  const body = pins
+    .map((pin) => {
+      const lines = [`${pin.name}:`, `  repo: ${pin.source}`, `  sha: ${pin.sha}`];
+      if (pin.branch) lines.push(`  branch: ${pin.branch}`);
+      return lines.join("\n");
+    })
+    .join("\n");
   return `${body}${body ? "\n" : ""}`;
 }
 
@@ -131,6 +170,45 @@ function readPins(state) {
   ensureGiterloperRoot(state);
   const content = readFileSync(state.pinnedPath, "utf8");
   return parsePinned(content);
+}
+
+const LOCK_RETRIES = 100;
+const LOCK_RETRY_MS = 25;
+
+function acquirePinnedLock(state) {
+  const lockPath = `${state.pinnedPath}.lock`;
+  for (let i = 0; i < LOCK_RETRIES; i++) {
+    try {
+      const fd = openSync(lockPath, "wx");
+      return { fd, lockPath };
+    } catch (e) {
+      if (e.code !== "EEXIST") throw e;
+      if (i === LOCK_RETRIES - 1) fail("could not acquire pinned.yaml lock after retries", EXIT.STATE);
+      const deadline = Date.now() + LOCK_RETRY_MS;
+      while (Date.now() < deadline) {}
+    }
+  }
+  fail("could not acquire pinned.yaml lock", EXIT.STATE);
+}
+
+function releasePinnedLock(fd, lockPath) {
+  closeSync(fd);
+  unlinkSync(lockPath);
+}
+
+/** Holds exclusive lock for read-modify-write on pinned.yaml. */
+function mutatePins(state, mutator) {
+  const { fd, lockPath } = acquirePinnedLock(state);
+  try {
+    const content = readFileSync(state.pinnedPath, "utf8");
+    const pins = parsePinned(content);
+    const updated = mutator(pins);
+    const temp = `${state.pinnedPath}.tmp`;
+    writeFileSync(temp, serializePins(updated), "utf8");
+    renameSync(temp, state.pinnedPath);
+  } finally {
+    releasePinnedLock(fd, lockPath);
+  }
 }
 
 function writePinsAtomic(state, pins) {
@@ -152,6 +230,14 @@ function collectionName(pin) {
   return `${pin.name}@${pin.sha}`;
 }
 
+function indexName(pin) {
+  return `${pin.name}_${pin.sha}`;
+}
+
+function pinQmd(pin, args) {
+  return ["--index", indexName(pin), ...args];
+}
+
 function cloneDir(state, pin) {
   return path.join(state.versionsDir, pin.name, pin.sha);
 }
@@ -160,20 +246,21 @@ function stagedDir(state, pinName, branchName) {
   return path.join(state.stagedRoot, pinName, branchName);
 }
 
-function collectionExists(collection) {
-  const out = run("qmd", ["collection", "list"]);
+function collectionExists(pin, collection) {
+  const out = run("qmd", pinQmd(pin, ["collection", "list"]));
   return out.includes(collection);
 }
 
-function contextExists(collection) {
-  const out = run("qmd", ["context", "list"]);
+function contextExists(pin, collection) {
+  const out = run("qmd", pinQmd(pin, ["context", "list"]));
   return out.includes(collection);
 }
 
 function verifyCloneAtSha(pin, clonePath) {
   if (!existsSync(clonePath)) return false;
-  const head = run("git", ["-C", clonePath, "rev-parse", "HEAD"]).toLowerCase();
-  return head === pin.sha.toLowerCase();
+  const result = runSoft("git", ["-C", clonePath, "rev-parse", "HEAD"]);
+  if (!result.ok || !result.stdout) return false;
+  return result.stdout.trim().toLowerCase() === pin.sha.toLowerCase();
 }
 
 function resolveSha(source, ref = "HEAD") {
@@ -273,8 +360,8 @@ function ensureGitignoreEntries(state) {
   }
 }
 
-function assertCollectionHealthy(collection) {
-  const status = run("qmd", ["status"]);
+function assertCollectionHealthy(pin, collection) {
+  const status = run("qmd", pinQmd(pin, ["status"]));
   const vectorsLine = status
     .split(/\r?\n/)
     .find((line) => line.toLowerCase().includes(collection.toLowerCase()) && line.toLowerCase().includes("vector"));
@@ -305,6 +392,174 @@ function consumeBooleanFlag(args, longName) {
   return { found: true, args: args.slice(0, idx).concat(args.slice(idx + 1)) };
 }
 
+function resolveBranchSha(source, branch) {
+  const remote = toRemoteUrl(source);
+  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
+  if (!out.ok || !out.stdout) {
+    fail(`could not resolve branch "${branch}" for ${source}`, EXIT.EXTERNAL);
+  }
+  const first = out.stdout.split(/\r?\n/).find(Boolean);
+  const sha = first?.split(/\s+/)?.[0];
+  if (!sha || !/^[0-9a-f]{40}$/i.test(sha)) {
+    fail(`unexpected SHA while resolving ${source}@${branch}: ${sha || "<none>"}`, EXIT.EXTERNAL);
+  }
+  return sha;
+}
+
+function requirePinBranch(pin, operation) {
+  if (pin.branch) return;
+  fail(
+    `pin "${pin.name}" has no branch. ${operation} requires a branched pin. Add one with "gl pin add ${pin.name} ${pin.source} --branch <branch>".`,
+    EXIT.USER
+  );
+}
+
+function setCloneIdentity(dir) {
+  const name = runSoft("git", ["-C", dir, "config", "user.name"]);
+  if (!name.ok || !name.stdout.trim()) {
+    run("git", ["-C", dir, "config", "user.name", "giterloper"]);
+  }
+  const email = runSoft("git", ["-C", dir, "config", "user.email"]);
+  if (!email.ok || !email.stdout.trim()) {
+    run("git", ["-C", dir, "config", "user.email", "giterloper@localhost"]);
+  }
+}
+
+function ensureWorkingClone(state, pin) {
+  requirePinBranch(pin, "write operation");
+  const dir = stagedDir(state, pin.name, pin.branch);
+  if (!existsSync(dir)) {
+    ensureDir(path.dirname(dir));
+    run("git", ["clone", "--depth", "1", "--branch", pin.branch, toRemoteUrl(pin.source), dir]);
+  }
+  setCloneIdentity(dir);
+  return dir;
+}
+
+function assertBranchFresh(state, pin, workingDir) {
+  if (!pin.branch) return;
+  const localSha = run("git", ["-C", workingDir, "rev-parse", "HEAD"]);
+  const remoteSha = resolveBranchSha(pin.source, pin.branch);
+  if (localSha.toLowerCase() === remoteSha.toLowerCase()) return;
+  fail(
+    [
+      `branch "${pin.branch}" for pin "${pin.name}" is stale.`,
+      `  Local HEAD:  ${localSha}`,
+      `  Remote HEAD: ${remoteSha}`,
+      "  The remote branch has commits not present in your working clone.",
+      `  To sync: run "gl pin update ${pin.name}" to pull the latest, then retry.`,
+      "  If you have local uncommitted work in the staged clone, you can also run:",
+      `    git -C ${stagedDir(state, pin.name, pin.branch)} pull --rebase`,
+    ].join("\n"),
+    EXIT.STATE
+  );
+}
+
+function branchFreshSoft(state, pin) {
+  if (!pin.branch) return { fresh: null, localSha: null, remoteSha: null };
+  const dir = stagedDir(state, pin.name, pin.branch);
+  if (!existsSync(dir)) return { fresh: null, localSha: null, remoteSha: null };
+  const local = runSoft("git", ["-C", dir, "rev-parse", "HEAD"]);
+  const remote = runSoft("git", ["ls-remote", "--heads", toRemoteUrl(pin.source), pin.branch]);
+  if (!local.ok || !remote.ok || !remote.stdout) {
+    return { fresh: null, localSha: local.stdout || null, remoteSha: null };
+  }
+  const remoteSha = remote.stdout.split(/\r?\n/).find(Boolean)?.split(/\s+/)?.[0];
+  if (!remoteSha) return { fresh: null, localSha: local.stdout || null, remoteSha: null };
+  return {
+    fresh: local.stdout.trim().toLowerCase() === remoteSha.trim().toLowerCase(),
+    localSha: local.stdout.trim(),
+    remoteSha: remoteSha.trim(),
+  };
+}
+
+function commitIfDirty(dir, message) {
+  const status = run("git", ["-C", dir, "status", "--porcelain"]);
+  if (!status) return false;
+  run("git", ["-C", dir, "add", "-A"]);
+  run("git", ["-C", dir, "commit", "-m", message]);
+  return true;
+}
+
+function pushBranchOrFail(dir, pin, operationName) {
+  const pushed = runSoft("git", ["-C", dir, "push", "-u", "origin", pin.branch]);
+  if (pushed.ok) return;
+  fail(
+    [
+      `${operationName} failed while pushing branch "${pin.branch}" for pin "${pin.name}".`,
+      "The branch may be stale or diverged on remote.",
+      `Git output: ${(pushed.stderr || pushed.stdout || "push failed").trim()}`,
+      `Try syncing with "gl pin update ${pin.name}" and retry.`,
+    ].join("\n"),
+    EXIT.STATE
+  );
+}
+
+function updatePinSha(state, pinName, newSha, opts = {}) {
+  const pins = readPins(state);
+  const target = pins.find((p) => p.name === pinName);
+  if (!target) fail(`pin "${pinName}" not found`, EXIT.USER);
+  const oldPin = { ...target };
+  const newPin = { ...target, sha: newSha };
+  const cloneBranch = opts.branch ?? newPin.branch;
+
+  clonePin(state, newPin, { branch: cloneBranch });
+  ensureGpuConfig(state);
+  indexPin(state, newPin);
+  teardownPinData(state, oldPin);
+
+  mutatePins(state, (pins) => {
+    const updated = pins.filter((p) => p.name !== pinName);
+    updated.unshift(newPin);
+    return updated;
+  });
+}
+
+function readStdinOrFail() {
+  const text = readFileSync(0, "utf8");
+  if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
+  return text;
+}
+
+function safeName(input) {
+  const cleaned = String(input || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return cleaned || "entry";
+}
+
+function makeQueueFilename(content, nameArg) {
+  if (nameArg) {
+    const base = safeName(nameArg);
+    return base.toLowerCase().endsWith(".md") ? base : `${base}.md`;
+  }
+  return `${createHash("sha256").update(content).digest("hex").slice(0, 12)}.md`;
+}
+
+function parseSearchJson(text) {
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeKnowledgeRelPath(pathFromSearch) {
+  const p = String(pathFromSearch || "").replace(/^\/+/, "");
+  if (!p) return null;
+  return p.startsWith("knowledge/") ? p.slice("knowledge/".length) : p;
+}
+
+function chooseMatchedKnowledgePath(results) {
+  for (const r of results) {
+    const candidate = r?.path || r?.filepath || r?.file || r?.docPath || r?.docpath;
+    if (candidate) return normalizeKnowledgeRelPath(candidate);
+  }
+  return null;
+}
+
 function printTopHelp() {
   commandOutput(
     [
@@ -323,9 +578,13 @@ function printTopHelp() {
       "  search <query> [--pin <name>] [-n N] [--json]",
       "  query <question> [--pin <name>] [--json]",
       "  get <path> [--pin <name>] [--full] [--json]",
-      "  stage <branch> [--pin <name>]",
-      "  promote <branch> [--pin <name>]",
-      "  stage-cleanup <branch> [--pin <name>]",
+      "  stage [branch] [--pin <name>]",
+      "  promote [--pin <name>]",
+      "  stage-cleanup [branch] [--pin <name>]",
+      "  add [--pin <name>] [--name <name>]",
+      "  subtract [--pin <name>] [--name <name>]",
+      "  reconcile [--pin <name>]",
+      "  merge <source-pin> <target-pin>",
       "  verify [--pin <name>] [--json]",
       "",
       'Run "gl <command> --help" for command-specific usage.',
@@ -396,23 +655,32 @@ function cmdStatus(state, args) {
   const pinStates = pins.map((pin) => {
     const collection = collectionName(pin);
     const cdir = cloneDir(state, pin);
+    const freshness = branchFreshSoft(state, pin);
     return {
       ...pin,
       clonePath: cdir,
       cloneExists: existsSync(cdir),
       cloneAtExpectedSha: existsSync(cdir) ? verifyCloneAtSha(pin, cdir) : false,
       collection,
-      collectionExists: collectionExists(collection),
-      contextExists: contextExists(collection),
+      collectionExists: collectionExists(pin, collection),
+      contextExists: contextExists(pin, collection),
+      workingClonePath: pin.branch ? stagedDir(state, pin.name, pin.branch) : null,
+      workingCloneExists: pin.branch ? existsSync(stagedDir(state, pin.name, pin.branch)) : false,
+      workingCloneSha: freshness.localSha,
+      branchFresh: freshness.fresh,
     };
   });
-  const qmd = runSoft("qmd", ["status"]);
+  const qmdStatuses = pinStates.map((ps) => {
+    const pin = pins.find((p) => p.name === ps.name);
+    const s = runSoft("qmd", pinQmd(pin, ["status"]));
+    return { pin: ps.name, status: s.ok ? s.stdout : s.stderr || "qmd status failed" };
+  });
   const out = {
     projectRoot: state.projectRoot,
     giterloperRoot: state.rootDir,
     pinnedPath: state.pinnedPath,
     pins: pinStates,
-    qmd: qmd.ok ? qmd.stdout : qmd.stderr || "qmd status failed",
+    qmd: qmdStatuses,
   };
   commandOutput(out, state.globalJson);
 }
@@ -427,7 +695,12 @@ function cmdPinList(state, args) {
   commandOutput(
     state.globalJson
       ? pins
-      : pins.map((pin, idx) => `${idx === 0 ? "*" : " "} ${pin.name}: ${pin.source}@${pin.sha}`).join("\n"),
+      : pins
+          .map((pin, idx) => {
+            const branchInfo = pin.branch ? ` [${pin.branch}]` : "";
+            return `${idx === 0 ? "*" : " "} ${pin.name}: ${pin.source}@${pin.sha}${branchInfo}`;
+          })
+          .join("\n"),
     state.globalJson
   );
 }
@@ -436,23 +709,32 @@ function cmdPinAdd(state, args) {
   ensureHelpNotRequested(
     args,
     [
-      "Usage: gl pin add <name> <source> [--ref <ref>]",
+      "Usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]",
       "Adds or replaces a pin entry. Resolves source+ref to a full SHA.",
     ].join("\n")
   );
-  if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref>]", EXIT.USER);
+  if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]", EXIT.USER);
   const name = args[0];
   const source = args[1];
   let rest = args.slice(2);
   const refParsed = parseFlag(rest, "--ref");
   rest = refParsed.args;
+  const branchParsed = parseFlag(rest, "--branch");
+  rest = branchParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
-  const ref = refParsed.found ? refParsed.value : "HEAD";
+  const branch = branchParsed.found ? branchParsed.value : undefined;
+  const ref = refParsed.found ? refParsed.value : branch || "HEAD";
   const sha = resolveSha(source, ref);
-  const pins = readPins(state).filter((p) => p.name !== name);
-  pins.unshift({ name, source, sha });
-  writePinsAtomic(state, pins);
-  commandOutput({ name, source, ref, sha, action: "pin-added" }, state.globalJson);
+  const newPin = { name, source, sha, branch };
+  mutatePins(state, (pins) => {
+    const updated = pins.filter((p) => p.name !== name);
+    updated.unshift(newPin);
+    return updated;
+  });
+  clonePin(state, newPin, { branch });
+  ensureGpuConfig(state);
+  indexPin(state, newPin);
+  commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
 }
 
 function cmdPinRemove(state, args) {
@@ -469,14 +751,18 @@ function cmdPinRemove(state, args) {
   const target = pins.find((p) => p.name === name);
   if (!target) fail(`pin "${name}" not found`, EXIT.USER);
   const collection = collectionName(target);
-  if (contextExists(collection)) runSoft("qmd", ["context", "rm", `qmd://${collection}`]);
-  if (collectionExists(collection)) runSoft("qmd", ["collection", "remove", collection]);
+  if (contextExists(target, collection)) runSoft("qmd", pinQmd(target, ["context", "rm", `qmd://${collection}`]));
+  if (collectionExists(target, collection)) runSoft("qmd", pinQmd(target, ["collection", "remove", collection]));
   const cdir = cloneDir(state, target);
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   const parent = path.join(state.versionsDir, name);
   runSoft("rmdir", [parent]);
-  const updated = pins.filter((p) => p.name !== name);
-  writePinsAtomic(state, updated);
+  if (target.branch) {
+    const sdir = stagedDir(state, target.name, target.branch);
+    if (existsSync(sdir)) rmSync(sdir, { recursive: true, force: true });
+    runSoft("rmdir", [path.join(state.stagedRoot, target.name)]);
+  }
+  mutatePins(state, (pins) => pins.filter((p) => p.name !== name));
   commandOutput({ name, removed: true }, state.globalJson);
 }
 
@@ -497,21 +783,20 @@ function cmdPinUpdate(state, args) {
   const pins = readPins(state);
   const oldPin = pins.find((p) => p.name === name);
   if (!oldPin) fail(`pin "${name}" not found`, EXIT.USER);
-  const ref = refParsed.found ? refParsed.value : "HEAD";
+  const ref = refParsed.found ? refParsed.value : oldPin.branch || "HEAD";
   const newSha = resolveSha(oldPin.source, ref);
   if (newSha.toLowerCase() === oldPin.sha.toLowerCase()) {
     commandOutput({ name, sha: newSha, updated: false, reason: "already at requested sha" }, state.globalJson);
     return;
   }
-  const newPin = { ...oldPin, sha: newSha };
-  const branch = ref !== "HEAD" ? ref : undefined;
-  clonePin(state, newPin, { branch });
-  ensureGpuConfig(state);
-  indexPin(state, newPin);
-  teardownPinData(state, oldPin);
-  const updated = pins.filter((p) => p.name !== name);
-  updated.unshift(newPin);
-  writePinsAtomic(state, updated);
+  const hadStaged = oldPin.branch ? existsSync(stagedDir(state, oldPin.name, oldPin.branch)) : false;
+  updatePinSha(state, name, newSha, { branch: ref });
+  if (hadStaged && oldPin.branch) {
+    const sdir = stagedDir(state, oldPin.name, oldPin.branch);
+    rmSync(sdir, { recursive: true, force: true });
+    const newPin = { ...oldPin, sha: newSha };
+    ensureWorkingClone(state, newPin);
+  }
   commandOutput({ name, oldSha: oldPin.sha, newSha, updated: true }, state.globalJson);
 }
 
@@ -524,7 +809,8 @@ function clonePin(state, pin, opts = {}) {
   ensureDir(path.dirname(cdir));
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   const cloneArgs = ["clone", "--depth", "1"];
-  if (opts.branch) cloneArgs.push("--branch", opts.branch);
+  const branch = opts.branch || pin.branch;
+  if (branch) cloneArgs.push("--branch", branch);
   cloneArgs.push(toRemoteUrl(pin.source), cdir);
   run("git", cloneArgs);
   run("git", ["-C", cdir, "checkout", pin.sha]);
@@ -536,25 +822,26 @@ function clonePin(state, pin, opts = {}) {
 function indexPin(state, pin) {
   const cdir = cloneDir(state, pin);
   if (!existsSync(cdir)) fail(`clone missing: ${cdir}`, EXIT.STATE);
+  // Intentionally index only knowledge/ (added/ and subtracts/ remain unindexed queue folders).
   const knowledge = path.join(cdir, "knowledge");
   if (!existsSync(knowledge)) fail(`knowledge directory missing: ${knowledge}`, EXIT.STATE);
   const collection = collectionName(pin);
-  if (!collectionExists(collection)) {
-    run("qmd", ["collection", "add", knowledge, "--name", collection, "--mask", "**/*.md"]);
+  if (!collectionExists(pin, collection)) {
+    run("qmd", pinQmd(pin, ["collection", "add", knowledge, "--name", collection, "--mask", "**/*.md"]));
   } else {
     info(`collection ${collection} already exists`);
   }
-  if (!contextExists(collection)) {
-    run("qmd", ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]);
+  if (!contextExists(pin, collection)) {
+    run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
   }
-  run("qmd", ["embed"]);
-  assertCollectionHealthy(collection);
+  run("qmd", pinQmd(pin, ["embed"]));
+  assertCollectionHealthy(pin, collection);
 }
 
 function teardownPinData(state, pin) {
   const collection = collectionName(pin);
-  runSoft("qmd", ["context", "rm", `qmd://${collection}`]);
-  runSoft("qmd", ["collection", "remove", collection]);
+  runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
+  runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   runSoft("rmdir", [path.join(state.versionsDir, pin.name)]);
@@ -576,7 +863,7 @@ function cmdClone(state, args) {
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   if (allParsed.found && pinParsed.found) fail("use either --all or --pin, not both", EXIT.USER);
   const pins = allParsed.found ? readPins(state) : [resolvePin(state, pinParsed.found ? pinParsed.value : null)];
-  for (const pin of pins) clonePin(state, pin);
+  for (const pin of pins) clonePin(state, pin, { branch: pin.branch });
   commandOutput({ cloned: pins.map(collectionName) }, state.globalJson);
 }
 
@@ -628,7 +915,7 @@ function cmdSearchLike(state, mode, args) {
   const cmdArgs = [mode, text, "-c", collection];
   if (mode === "search" && nParsed.found) cmdArgs.push("-n", nParsed.value);
   if (state.globalJson) cmdArgs.push("--json");
-  const out = run("qmd", cmdArgs);
+  const out = run("qmd", pinQmd(pin, cmdArgs));
   commandOutput(out);
 }
 
@@ -652,30 +939,35 @@ function cmdGet(state, args) {
   const cmdArgs = ["get", docPath, "-c", collection];
   if (fullParsed.found) cmdArgs.push("--full");
   if (state.globalJson) cmdArgs.push("--json");
-  const out = run("qmd", cmdArgs);
+  const out = run("qmd", pinQmd(pin, cmdArgs));
   commandOutput(out);
 }
 
 function cmdStage(state, args) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl stage <branch> [--pin <name>]", "Creates staged working clone on a new branch."].join("\n")
+    ["Usage: gl stage [branch] [--pin <name>]", "Creates staged working clone on a branch."].join("\n")
   );
-  if (args.length < 1) fail("usage: gl stage <branch> [--pin <name>]", EXIT.USER);
-  const branch = args[0];
-  let rest = args.slice(1);
+  let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
   rest = pinParsed.args;
-  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  if (rest.length > 1) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  const branch = rest[0] || pin.branch;
+  if (!branch) fail("usage: gl stage <branch> [--pin <name>]", EXIT.USER);
   const dir = stagedDir(state, pin.name, branch);
   if (existsSync(dir)) {
     commandOutput({ staged: dir, branch, pin: pin.name, created: false }, state.globalJson);
     return;
   }
   ensureDir(path.dirname(dir));
-  run("git", ["clone", "--depth", "1", toRemoteUrl(pin.source), dir]);
-  run("git", ["-C", dir, "checkout", "-b", branch]);
+  if (pin.branch && branch === pin.branch) {
+    run("git", ["clone", "--depth", "1", "--branch", branch, toRemoteUrl(pin.source), dir]);
+  } else {
+    run("git", ["clone", "--depth", "1", toRemoteUrl(pin.source), dir]);
+    run("git", ["-C", dir, "checkout", "-b", branch]);
+  }
+  setCloneIdentity(dir);
   commandOutput({ staged: dir, branch, pin: pin.name, created: true }, state.globalJson);
 }
 
@@ -683,51 +975,39 @@ function cmdPromote(state, args) {
   ensureHelpNotRequested(
     args,
     [
-      "Usage: gl promote <branch> [--pin <name>]",
-      "Commits staged clone (if dirty), pushes branch, clones/indexes new SHA, updates pin.",
+      "Usage: gl promote [--pin <name>]",
+      "Commits staged clone (if dirty), pushes tracked pin branch, clones/indexes new SHA, updates pin.",
     ].join("\n")
   );
-  if (args.length < 1) fail("usage: gl promote <branch> [--pin <name>]", EXIT.USER);
-  const branch = args[0];
-  let rest = args.slice(1);
+  let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
   rest = pinParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
-  const dir = stagedDir(state, pin.name, branch);
-  if (!existsSync(dir)) fail(`staged clone not found: ${dir}. Run "gl stage ${branch}" first.`, EXIT.STATE);
-  const status = run("git", ["-C", dir, "status", "--porcelain"]);
-  if (status) {
-    run("git", ["-C", dir, "add", "-A"]);
-    run("git", ["-C", dir, "commit", "-m", `giterloper: promote ${branch}`]);
-  }
-  run("git", ["-C", dir, "push", "-u", "origin", branch]);
+  requirePinBranch(pin, "promote");
+  const dir = ensureWorkingClone(state, pin);
+  assertBranchFresh(state, pin, dir);
+  commitIfDirty(dir, `giterloper: promote ${pin.branch}`);
+  pushBranchOrFail(dir, pin, "promote");
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
-  const newPin = { ...pin, sha: newSha };
-  clonePin(state, newPin, { branch });
-  ensureGpuConfig(state);
-  indexPin(state, newPin);
-  teardownPinData(state, pin);
-  const pins = readPins(state).filter((p) => p.name !== pin.name);
-  pins.unshift(newPin);
-  writePinsAtomic(state, pins);
+  updatePinSha(state, pin.name, newSha);
   rmSync(dir, { recursive: true, force: true });
   runSoft("rmdir", [path.join(state.stagedRoot, pin.name)]);
-  commandOutput({ promoted: true, pin: pin.name, oldSha: pin.sha, newSha, branch }, state.globalJson);
+  commandOutput({ promoted: true, pin: pin.name, oldSha: pin.sha, newSha, branch: pin.branch }, state.globalJson);
 }
 
 function cmdStageCleanup(state, args) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl stage-cleanup <branch> [--pin <name>]", "Deletes staged clone without promoting."].join("\n")
+    ["Usage: gl stage-cleanup [branch] [--pin <name>]", "Deletes staged clone without promoting."].join("\n")
   );
-  if (args.length < 1) fail("usage: gl stage-cleanup <branch> [--pin <name>]", EXIT.USER);
-  const branch = args[0];
-  let rest = args.slice(1);
+  let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
   rest = pinParsed.args;
-  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  if (rest.length > 1) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  const branch = rest[0] || pin.branch;
+  if (!branch) fail("usage: gl stage-cleanup <branch> [--pin <name>]", EXIT.USER);
   const dir = stagedDir(state, pin.name, branch);
   if (existsSync(dir)) {
     rmSync(dir, { recursive: true, force: true });
@@ -739,7 +1019,9 @@ function cmdStageCleanup(state, args) {
 function cmdVerify(state, args) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, and vector health."].join("\n")
+    ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, vector health, and branch freshness."].join(
+      "\n"
+    )
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -753,11 +1035,12 @@ function cmdVerify(state, args) {
     const collection = collectionName(pin);
     const clonePresent = existsSync(cdir);
     const cloneShaOk = clonePresent ? verifyCloneAtSha(pin, cdir) : false;
-    const collectionPresent = collectionExists(collection);
-    const contextPresent = contextExists(collection);
+    const collectionPresent = collectionExists(pin, collection);
+    const contextPresent = contextExists(pin, collection);
+    const freshness = branchFreshSoft(state, pin);
     let vectorsOk = false;
     if (collectionPresent) {
-      const status = runSoft("qmd", ["status"]);
+      const status = runSoft("qmd", pinQmd(pin, ["status"]));
       if (status.ok) {
         const statusText = status.stdout.toLowerCase();
         vectorsOk = statusText.includes(collection.toLowerCase()) && !statusText.includes("vectors: 0");
@@ -765,6 +1048,7 @@ function cmdVerify(state, args) {
     }
     results.push({
       pin: pin.name,
+      branch: pin.branch || null,
       sha: pin.sha,
       clonePath: cdir,
       clonePresent,
@@ -773,12 +1057,225 @@ function cmdVerify(state, args) {
       collectionPresent,
       contextPresent,
       vectorsOk,
+      workingClonePath: pin.branch ? stagedDir(state, pin.name, pin.branch) : null,
+      workingCloneExists: pin.branch ? existsSync(stagedDir(state, pin.name, pin.branch)) : false,
+      workingCloneSha: freshness.localSha,
+      branchFresh: freshness.fresh,
       ok: clonePresent && cloneShaOk && collectionPresent && contextPresent && vectorsOk,
     });
   }
   const allOk = results.every((r) => r.ok);
   commandOutput({ ok: allOk, checks: results }, state.globalJson);
   if (!allOk) process.exit(EXIT.STATE);
+}
+
+function cmdAddLike(state, args, mode) {
+  const helpText =
+    mode === "add"
+      ? ["Usage: gl add [--pin <name>] [--name <name>]", "Reads stdin and queues content in added/."].join("\n")
+      : ["Usage: gl subtract [--pin <name>] [--name <name>]", "Reads stdin and queues content in subtracts/."].join(
+          "\n"
+        );
+  ensureHelpNotRequested(args, helpText);
+
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  const nameParsed = parseFlag(rest, "--name");
+  rest = nameParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+
+  const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  requirePinBranch(pin, mode);
+  const dir = ensureWorkingClone(state, pin);
+  assertBranchFresh(state, pin, dir);
+  const content = readStdinOrFail();
+  const folder = mode === "add" ? "added" : "subtracts";
+  const fileName = makeQueueFilename(content, nameParsed.found ? nameParsed.value : null);
+  const folderPath = path.join(dir, folder);
+  ensureDir(folderPath);
+  let outPath = path.join(folderPath, fileName);
+  if (existsSync(outPath)) {
+    const suffix = createHash("sha256").update(content).digest("hex").slice(0, 8);
+    outPath = path.join(folderPath, `${safeName(fileName.replace(/\.md$/i, ""))}-${suffix}.md`);
+  }
+  writeFileSync(outPath, content.endsWith("\n") ? content : `${content}\n`, "utf8");
+
+  commitIfDirty(dir, `gl: ${mode} ${path.basename(outPath)}`);
+  pushBranchOrFail(dir, pin, mode);
+  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+  updatePinSha(state, pin.name, newSha);
+  commandOutput(
+    {
+      action: mode === "add" ? "added" : "subtracted",
+      pin: pin.name,
+      branch: pin.branch,
+      file: path.basename(outPath),
+      sha: newSha,
+    },
+    state.globalJson
+  );
+}
+
+function cmdAdd(state, args) {
+  return cmdAddLike(state, args, "add");
+}
+
+function cmdSubtract(state, args) {
+  return cmdAddLike(state, args, "subtract");
+}
+
+function cmdReconcile(state, args) {
+  ensureHelpNotRequested(
+    args,
+    ["Usage: gl reconcile [--pin <name>]", "Reconciles added/ and subtracts/ queues into knowledge/."].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  requirePinBranch(pin, "reconcile");
+  const dir = ensureWorkingClone(state, pin);
+  assertBranchFresh(state, pin, dir);
+
+  let chunkDocument;
+  try {
+    ({ chunkDocument } = require("@tobilu/qmd/dist/store.js"));
+  } catch (error) {
+    fail(`failed to load QMD chunking module: ${error?.message || error}`, EXIT.EXTERNAL);
+  }
+
+  const processQueue = (queueName) => {
+    const queueDir = path.join(dir, queueName);
+    if (!existsSync(queueDir)) return { files: 0, commits: 0 };
+    const files = readdirSync(queueDir).filter((f) => f.toLowerCase().endsWith(".md")).sort();
+    let commits = 0;
+
+    for (const file of files) {
+      const filePath = path.join(queueDir, file);
+      const content = readFileSync(filePath, "utf8");
+      const chunks = chunkDocument(content).map((chunk) => chunk.text).filter(Boolean);
+
+      for (const rawChunk of chunks) {
+        const chunk = rawChunk.trim();
+        if (!chunk) continue;
+        const searchOut = run("qmd", pinQmd(pin, ["search", chunk.slice(0, 1500), "-c", collectionName(pin), "--json", "-n", "3"]));
+        const results = parseSearchJson(searchOut);
+        const matchedPath = chooseMatchedKnowledgePath(results);
+
+        if (queueName === "added") {
+          const targetRel = matchedPath || file;
+          const target = path.join(dir, "knowledge", normalizeKnowledgeRelPath(targetRel) || file);
+          ensureDir(path.dirname(target));
+          const before = existsSync(target) ? readFileSync(target, "utf8").trimEnd() : "";
+          const next = [before, "", `<!-- reconciled from added/${file} -->`, "", chunk, ""].filter(Boolean).join("\n");
+          writeFileSync(target, `${next}\n`, "utf8");
+        } else if (matchedPath) {
+          const target = path.join(dir, "knowledge", matchedPath);
+          if (existsSync(target)) {
+            const before = readFileSync(target, "utf8");
+            const after = before.replace(chunk, "").replace(/\n{3,}/g, "\n\n");
+            if (after !== before) {
+              writeFileSync(target, after.endsWith("\n") ? after : `${after}\n`, "utf8");
+            }
+          }
+        }
+      }
+
+      unlinkSync(filePath);
+      if (commitIfDirty(dir, queueName === "added" ? `gl: reconcile add ${file}` : `gl: reconcile subtract ${file}`)) {
+        commits += 1;
+      }
+    }
+
+    return { files: files.length, commits };
+  };
+
+  const added = processQueue("added");
+  const subtracted = processQueue("subtracts");
+  const totalCommits = added.commits + subtracted.commits;
+  let newSha = pin.sha;
+  if (totalCommits > 0) {
+    pushBranchOrFail(dir, pin, "reconcile");
+    newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+    updatePinSha(state, pin.name, newSha);
+  }
+
+  commandOutput(
+    {
+      action: "reconciled",
+      pin: pin.name,
+      branch: pin.branch,
+      added: added.files,
+      subtracted: subtracted.files,
+      commits: totalCommits,
+      newSha,
+    },
+    state.globalJson
+  );
+}
+
+function cmdMerge(state, args) {
+  ensureHelpNotRequested(
+    args,
+    ["Usage: gl merge <source-pin> <target-pin>", "Merges one branched pin into another branched pin."].join("\n")
+  );
+  if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
+  const source = resolvePin(state, args[0]);
+  const target = resolvePin(state, args[1]);
+  requirePinBranch(source, "merge");
+  requirePinBranch(target, "merge");
+
+  const dir = ensureWorkingClone(state, target);
+  assertBranchFresh(state, target, dir);
+  const remoteName = `glsrc_${safeName(source.name)}`;
+  const remotes = run("git", ["-C", dir, "remote"]).split(/\r?\n/).filter(Boolean);
+  if (!remotes.includes(remoteName)) {
+    run("git", ["-C", dir, "remote", "add", remoteName, toRemoteUrl(source.source)]);
+  } else {
+    run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
+  }
+  run("git", ["-C", dir, "fetch", remoteName, source.branch, "--depth", "1"]);
+  const merge = runSoft("git", [
+    "-C",
+    dir,
+    "merge",
+    `${remoteName}/${source.branch}`,
+    "--no-edit",
+    "-m",
+    `gl: merge ${source.name} into ${target.name}`,
+  ]);
+  if (!merge.ok) {
+    const conflicts = runSoft("git", ["-C", dir, "diff", "--name-only", "--diff-filter=U"])
+      .stdout.split(/\r?\n/)
+      .filter(Boolean)
+      .map((f) => `  - ${f}`)
+      .join("\n");
+    fail(
+      [
+        `merge conflict merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
+        "Conflicting files:",
+        conflicts || "  - (unable to determine)",
+        "The working clone is left in a conflicted state at:",
+        `  ${stagedDir(state, target.name, target.branch)}`,
+        `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
+        `To abort: run "git -C ${stagedDir(state, target.name, target.branch)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
+      ].join("\n"),
+      EXIT.STATE
+    );
+  }
+  pushBranchOrFail(dir, target, "merge");
+  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+  updatePinSha(state, target.name, newSha);
+  commandOutput(
+    {
+      action: "merged",
+      source: { pin: source.name, branch: source.branch, sha: source.sha },
+      target: { pin: target.name, branch: target.branch, oldSha: target.sha, newSha },
+    },
+    state.globalJson
+  );
 }
 
 function main() {
@@ -802,6 +1299,8 @@ function main() {
     localConfigPath: path.join(projectRoot, ".giterloper", "local.json"),
     globalJson: false,
   };
+  process.env.XDG_CONFIG_HOME = path.join(state.rootDir, "qmd", "config");
+  process.env.XDG_CACHE_HOME = path.join(state.rootDir, "qmd", "cache");
   state.globalJson = helpJsonParsed.found;
   const localConfig = readLocalConfig(state);
   state.gpuMode = localConfig.gpuMode || null;
@@ -831,6 +1330,10 @@ function main() {
   if (cmd === "stage") return cmdStage(state, rest);
   if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
+  if (cmd === "add") return cmdAdd(state, rest);
+  if (cmd === "subtract") return cmdSubtract(state, rest);
+  if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "merge") return cmdMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);

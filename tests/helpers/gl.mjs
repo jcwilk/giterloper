@@ -25,12 +25,13 @@ function normalizeOutput(stdout, parseJson) {
   }
 }
 
-export function runGl(args, { parseJson = true, cwd = process.cwd() } = {}) {
+export function runGl(args, { parseJson = true, cwd = process.cwd(), stdin = null } = {}) {
   const cliArgs = ["--json", ...args];
   const result = spawnSync("node", [GL_SCRIPT, ...cliArgs], {
     cwd,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    input: stdin ?? undefined,
+    stdio: ["pipe", "pipe", "pipe"],
   });
 
   if (result.error) {
@@ -52,6 +53,6 @@ export function runGl(args, { parseJson = true, cwd = process.cwd() } = {}) {
   };
 }
 
-export function runGlJson(args, { cwd = process.cwd() } = {}) {
-  return runGl(args, { parseJson: true, cwd }).data;
+export function runGlJson(args, { cwd = process.cwd(), stdin = null } = {}) {
+  return runGl(args, { parseJson: true, cwd, stdin }).data;
 }
