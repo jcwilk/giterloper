@@ -391,7 +391,20 @@ function ensureGitignoreEntries(state) {
   }
 }
 
-function assertCollectionHealthy(pin, collection) {
+function getVectorCountFromDb(state, pin) {
+  const dbPath = path.join(state.rootDir, "qmd", "cache", "qmd", `${indexName(pin)}.sqlite`);
+  if (!existsSync(dbPath)) return null;
+  const r = runSoft("sqlite3", [dbPath, "SELECT COUNT(*) FROM content_vectors"], { timeout: 5000 });
+  if (!r.ok) return null;
+  const n = parseInt(r.stdout?.trim(), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function assertCollectionHealthy(state, pin, collection) {
+  // Fast path: use sqlite3 to avoid qmd status (which loads LLM for device info, adding 2–3s per call)
+  const vectorCount = getVectorCountFromDb(state, pin);
+  if (vectorCount !== null) return;
+  // Fallback when sqlite3 unavailable: use qmd status (slower, loads LLM)
   const status = run("qmd", pinQmd(pin, ["status"]));
   const vectorsLine = status
     .split(/\r?\n/)
@@ -856,7 +869,7 @@ function indexPin(state, pin) {
   }
   const embedLockDir = path.join(state.rootDir, "locks", "embed");
   withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
-  assertCollectionHealthy(pin, collection);
+  assertCollectionHealthy(state, pin, collection);
 }
 
 function cleanupQmdFiles(state, pin) {
