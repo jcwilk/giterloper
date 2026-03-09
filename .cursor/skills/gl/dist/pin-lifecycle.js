@@ -1,0 +1,120 @@
+/**
+ * Pin clone, index, teardown, and SHA update lifecycle.
+ */
+import { existsSync, rmSync } from "node:fs";
+import path from "node:path";
+import { EXIT } from "./errors.js";
+import { fail } from "./errors.js";
+import { run, runSoft } from "./run.js";
+import { isBranchNotFoundError } from "./run.js";
+import { toRemoteUrl, verifyCloneAtSha } from "./git.js";
+import { ensureGpuConfig } from "./gpu.js";
+import { collectionName, pinQmd, collectionExists, contextExists, needsEmbeddingCount, assertCollectionHealthy, cleanupQmdFiles, } from "./qmd.js";
+import { readPins, mutatePins } from "./pinned.js";
+import { withFifoLock } from "./locking.js";
+import { cloneDir, ensureDir, stagedDir } from "./paths.js";
+function info(message) {
+    console.error(`gl: ${message}`);
+}
+export function clonePin(state, pin, opts = {}) {
+    const cdir = cloneDir(state, pin);
+    if (existsSync(cdir) && verifyCloneAtSha(pin, cdir)) {
+        info(`clone already exists for ${collectionName(pin)}`);
+        return;
+    }
+    ensureDir(path.dirname(cdir));
+    if (existsSync(cdir))
+        rmSync(cdir, { recursive: true, force: true });
+    const branch = opts.branch || pin.branch;
+    const fallbackRef = opts.fallbackRef;
+    const url = toRemoteUrl(pin.source);
+    if (branch) {
+        const result = runSoft("git", ["clone", "--depth", "1", "--branch", branch, url, cdir]);
+        if (!result.ok) {
+            if (isBranchNotFoundError(result)) {
+                if (existsSync(cdir))
+                    rmSync(cdir, { recursive: true, force: true });
+                info(`branch "${branch}" not found; cloning from ${fallbackRef || "default"} and checking out ${pin.sha}`);
+                if (fallbackRef && fallbackRef !== branch) {
+                    run("git", ["clone", "--depth", "1", "--branch", fallbackRef, url, cdir]);
+                }
+                else {
+                    run("git", ["clone", "--depth", "1", url, cdir]);
+                }
+            }
+            else {
+                fail(`git clone failed: ${(result.stderr || result.stdout).trim()}`, EXIT.EXTERNAL);
+            }
+        }
+    }
+    else {
+        run("git", ["clone", "--depth", "1", url, cdir]);
+    }
+    run("git", ["-C", cdir, "checkout", pin.sha]);
+    if (!verifyCloneAtSha(pin, cdir)) {
+        fail(`cloned repository at ${cdir} is not at expected SHA ${pin.sha}`, EXIT.STATE);
+    }
+}
+export function indexPin(state, pin) {
+    const cdir = cloneDir(state, pin);
+    if (!existsSync(cdir))
+        fail(`clone missing: ${cdir}`, EXIT.STATE);
+    const knowledge = path.join(cdir, "knowledge");
+    if (!existsSync(knowledge))
+        fail(`knowledge directory missing: ${knowledge}`, EXIT.STATE);
+    const collection = collectionName(pin);
+    if (!collectionExists(pin, collection)) {
+        run("qmd", pinQmd(pin, ["collection", "add", knowledge, "--name", collection, "--mask", "**/*.md"]));
+    }
+    else {
+        info(`collection ${collection} already exists`);
+    }
+    if (!contextExists(pin, collection)) {
+        run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
+    }
+    const needsEmbed = needsEmbeddingCount(state, pin);
+    if (needsEmbed === 0) {
+        info(`collection ${collection} already fully embedded, skipping qmd embed`);
+    }
+    else {
+        const embedLockDir = path.join(state.rootDir, "locks", "embed");
+        withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
+    }
+    assertCollectionHealthy(pin, collection);
+}
+export function teardownPinData(state, pin) {
+    const collection = collectionName(pin);
+    runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
+    runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
+    cleanupQmdFiles(state, pin);
+    const cdir = cloneDir(state, pin);
+    if (existsSync(cdir))
+        rmSync(cdir, { recursive: true, force: true });
+    runSoft("rmdir", [path.join(state.versionsDir, pin.name)]);
+}
+export function updatePinSha(state, pinName, newSha, opts = {}) {
+    const pins = readPins(state);
+    const target = pins.find((p) => p.name === pinName);
+    if (!target)
+        fail(`pin "${pinName}" not found`, EXIT.USER);
+    const oldPin = { ...target };
+    const newPin = { ...target, sha: newSha };
+    const cloneBranch = opts.branch ?? newPin.branch;
+    clonePin(state, newPin, { branch: cloneBranch });
+    ensureGpuConfig(state);
+    indexPin(state, newPin);
+    teardownPinData(state, oldPin);
+    mutatePins(state, (pins) => {
+        const updated = pins.filter((p) => p.name !== pinName);
+        updated.unshift(newPin);
+        return updated;
+    });
+}
+export function removeStagedDir(state, pinName, branch) {
+    if (!branch)
+        return;
+    const dir = stagedDir(state, pinName, branch);
+    if (existsSync(dir))
+        rmSync(dir, { recursive: true, force: true });
+    runSoft("rmdir", [path.join(state.stagedRoot, pinName)]);
+}

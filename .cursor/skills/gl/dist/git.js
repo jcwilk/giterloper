@@ -1,6 +1,7 @@
 /**
- * Git remote URL and SHA resolution.
+ * Git remote URL, SHA resolution, and clone verification.
  */
+import { existsSync } from "node:fs";
 import { EXIT } from "./errors.js";
 import { fail } from "./errors.js";
 import { run, runSoft } from "./run.js";
@@ -47,6 +48,14 @@ export function resolveBranchShaSoft(source, branch) {
     const first = out.stdout.split(/\r?\n/).find(Boolean);
     const sha = first?.split(/\s+/)?.[0];
     return sha && /^[0-9a-f]{40}$/i.test(sha) ? sha : null;
+}
+export function verifyCloneAtSha(pin, clonePath) {
+    if (!existsSync(clonePath))
+        return false;
+    const result = runSoft("git", ["-C", clonePath, "rev-parse", "HEAD"]);
+    if (!result.ok || !result.stdout)
+        return false;
+    return result.stdout.trim().toLowerCase() === pin.sha.toLowerCase();
 }
 export function setCloneIdentity(dir) {
     const name = runSoft("git", ["-C", dir, "config", "user.name"]);
