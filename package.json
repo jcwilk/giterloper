@@ -8,7 +8,8 @@
   },
   "scripts": {
     "gl": "node .cursor/skills/gl/scripts/gl.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "benchmark:embed": "node scripts/benchmark-embed.mjs"
   },
   "dependencies": {
     "@tobilu/qmd": "1.1.5"

@@ -282,6 +282,19 @@ function collectionExists(pin, collection) {
   return out.includes(collection);
 }
 
+/** Returns count of document hashes needing embedding, or null if DB missing/unreadable. */
+function needsEmbeddingCount(state, pin) {
+  const dbPath = path.join(state.rootDir, "qmd", "cache", "qmd", `${indexName(pin)}.sqlite`);
+  if (!existsSync(dbPath)) return null;
+  const result = runSoft("sqlite3", [
+    dbPath,
+    "SELECT COUNT(DISTINCT d.hash) FROM documents d LEFT JOIN content_vectors v ON d.hash=v.hash AND v.seq=0 WHERE d.active=1 AND v.hash IS NULL",
+  ]);
+  if (!result.ok) return null;
+  const n = parseInt(result.stdout?.trim() ?? "", 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 function contextExists(pin, collection) {
   const out = run("qmd", pinQmd(pin, ["context", "list"]));
   return out.includes(collection);
@@ -854,8 +867,13 @@ function indexPin(state, pin) {
   if (!contextExists(pin, collection)) {
     run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
   }
-  const embedLockDir = path.join(state.rootDir, "locks", "embed");
-  withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
+  const needsEmbed = needsEmbeddingCount(state, pin);
+  if (needsEmbed === 0) {
+    info(`collection ${collection} already fully embedded, skipping qmd embed`);
+  } else {
+    const embedLockDir = path.join(state.rootDir, "locks", "embed");
+    withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
+  }
   assertCollectionHealthy(pin, collection);
 }
 
