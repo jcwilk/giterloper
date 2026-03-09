@@ -3,11 +3,8 @@
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-const require = createRequire(import.meta.url);
 
 const EXIT = {
   OK: 0,
@@ -1163,7 +1160,7 @@ function cmdSubtract(state, args) {
   return cmdAddLike(state, args, "subtract");
 }
 
-function cmdReconcile(state, args) {
+async function cmdReconcile(state, args) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl reconcile [--pin <name>]", "Reconciles added/ and subtracts/ queues into knowledge/."].join("\n")
@@ -1179,7 +1176,7 @@ function cmdReconcile(state, args) {
 
   let chunkDocument;
   try {
-    ({ chunkDocument } = require("@tobilu/qmd/dist/store.js"));
+    ({ chunkDocument } = await import("@tobilu/qmd/dist/store.js"));
   } catch (error) {
     fail(`failed to load QMD chunking module: ${error?.message || error}`, EXIT.EXTERNAL);
   }
@@ -1316,7 +1313,7 @@ function cmdMerge(state, args) {
   );
 }
 
-function main() {
+async function main() {
   let args = process.argv.slice(2);
   const helpJsonParsed = consumeBooleanFlag(args, "--json");
   args = helpJsonParsed.args;
@@ -1370,23 +1367,25 @@ function main() {
   if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "add") return cmdAdd(state, rest);
   if (cmd === "subtract") return cmdSubtract(state, rest);
-  if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "reconcile") return await cmdReconcile(state, rest);
   if (cmd === "merge") return cmdMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
 }
 
-try {
-  main();
-} catch (e) {
+async function runMain() {
+  await main();
+}
+
+runMain().catch((e) => {
   if (e instanceof GlError) {
     console.error(`gl: ${e.message}`);
     process.exit(e.code);
   }
   console.error(`gl: unexpected error: ${e?.message ?? e}`);
   process.exit(EXIT.EXTERNAL);
-}
+});
 
 // Keep an explicit module boundary for tooling that imports this file in tests.
 export const __filename = fileURLToPath(import.meta.url);

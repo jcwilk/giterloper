@@ -33,18 +33,16 @@ If step 1 or 2 fails (e.g. `git checkout` in clonePin fails with "unable to read
 
 ---
 
-## 3. Reconcile: missing `@tobilu/qmd/dist/store.js`
+## 3. Reconcile: missing `@tobilu/qmd/dist/store.js` (resolved)
 
-**Observed:** `gl reconcile` fails with:
+**Observed:** `gl reconcile` failed with:
 ```
 failed to load QMD chunking module: Cannot find module '@tobilu/qmd/dist/store.js'
 ```
 
-The reconcile test was previously skipped via `canReconcile()` when this module was unavailable. We removed that skip so the test always runs. It now fails when the dependency is missing.
+**Cause:** `gl reconcile` uses `chunkDocument` from `@tobilu/qmd/dist/store.js`. That module is ESM with top-level await, so `require()` could not load it. Additionally, the package was not a local dependency, so resolution failed when run from the workspace.
 
-**Cause:** `gl reconcile` uses `chunkDocument` from `@tobilu/qmd/dist/store.js`. That path is a build artifact; the file may not exist if the package isn't built or is installed without that output.
-
-**Fix direction:** Ensure `@tobilu/qmd` is a proper dependency and that `dist/store.js` is present (built or shipped). If it's optional by design, document that and consider a different approach than a silent test skip.
+**Fix (applied):** Added `package.json` with `@tobilu/qmd` as a locked dependency. Switched from `require()` to dynamic `import()` to load the ESM module. Run `npm install` before using `gl reconcile`.
 
 ---
 
