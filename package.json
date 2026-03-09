@@ -8,6 +8,7 @@
   },
   "scripts": {
     "gl": "node .cursor/skills/gl/scripts/gl.mjs",
+    "build": "npx tsc -p .cursor/skills/gl",
     "typecheck": "tsc --noEmit",
     "benchmark:embed": "node scripts/benchmark-embed.mjs"
   },

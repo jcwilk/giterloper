@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { Pin } from "../dist/types.js";
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
