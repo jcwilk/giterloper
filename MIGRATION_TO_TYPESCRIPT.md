@@ -123,10 +123,10 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 7: Higher-Level Lifecycle
 
-- [ ] **7.1** Extract `lib/branch.ts`: requirePinBranch, assertBranchReadyForWrite, ensureWorkingClone, assertBranchFresh, branchFreshSoft
-- [ ] **7.2** Extract `lib/pin-lifecycle.ts`: clonePin, indexPin, teardownPinData, updatePinSha, removeStagedDir
-- [ ] **7.3** Extract `lib/cli.ts`: info, commandOutput, parseFlag, consumeBooleanFlag, ensureHelpNotRequested
-- [ ] **7.4** Update `gl.mjs` to import from dist/
+- [x] **7.1** Extract `lib/branch.ts`: requirePinBranch, assertBranchReadyForWrite, ensureWorkingClone, assertBranchFresh, branchFreshSoft
+- [x] **7.2** Extract `lib/pin-lifecycle.ts`: clonePin, indexPin, teardownPinData, updatePinSha, removeStagedDir
+- [x] **7.3** Extract `lib/cli.ts`: info, commandOutput, parseFlag, consumeBooleanFlag, ensureHelpNotRequested
+- [x] **7.4** Update `gl.mjs` to import from dist/
 - [ ] **7.5** Run E2E
 
 ### Phase 8: Commands and Entry Point
@@ -165,7 +165,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 4 | ✅ | Pinned, locking |
 | 5 | ✅ | Git, QMD |
 | 6 | ✅ | Config, GPU |
-| 7 | ⬜ | Branch, lifecycle, CLI |
+| 7 | ✅ | Branch, lifecycle, CLI |
 | 8 | ⬜ | Commands, entry point |
 
 *(Agents: update the Status column as you complete phases.)*
