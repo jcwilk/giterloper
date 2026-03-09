@@ -85,11 +85,11 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 2: Pure, Stateless Modules
 
-- [ ] **2.1** Extract `lib/reconcile.ts`: safeName, makeQueueFilename, parseSearchJson, normalizeKnowledgeRelPath, chooseMatchedKnowledgePath
-- [ ] **2.2** Add `tests/unit/reconcile.test.ts`; use Node built-in test runner (`node --test`)
-- [ ] **2.3** Extract `lib/paths.ts`: findProjectRoot, ensureDir, cloneDir, stagedDir (no removeStagedDir yet)
-- [ ] **2.4** Add `tests/unit/paths.test.ts` for findProjectRoot, cloneDir, stagedDir (use temp dirs)
-- [ ] **2.5** Update `gl.mjs` to import from dist/ and remove inlined implementations
+- [x] **2.1** Extract `lib/reconcile.ts`: safeName, makeQueueFilename, parseSearchJson, normalizeKnowledgeRelPath, chooseMatchedKnowledgePath
+- [x] **2.2** Add `tests/unit/reconcile.test.ts`; use Node built-in test runner (`node --test`)
+- [x] **2.3** Extract `lib/paths.ts`: findProjectRoot, ensureDir, cloneDir, stagedDir (no removeStagedDir yet)
+- [x] **2.4** Add `tests/unit/paths.test.ts` for findProjectRoot, cloneDir, stagedDir (use temp dirs)
+- [x] **2.5** Update `gl.mjs` to import from dist/ and remove inlined implementations
 - [ ] **2.6** Run E2E: `node scripts/run-e2e.mjs`
 
 ### Phase 3: Error and Run Layer
@@ -160,7 +160,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 1 | ✅ | Foundation |
-| 2 | ⬜ | Pure modules |
+| 2 | ✅ | Pure modules |
 | 3 | ⬜ | Errors, run |
 | 4 | ⬜ | Pinned, locking |
 | 5 | ⬜ | Git, QMD |

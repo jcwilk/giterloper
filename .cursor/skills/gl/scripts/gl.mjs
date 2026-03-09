@@ -1,6 +1,19 @@
 #!/usr/bin/env node
 
 import { Pin } from "../dist/types.js";
+import {
+  safeName,
+  makeQueueFilename,
+  parseSearchJson,
+  normalizeKnowledgeRelPath,
+  chooseMatchedKnowledgePath,
+} from "../dist/reconcile.js";
+import {
+  findProjectRoot,
+  ensureDir,
+  cloneDir,
+  stagedDir,
+} from "../dist/paths.js";
 import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
@@ -85,28 +98,12 @@ function isBranchNotFoundError(r) {
   );
 }
 
-function findProjectRoot(startDir = process.cwd()) {
-  let current = path.resolve(startDir);
-  while (true) {
-    if (existsSync(path.join(current, ".git"))) return current;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
-
 function ensureGiterloperRoot(state) {
   if (!existsSync(state.rootDir)) {
     fail(`missing ${state.rootDir}. Ensure .giterloper/ and pinned.yaml exist.`, EXIT.STATE);
   }
   if (!existsSync(state.pinnedPath)) {
     fail(`missing ${state.pinnedPath}. Add pins via "gl pin add" then run "gl clone" and "gl index".`, EXIT.STATE);
-  }
-}
-
-function ensureDir(dirPath) {
-  if (!existsSync(dirPath)) {
-    mkdirSync(dirPath, { recursive: true });
   }
 }
 
@@ -271,14 +268,6 @@ function indexName(pin) {
 
 function pinQmd(pin, args) {
   return ["--index", indexName(pin), ...args];
-}
-
-function cloneDir(state, pin) {
-  return path.join(state.versionsDir, pin.name, pin.sha);
-}
-
-function stagedDir(state, pinName, branchName) {
-  return path.join(state.stagedRoot, pinName, branchName);
 }
 
 function removeStagedDir(state, pinName, branch) {
@@ -612,45 +601,6 @@ function readStdinOrFail() {
   const text = readFileSync(0, "utf8");
   if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
   return text;
-}
-
-function safeName(input) {
-  const cleaned = String(input || "")
-    .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return cleaned || "entry";
-}
-
-function makeQueueFilename(content, nameArg) {
-  if (nameArg) {
-    const base = safeName(nameArg);
-    return base.toLowerCase().endsWith(".md") ? base : `${base}.md`;
-  }
-  return `${createHash("sha256").update(content).digest("hex").slice(0, 12)}.md`;
-}
-
-function parseSearchJson(text) {
-  try {
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function normalizeKnowledgeRelPath(pathFromSearch) {
-  const p = String(pathFromSearch || "").replace(/^\/+/, "");
-  if (!p) return null;
-  return p.startsWith("knowledge/") ? p.slice("knowledge/".length) : p;
-}
-
-function chooseMatchedKnowledgePath(results) {
-  for (const r of results) {
-    const candidate = r?.path || r?.filepath || r?.file || r?.docPath || r?.docpath;
-    if (candidate) return normalizeKnowledgeRelPath(candidate);
-  }
-  return null;
 }
 
 function printTopHelp() {
