@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { after, before, test } from "node:test";
 
 import {
+  E2E_MARKER,
   TEST_SOURCE,
   TEST_TOPIC_BODY,
   TEST_TOPIC_PATH,
@@ -16,7 +17,7 @@ import {
 } from "./config.mjs";
 
 /** Unique per test file run; ALL collision-prone names must include this. */
-const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
+const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 const TEST_PIN_NAME = `test_knowledge_${RUN_ID}`;
 const WORKFLOW_BRANCH = RUN_ID;
 

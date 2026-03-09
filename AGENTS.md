@@ -11,15 +11,17 @@ E2E tests use a **shared remote repository** (`giterloper_test_knowledge`) and *
 **RUN_ID** — Each test file generates a unique `RUN_ID` at load time:
 
 ```js
-const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
+const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ```
+
+(`E2E_MARKER` is `"gle2e_"` from `tests/e2e/config.mjs`. The runner's safety net removes any pins whose name includes this marker after tests finish.)
 
 **Every** name that could collide MUST include `RUN_ID` or equivalent entropy:
 
 | Resource | Pattern | Why |
 |----------|---------|-----|
 | Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/versions/<name>/`, `pinned.yaml`, QMD collections |
-| Branches (remote) | `e2e_${RUN_ID}` or `e2e_${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
+| Branches (remote) | `${RUN_ID}` or `${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
 | Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel tests; `Date.now()` alone can collide |
 | File paths in remote | `knowledge/e2e_${RUN_ID}_${randomBytes(4)}.md` | Avoid overwriting between runs |
 
@@ -31,7 +33,7 @@ const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
 
 ### 3. Shared State: pinned.yaml and QMD
 
-- **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by an exclusive file lock (`pinned.yaml.lock`).
+- **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
 - **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
@@ -46,18 +48,10 @@ const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
 
 `updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use.
 
-### 6. Reconcile Test
-
-The `reconcile` command requires `@tobilu/qmd/dist/store.js` (chunkDocument). Skip the test when unavailable:
-
-```js
-(canReconcile() ? test : test.skip)("reconcile processes queued files", ...);
-```
-
 ## Gl Script Notes
 
 - **pinQmd** — All QMD invocations go through `pinQmd(pin, args)` which prepends `--index ${pin.name}_${pin.sha}`. No bare qmd wrapper; every call is pinned.
-- **pinned.yaml locking** — All writes go through `mutatePins()`, which acquires an exclusive lock (`pinned.yaml.lock`) via `openSync(path, 'wx')`. Retries with busy-wait on EEXIST.
+- **pinned.yaml locking** — All writes go through `mutatePins()`, which uses a ticket-based FIFO mutex at `.giterloper/locks/pins/`. Embed operations use a separate mutex at `.giterloper/locks/embed/`.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
 - **Branched vs branchless pins:** Write ops (`add`, `subtract`, `promote`, `reconcile`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
 - **Stale detection:** `assertBranchFresh` fails when local HEAD ≠ remote branch HEAD (ahead or behind). Sync with `gl pin update <name>` or `git -C <staged-dir> pull --rebase`.
@@ -66,7 +60,7 @@ The `reconcile` command requires `@tobilu/qmd/dist/store.js` (chunkDocument). Sk
 
 - **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
 - **`bootstrap/`** — Setup and verification docs
-- **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`; reduce to 1 if qmd embed context exhaustion occurs)
+- **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
 - **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
 
 ## pinned.yaml Format

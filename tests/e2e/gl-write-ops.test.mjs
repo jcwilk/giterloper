@@ -4,12 +4,10 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { test } from "node:test";
 
-const require = createRequire(import.meta.url);
-
 import {
+  E2E_MARKER,
   CLEAN_MAIN_SHA,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
@@ -19,17 +17,8 @@ import {
 import { runGl, runGlJson } from "../helpers/gl.mjs";
 
 /** Unique per test file run; ALL collision-prone names must include this. */
-const RUN_ID = `e2e_${randomBytes(8).toString("hex")}`;
+const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 const WORK_BRANCH = RUN_ID;
-
-function canReconcile() {
-  try {
-    require("@tobilu/qmd/dist/store.js");
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function randomPin(prefix) {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
@@ -174,7 +163,7 @@ test("promote fails for branchless pin", () => {
   }
 });
 
-(canReconcile() ? test : test.skip)("reconcile processes queued files", () => {
+test("reconcile processes queued files", () => {
   const pinName = randomPin("reconcile");
   const branch = `${pinName}-branch`;
   try {

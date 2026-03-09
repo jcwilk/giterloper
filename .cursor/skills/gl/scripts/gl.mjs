@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,9 +16,15 @@ const EXIT = {
   EXTERNAL: 3,
 };
 
+class GlError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.code = code;
+  }
+}
+
 function fail(message, code = EXIT.USER) {
-  console.error(`gl: ${message}`);
-  process.exit(code);
+  throw new GlError(message, code);
 }
 
 function info(message) {
@@ -172,43 +178,59 @@ function readPins(state) {
   return parsePinned(content);
 }
 
-const LOCK_RETRIES = 100;
-const LOCK_RETRY_MS = 25;
+function withFifoLock(lockDir, fn, opts = {}) {
+  const maxWaitMs = opts.maxWaitMs ?? 5000;
+  const pollMs = opts.pollMs ?? 25;
+  ensureDir(lockDir);
 
-function acquirePinnedLock(state) {
-  const lockPath = `${state.pinnedPath}.lock`;
-  for (let i = 0; i < LOCK_RETRIES; i++) {
-    try {
-      const fd = openSync(lockPath, "wx");
-      return { fd, lockPath };
-    } catch (e) {
-      if (e.code !== "EEXIST") throw e;
-      if (i === LOCK_RETRIES - 1) fail("could not acquire pinned.yaml lock after retries", EXIT.STATE);
-      const deadline = Date.now() + LOCK_RETRY_MS;
-      while (Date.now() < deadline) {}
+  const staleCutoff = Date.now() - maxWaitMs * 2;
+  const entries = readdirSync(lockDir);
+  for (const e of entries) {
+    const m = e.match(/^(\d+)_/);
+    if (m && parseInt(m[1], 10) < staleCutoff) {
+      try {
+        unlinkSync(path.join(lockDir, e));
+      } catch {}
     }
   }
-  fail("could not acquire pinned.yaml lock", EXIT.STATE);
-}
 
-function releasePinnedLock(fd, lockPath) {
-  closeSync(fd);
-  unlinkSync(lockPath);
+  const ts = String(Date.now()).padStart(15, "0");
+  const ticket = `${ts}_${process.pid}_${randomBytes(4).toString("hex")}`;
+  const ticketPath = path.join(lockDir, ticket);
+  writeFileSync(ticketPath, "", "utf8");
+
+  try {
+    const deadline = Date.now() + maxWaitMs;
+    while (Date.now() < deadline) {
+      const files = readdirSync(lockDir).sort();
+      if (files[0] === ticket) break;
+      const d = Date.now() + pollMs;
+      while (Date.now() < d) {}
+    }
+    const files = readdirSync(lockDir).sort();
+    if (files[0] !== ticket) {
+      unlinkSync(ticketPath);
+      fail(`could not acquire lock at ${lockDir} within ${maxWaitMs}ms`, EXIT.STATE);
+    }
+    return fn();
+  } finally {
+    try {
+      unlinkSync(ticketPath);
+    } catch {}
+  }
 }
 
 /** Holds exclusive lock for read-modify-write on pinned.yaml. */
 function mutatePins(state, mutator) {
-  const { fd, lockPath } = acquirePinnedLock(state);
-  try {
+  const lockDir = path.join(state.rootDir, "locks", "pins");
+  withFifoLock(lockDir, () => {
     const content = readFileSync(state.pinnedPath, "utf8");
     const pins = parsePinned(content);
     const updated = mutator(pins);
     const temp = `${state.pinnedPath}.tmp`;
     writeFileSync(temp, serializePins(updated), "utf8");
     renameSync(temp, state.pinnedPath);
-  } finally {
-    releasePinnedLock(fd, lockPath);
-  }
+  }, { maxWaitMs: 5000 });
 }
 
 function writePinsAtomic(state, pins) {
@@ -244,6 +266,13 @@ function cloneDir(state, pin) {
 
 function stagedDir(state, pinName, branchName) {
   return path.join(state.stagedRoot, pinName, branchName);
+}
+
+function removeStagedDir(state, pinName, branch) {
+  if (!branch) return;
+  const dir = stagedDir(state, pinName, branch);
+  if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+  runSoft("rmdir", [path.join(state.stagedRoot, pinName)]);
 }
 
 function collectionExists(pin, collection) {
@@ -750,18 +779,8 @@ function cmdPinRemove(state, args) {
   const pins = readPins(state);
   const target = pins.find((p) => p.name === name);
   if (!target) fail(`pin "${name}" not found`, EXIT.USER);
-  const collection = collectionName(target);
-  if (contextExists(target, collection)) runSoft("qmd", pinQmd(target, ["context", "rm", `qmd://${collection}`]));
-  if (collectionExists(target, collection)) runSoft("qmd", pinQmd(target, ["collection", "remove", collection]));
-  const cdir = cloneDir(state, target);
-  if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
-  const parent = path.join(state.versionsDir, name);
-  runSoft("rmdir", [parent]);
-  if (target.branch) {
-    const sdir = stagedDir(state, target.name, target.branch);
-    if (existsSync(sdir)) rmSync(sdir, { recursive: true, force: true });
-    runSoft("rmdir", [path.join(state.stagedRoot, target.name)]);
-  }
+  teardownPinData(state, target);
+  removeStagedDir(state, target.name, target.branch);
   mutatePins(state, (pins) => pins.filter((p) => p.name !== name));
   commandOutput({ name, removed: true }, state.globalJson);
 }
@@ -792,8 +811,7 @@ function cmdPinUpdate(state, args) {
   const hadStaged = oldPin.branch ? existsSync(stagedDir(state, oldPin.name, oldPin.branch)) : false;
   updatePinSha(state, name, newSha, { branch: ref });
   if (hadStaged && oldPin.branch) {
-    const sdir = stagedDir(state, oldPin.name, oldPin.branch);
-    rmSync(sdir, { recursive: true, force: true });
+    removeStagedDir(state, oldPin.name, oldPin.branch);
     const newPin = { ...oldPin, sha: newSha };
     ensureWorkingClone(state, newPin);
   }
@@ -834,14 +852,34 @@ function indexPin(state, pin) {
   if (!contextExists(pin, collection)) {
     run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
   }
-  run("qmd", pinQmd(pin, ["embed"]));
+  const embedLockDir = path.join(state.rootDir, "locks", "embed");
+  withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
   assertCollectionHealthy(pin, collection);
+}
+
+function cleanupQmdFiles(state, pin) {
+  const prefix = `${indexName(pin)}.`;
+  const dirs = [
+    path.join(state.rootDir, "qmd", "config", "qmd"),
+    path.join(state.rootDir, "qmd", "cache", "qmd"),
+  ];
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      if (f.startsWith(prefix)) {
+        try {
+          unlinkSync(path.join(dir, f));
+        } catch {}
+      }
+    }
+  }
 }
 
 function teardownPinData(state, pin) {
   const collection = collectionName(pin);
   runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
   runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
+  cleanupQmdFiles(state, pin);
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   runSoft("rmdir", [path.join(state.versionsDir, pin.name)]);
@@ -991,8 +1029,7 @@ function cmdPromote(state, args) {
   pushBranchOrFail(dir, pin, "promote");
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   updatePinSha(state, pin.name, newSha);
-  rmSync(dir, { recursive: true, force: true });
-  runSoft("rmdir", [path.join(state.stagedRoot, pin.name)]);
+  removeStagedDir(state, pin.name, pin.branch);
   commandOutput({ promoted: true, pin: pin.name, oldSha: pin.sha, newSha, branch: pin.branch }, state.globalJson);
 }
 
@@ -1009,10 +1046,7 @@ function cmdStageCleanup(state, args) {
   const branch = rest[0] || pin.branch;
   if (!branch) fail("usage: gl stage-cleanup <branch> [--pin <name>]", EXIT.USER);
   const dir = stagedDir(state, pin.name, branch);
-  if (existsSync(dir)) {
-    rmSync(dir, { recursive: true, force: true });
-    runSoft("rmdir", [path.join(state.stagedRoot, pin.name)]);
-  }
+  removeStagedDir(state, pin.name, branch);
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
@@ -1066,7 +1100,7 @@ function cmdVerify(state, args) {
   }
   const allOk = results.every((r) => r.ok);
   commandOutput({ ok: allOk, checks: results }, state.globalJson);
-  if (!allOk) process.exit(EXIT.STATE);
+  if (!allOk) fail("verify: not all pins are healthy", EXIT.STATE);
 }
 
 function cmdAddLike(state, args, mode) {
@@ -1339,7 +1373,16 @@ function main() {
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
 }
 
-main();
+try {
+  main();
+} catch (e) {
+  if (e instanceof GlError) {
+    console.error(`gl: ${e.message}`);
+    process.exit(e.code);
+  }
+  console.error(`gl: unexpected error: ${e?.message ?? e}`);
+  process.exit(EXIT.EXTERNAL);
+}
 
 // Keep an explicit module boundary for tooling that imports this file in tests.
 export const __filename = fileURLToPath(import.meta.url);

@@ -1,3 +1,4 @@
+export const E2E_MARKER = "gle2e_";
 export const TEST_SOURCE = "github.com/jcwilk/giterloper_test_knowledge";
 export const TEST_MAIN_REF = "main";
 export const CLEAN_MAIN_SHA = "8ff8196117fd5b5ad70a16f1c40df8ed1c760179";
