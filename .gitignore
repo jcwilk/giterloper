@@ -8,3 +8,6 @@
 node_modules/
 
 .cursor/plans/
+
+# Benchmark artifacts
+scripts/bench-repo/

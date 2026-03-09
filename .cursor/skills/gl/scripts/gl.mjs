@@ -100,7 +100,12 @@ function ensureDir(dirPath) {
 }
 
 function toRemoteUrl(source) {
-  if (source.startsWith("http://") || source.startsWith("https://") || source.startsWith("git@")) {
+  if (
+    source.startsWith("http://") ||
+    source.startsWith("https://") ||
+    source.startsWith("git@") ||
+    source.startsWith("file://")
+  ) {
     return source;
   }
   const token = process.env.GITERLOPER_GH_TOKEN;
@@ -391,8 +396,8 @@ function ensureGitignoreEntries(state) {
   }
 }
 
-function assertCollectionHealthy(pin, collection) {
-  const status = run("qmd", pinQmd(pin, ["status"]));
+function assertCollectionHealthy(pin, collection, statusArg) {
+  const status = statusArg ?? run("qmd", pinQmd(pin, ["status"]));
   const vectorsLine = status
     .split(/\r?\n/)
     .find((line) => line.toLowerCase().includes(collection.toLowerCase()) && line.toLowerCase().includes("vector"));
@@ -854,9 +859,14 @@ function indexPin(state, pin) {
   if (!contextExists(pin, collection)) {
     run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
   }
-  const embedLockDir = path.join(state.rootDir, "locks", "embed");
-  withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
-  assertCollectionHealthy(pin, collection);
+  // Skip embed when nothing needs embedding (saves ~0.5s+ per redundant run)
+  const status = run("qmd", pinQmd(pin, ["status"]));
+  const needsEmbedding = status.includes("need embedding");
+  if (needsEmbedding) {
+    const embedLockDir = path.join(state.rootDir, "locks", "embed");
+    withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), { maxWaitMs: 300000 });
+  }
+  assertCollectionHealthy(pin, collection, needsEmbedding ? undefined : status);
 }
 
 function cleanupQmdFiles(state, pin) {
