@@ -116,9 +116,9 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 6: Config and GPU
 
-- [ ] **6.1** Extract `lib/config.ts`: readLocalConfig, writeLocalConfig
-- [ ] **6.2** Extract `lib/gpu.ts`: detectGpuMode, ensureGpuConfig, printCudaInstallInstructions
-- [ ] **6.3** Update `gl.mjs` to import from dist/
+- [x] **6.1** Extract `lib/config.ts`: readLocalConfig, writeLocalConfig
+- [x] **6.2** Extract `lib/gpu.ts`: detectGpuMode, ensureGpuConfig, printCudaInstallInstructions
+- [x] **6.3** Update `gl.mjs` to import from dist/
 - [ ] **6.4** Run E2E
 
 ### Phase 7: Higher-Level Lifecycle
@@ -164,7 +164,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 3 | ✅ | Errors, run |
 | 4 | ✅ | Pinned, locking |
 | 5 | ✅ | Git, QMD |
-| 6 | ⬜ | Config, GPU |
+| 6 | ✅ | Config, GPU |
 | 7 | ⬜ | Branch, lifecycle, CLI |
 | 8 | ⬜ | Commands, entry point |
 
