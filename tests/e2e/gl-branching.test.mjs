@@ -238,6 +238,7 @@ test("merge combines two branched pins", () => {
     runGlJson(["add", "--pin", sourcePin, "--name", "source-only"], {
       stdin: "# source-only\n\nmerge source marker",
     });
+    runGlJson(["pin", "update", targetPin, "--ref", sharedBranch]);
     runGlJson(["merge", sourcePin, targetPin]);
     const merged = pinByName(runGlJson(["pin", "list"]), targetPin);
     assert.ok(merged.sha);
