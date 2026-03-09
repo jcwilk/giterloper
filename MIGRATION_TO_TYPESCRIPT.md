@@ -78,10 +78,10 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 1: Foundation
 
-- [ ] **1.1** Add Coding Conventions section to AGENTS.md referencing CONVENTIONS.md
-- [ ] **1.2** Create `lib/types.ts` with `Pin`, `GlState`, `RunResult` (and any other shared shapes)
-- [ ] **1.3** Configure build: tsconfig `outDir` for lib, `include` lib/**/*.ts, add `npm run build`
-- [ ] **1.4** Verify: `npm run build` emits JS; `gl.mjs` can `import { Pin } from '../dist/types.js'` (or equivalent path)
+- [x] **1.1** Add Coding Conventions section to AGENTS.md referencing CONVENTIONS.md
+- [x] **1.2** Create `lib/types.ts` with `Pin`, `GlState`, `RunResult` (and any other shared shapes)
+- [x] **1.3** Configure build: tsconfig `outDir` for lib, `include` lib/**/*.ts, add `npm run build`
+- [x] **1.4** Verify: `npm run build` emits JS; `gl.mjs` can `import { Pin } from '../dist/types.js'` (or equivalent path)
 
 ### Phase 2: Pure, Stateless Modules
 
@@ -159,7 +159,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 1 | ⬜ | Foundation |
+| 1 | ✅ | Foundation |
 | 2 | ⬜ | Pure modules |
 | 3 | ⬜ | Errors, run |
 | 4 | ⬜ | Pinned, locking |
