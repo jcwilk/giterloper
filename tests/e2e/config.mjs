@@ -1,5 +1,13 @@
 export const E2E_MARKER = "gle2e_";
 export const TEST_SOURCE = "github.com/jcwilk/giterloper_test_knowledge";
+
+export function toRemoteUrl(source) {
+  const token = process.env.GITERLOPER_GH_TOKEN;
+  if (token && source.includes("github.com")) {
+    return `https://x-access-token:${token}@${source}`;
+  }
+  return `git@github.com:${source.replace(/^github\.com\//, "")}.git`;
+}
 export const TEST_MAIN_REF = "main";
 export const CLEAN_MAIN_SHA = "8ff8196117fd5b5ad70a16f1c40df8ed1c760179";
 export const TEST_BRANCH = "e2e-topic-branch";

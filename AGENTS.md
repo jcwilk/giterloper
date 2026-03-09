@@ -75,3 +75,40 @@ name:
 ```
 
 Branchless pins are read-only.
+
+## Cursor Cloud specific instructions
+
+### Prerequisites
+
+- **Node.js >= 22** and **Git** are available in the VM by default.
+- **QMD** (`@tobilu/qmd`) must be installed globally: `npm install -g @tobilu/qmd`. The update script handles this.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+
+### Git access to knowledge repos
+
+The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
+- **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
+- **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
+
+Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).
+
+### Running the CLI
+
+All `gl` commands run from the workspace root:
+```bash
+node .cursor/skills/gl/scripts/gl.mjs <command>
+```
+
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
+
+### Running tests
+
+```bash
+node scripts/run-e2e.mjs
+```
+
+E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`). The `reconcile` test (1 of 22) fails due to a known issue (`ISSUES.md` #3: missing `@tobilu/qmd/dist/store.js`).
+
+### No lint or build step
+
+This project has no `package.json`, no ESLint, and no build step. The entire application is `gl.mjs` (~1400 lines of pure Node.js with zero npm runtime dependencies). QMD is the only external CLI dependency.
