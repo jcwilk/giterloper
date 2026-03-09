@@ -94,10 +94,10 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 ### Phase 3: Error and Run Layer
 
-- [ ] **3.1** Extract `lib/errors.ts`: EXIT, GlError, fail
-- [ ] **3.2** Extract `lib/run.ts`: run, runSoft, isBranchNotFoundError
-- [ ] **3.3** Update `gl.mjs` to import from dist/
-- [ ] **3.4** Run E2E
+- [x] **3.1** Extract `lib/errors.ts`: EXIT, GlError, fail
+- [x] **3.2** Extract `lib/run.ts`: run, runSoft, isBranchNotFoundError
+- [x] **3.3** Update `gl.mjs` to import from dist/
+- [x] **3.4** Run E2E
 
 ### Phase 4: Pinned and I/O
 
@@ -161,7 +161,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 |-------|--------|-------|
 | 1 | ✅ | Foundation |
 | 2 | ✅ | Pure modules |
-| 3 | ⬜ | Errors, run |
+| 3 | ✅ | Errors, run |
 | 4 | ⬜ | Pinned, locking |
 | 5 | ⬜ | Git, QMD |
 | 6 | ⬜ | Config, GPU |
