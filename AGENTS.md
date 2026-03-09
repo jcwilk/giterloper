@@ -2,6 +2,10 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
+## Coding Conventions
+
+See [CONVENTIONS.md](./CONVENTIONS.md) for TypeScript and code style guidelines.
+
 ## E2E Tests: Collision Avoidance (CRITICAL)
 
 E2E tests use a **shared remote repository** (`giterloper_test_knowledge`) and **shared local state** (`.giterloper/`, `pinned.yaml`). To avoid collisions:

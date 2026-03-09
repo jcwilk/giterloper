@@ -7,5 +7,6 @@
 .giterloper-bench/
 
 node_modules/
+.cursor/skills/gl/dist/
 
 .cursor/plans/
