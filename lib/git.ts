@@ -1,9 +1,9 @@
 /**
  * Git operations: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity.
  */
-import { EXIT, fail } from "./errors.js";
-import { run, runSoft } from "./run.js";
-import type { Pin } from "./types.js";
+import { EXIT, fail } from "./errors.ts";
+import { run, runSoft } from "./run.ts";
+import type { Pin } from "./types.ts";
 
 export function toRemoteUrl(source: string): string {
   if (
@@ -13,7 +13,7 @@ export function toRemoteUrl(source: string): string {
   ) {
     return source;
   }
-  const token = process.env.GITERLOPER_GH_TOKEN;
+  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
   if (token && source.includes("github.com")) {
     return `https://x-access-token:${token}@${source}`;
   }

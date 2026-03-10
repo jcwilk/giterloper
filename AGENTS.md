@@ -62,7 +62,8 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
+- **`lib/`** — TypeScript source for the gl CLI (paths, reconcile, pinned, git, etc.)
+- **`.cursor/skills/gl/`** — Skill definition; CLI entry point is `lib/gl.ts`
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
 - **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
@@ -84,9 +85,9 @@ Branchless pins are read-only.
 
 ### Prerequisites
 
-- **Node.js >= 22** and **Git** are available in the VM by default.
-- **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
-- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+- **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
+- **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `deno run -A lib/gl.ts gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -100,29 +101,33 @@ Without the secret, `gl` falls back to plain `https://` URLs (works locally with
 
 All `gl` commands run from the workspace root:
 ```bash
-node .cursor/skills/gl/scripts/gl.mjs <command>
+deno run -A lib/gl.ts <command>
 ```
+Or: `npm run gl -- <command>`
 
 See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
 
 ### Running tests
 
 ```bash
-node scripts/run-e2e.mjs
+deno run -A scripts/run-e2e.ts
+# or: npm run test:e2e
 ```
+
+Unit tests: `deno test -A tests/unit/` or `npm run test:unit`
 
 E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`).
 
-### Build and typecheck
+### Typecheck
 
-Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
+Run `deno check lib/gl.ts` to verify TypeScript. No build step required—Deno runs TypeScript directly.
 
 ### Embed performance benchmark
 
 To reproduce `qmd embed` timings and verify embeddings:
 
 ```bash
-node scripts/benchmark-embed.mjs [--runs N]
+deno run -A scripts/benchmark-embed.ts [--runs N]
 ```
 
 Creates a fixture, runs `qmd embed -f`, times it, and verifies via `vsearch`. Uses `.giterloper-bench/` for isolation.

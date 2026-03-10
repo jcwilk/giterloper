@@ -1,20 +1,30 @@
-#!/usr/bin/env node
-
+#!/usr/bin/env -S deno run -A
+/**
+ * gl - giterloper CLI. Run with: deno run -A lib/gl.ts [command] [args]
+ */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { chunkDocument } from "@tobilu/qmd/dist/store.js";
 
-import { EXIT, GlError, fail } from "../dist/errors.js";
+import { chunkDocument } from "./chunk.ts";
+import { EXIT, GlError, fail } from "./errors.ts";
 import {
   chooseMatchedKnowledgePath,
   makeQueueFilename,
   normalizeKnowledgeRelPath,
   parseSearchJson,
   safeName,
-} from "../dist/reconcile.js";
-import { isBranchNotFoundError, run, runSoft } from "../dist/run.js";
+} from "./reconcile.ts";
+import { isBranchNotFoundError, run, runSoft } from "./run.ts";
 import {
   ensureGiterloperRoot,
   mutatePins,
@@ -23,14 +33,14 @@ import {
   resolvePin,
   serializePins,
   writePinsAtomic,
-} from "../dist/pinned.js";
-import { resolveSha, setCloneIdentity, toRemoteUrl } from "../dist/git.js";
-import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "../dist/paths.js";
+} from "./pinned.ts";
+import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
+import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "./paths.ts";
 import {
   ensureGitignoreEntries,
   readLocalConfig,
   writeLocalConfig,
-} from "../dist/config.js";
+} from "./config.ts";
 import {
   assertBranchFresh,
   assertBranchReadyForWrite,
@@ -39,7 +49,7 @@ import {
   ensureWorkingClone,
   pushBranchOrFail,
   requirePinBranch,
-} from "../dist/branch.js";
+} from "./branch.ts";
 import {
   consumeBooleanFlag,
   commandOutput,
@@ -48,8 +58,8 @@ import {
   parseFlag,
   printTopHelp,
   readStdinOrFail,
-} from "../dist/cli.js";
-import { detectGpuMode, ensureGpuConfig } from "../dist/gpu.js";
+} from "./cli.ts";
+import { detectGpuMode, ensureGpuConfig } from "./gpu.ts";
 import {
   clonePin,
   indexPin,
@@ -57,7 +67,7 @@ import {
   teardownPinData,
   updatePinSha,
   verifyCloneAtSha,
-} from "../dist/pin-lifecycle.js";
+} from "./pin-lifecycle.ts";
 import {
   assertCollectionHealthy,
   collectionExists,
@@ -66,9 +76,9 @@ import {
   indexName,
   needsEmbeddingCount,
   pinQmd,
-} from "../dist/qmd.js";
+} from "./qmd.ts";
 
-function cmdGpu(state, args) {
+function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string | null }, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -85,7 +95,7 @@ function cmdGpu(state, args) {
   if (cpuFlag.found) {
     writeLocalConfig(state, { gpuMode: "cpu" });
     state.gpuMode = "cpu";
-    process.env.NODE_LLAMA_CPP_GPU = "false";
+    Deno.env.set("NODE_LLAMA_CPP_GPU", "false");
     const out = { gpuMode: "cpu", forced: true };
     commandOutput(out, state.globalJson);
     if (!state.globalJson) info("GPU mode set to CPU. Run `gl gpu` without --cpu to re-detect after installing CUDA.");
@@ -95,7 +105,7 @@ function cmdGpu(state, args) {
   writeLocalConfig(state, { gpuMode: detected.mode });
   state.gpuMode = detected.mode;
   if (detected.mode === "cpu") {
-    process.env.NODE_LLAMA_CPP_GPU = "false";
+    Deno.env.set("NODE_LLAMA_CPP_GPU", "false");
   }
   const out = { gpuMode: detected.mode, reason: detected.reason };
   commandOutput(out, state.globalJson);
@@ -111,7 +121,7 @@ function cmdGpu(state, args) {
   }
 }
 
-function cmdStatus(state, args) {
+function cmdStatus(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -140,7 +150,7 @@ function cmdStatus(state, args) {
     };
   });
   const qmdStatuses = pinStates.map((ps) => {
-    const pin = pins.find((p) => p.name === ps.name);
+    const pin = pins.find((p) => p.name === ps.name)!;
     const s = runSoft("qmd", pinQmd(pin, ["status"]));
     return { pin: ps.name, status: s.ok ? s.stdout : s.stderr || "qmd status failed" };
   });
@@ -154,7 +164,7 @@ function cmdStatus(state, args) {
   commandOutput(out, state.globalJson);
 }
 
-function cmdPinList(state, args) {
+function cmdPinList(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(args, ["Usage: gl pin list [--json]", "Lists all pins."].join("\n"));
   const pins = readPins(state);
   if (pins.length === 0) {
@@ -174,7 +184,7 @@ function cmdPinList(state, args) {
   );
 }
 
-function cmdPinAdd(state, args) {
+function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -209,7 +219,7 @@ function cmdPinAdd(state, args) {
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
 }
 
-function cmdPinRemove(state, args) {
+function cmdPinRemove(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -228,7 +238,7 @@ function cmdPinRemove(state, args) {
   commandOutput({ name, removed: true }, state.globalJson);
 }
 
-function cmdPinUpdate(state, args) {
+function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -261,7 +271,7 @@ function cmdPinUpdate(state, args) {
   commandOutput({ name, oldSha: oldPin.sha, newSha, updated: true }, state.globalJson);
 }
 
-function cmdClone(state, args) {
+function cmdClone(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -281,7 +291,7 @@ function cmdClone(state, args) {
   commandOutput({ cloned: pins.map(collectionName) }, state.globalJson);
 }
 
-function cmdIndex(state, args) {
+function cmdIndex(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -302,13 +312,13 @@ function cmdIndex(state, args) {
   commandOutput({ indexed: pins.map(collectionName) }, state.globalJson);
 }
 
-function cmdTeardown(state, args) {
+function cmdTeardown(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(args, ["Usage: gl teardown <name>", "Tears down pin, clone, and qmd collection."].join("\n"));
   if (args.length !== 1) fail("usage: gl teardown <name>", EXIT.USER);
   cmdPinRemove(state, args);
 }
 
-function cmdSearchLike(state, mode, args) {
+function cmdSearchLike(state: ReturnType<typeof makeState>, mode: "search" | "query", args: string[]) {
   const helpText = [
     mode === "search"
       ? "Usage: gl search <query> [--pin <name>] [-n N] [--json]"
@@ -327,13 +337,13 @@ function cmdSearchLike(state, mode, args) {
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
   const collection = collectionName(pin);
   const cmdArgs = [mode, text, "-c", collection];
-  if (mode === "search" && nParsed.found) cmdArgs.push("-n", nParsed.value);
+  if (mode === "search" && nParsed.found) cmdArgs.push("-n", nParsed.value!);
   if (state.globalJson) cmdArgs.push("--json");
   const out = run("qmd", pinQmd(pin, cmdArgs));
   commandOutput(out);
 }
 
-function cmdGet(state, args) {
+function cmdGet(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl get <path> [--pin <name>] [--full] [--json]", "Runs qmd get scoped to selected pin collection."].join(
@@ -357,7 +367,7 @@ function cmdGet(state, args) {
   commandOutput(out);
 }
 
-function cmdStage(state, args) {
+function cmdStage(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl stage [branch] [--pin <name>]", "Creates staged working clone on a branch."].join("\n")
@@ -399,7 +409,7 @@ function cmdStage(state, args) {
   commandOutput({ staged: dir, branch, pin: pin.name, created: true }, state.globalJson);
 }
 
-function cmdPromote(state, args) {
+function cmdPromote(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -423,7 +433,7 @@ function cmdPromote(state, args) {
   commandOutput({ promoted: true, pin: pin.name, oldSha: pin.sha, newSha, branch: pin.branch }, state.globalJson);
 }
 
-function cmdStageCleanup(state, args) {
+function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl stage-cleanup [branch] [--pin <name>]", "Deletes staged clone without promoting."].join("\n")
@@ -440,7 +450,7 @@ function cmdStageCleanup(state, args) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
-function cmdVerify(state, args) {
+function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, vector health, and branch freshness."].join(
@@ -493,7 +503,7 @@ function cmdVerify(state, args) {
   if (!allOk) fail("verify: not all pins are healthy", EXIT.STATE);
 }
 
-function cmdAddLike(state, args, mode) {
+function cmdAddLike(state: ReturnType<typeof makeState>, args: string[], mode: "add" | "subtract") {
   const helpText =
     mode === "add"
       ? ["Usage: gl add [--pin <name>] [--name <name>]", "Reads stdin and queues content in added/."].join("\n")
@@ -541,15 +551,7 @@ function cmdAddLike(state, args, mode) {
   );
 }
 
-function cmdAdd(state, args) {
-  return cmdAddLike(state, args, "add");
-}
-
-function cmdSubtract(state, args) {
-  return cmdAddLike(state, args, "subtract");
-}
-
-function cmdReconcile(state, args) {
+function cmdReconcile(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl reconcile [--pin <name>]", "Reconciles added/ and subtracts/ queues into knowledge/."].join("\n")
@@ -563,7 +565,7 @@ function cmdReconcile(state, args) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
 
-  const processQueue = (queueName) => {
+  const processQueue = (queueName: string) => {
     const queueDir = path.join(dir, queueName);
     if (!existsSync(queueDir)) return { files: 0, commits: 0 };
     const files = readdirSync(queueDir).filter((f) => f.toLowerCase().endsWith(".md")).sort();
@@ -633,7 +635,7 @@ function cmdReconcile(state, args) {
   );
 }
 
-function cmdMerge(state, args) {
+function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -656,7 +658,7 @@ function cmdMerge(state, args) {
   } else {
     run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
   }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch, "--depth", "1"]);
+  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
   const merge = runSoft("git", [
     "-C",
     dir,
@@ -678,9 +680,9 @@ function cmdMerge(state, args) {
         "Conflicting files:",
         conflicts || "  - (unable to determine)",
         "The working clone is left in a conflicted state at:",
-        `  ${stagedDir(state, target.name, target.branch)}`,
+        `  ${stagedDir(state, target.name, target.branch!)}`,
         `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
-        `To abort: run "git -C ${stagedDir(state, target.name, target.branch)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
+        `To abort: run "git -C ${stagedDir(state, target.name, target.branch!)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
       ].join("\n"),
       EXIT.STATE
     );
@@ -698,14 +700,7 @@ function cmdMerge(state, args) {
   );
 }
 
-function main() {
-  let args = process.argv.slice(2);
-  const helpJsonParsed = consumeBooleanFlag(args, "--json");
-  args = helpJsonParsed.args;
-  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    printTopHelp();
-    return;
-  }
+function makeState() {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
     fail("no .git directory found in current path or parents", EXIT.STATE);
@@ -718,15 +713,28 @@ function main() {
     pinnedPath: path.join(projectRoot, ".giterloper", "pinned.yaml"),
     localConfigPath: path.join(projectRoot, ".giterloper", "local.json"),
     globalJson: false,
+    gpuMode: null as string | null,
   };
-  process.env.XDG_CONFIG_HOME = path.join(state.rootDir, "qmd", "config");
-  process.env.XDG_CACHE_HOME = path.join(state.rootDir, "qmd", "cache");
-  state.globalJson = helpJsonParsed.found;
+  Deno.env.set("XDG_CONFIG_HOME", path.join(state.rootDir, "qmd", "config"));
+  Deno.env.set("XDG_CACHE_HOME", path.join(state.rootDir, "qmd", "cache"));
   const localConfig = readLocalConfig(state);
-  state.gpuMode = localConfig.gpuMode || null;
+  state.gpuMode = (localConfig.gpuMode as string) || null;
   if (state.gpuMode === "cpu") {
-    process.env.NODE_LLAMA_CPP_GPU = "false";
+    Deno.env.set("NODE_LLAMA_CPP_GPU", "false");
   }
+  return state;
+}
+
+function main() {
+  let args = [...Deno.args];
+  const helpJsonParsed = consumeBooleanFlag(args, "--json");
+  args = helpJsonParsed.args;
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+    printTopHelp();
+    return;
+  }
+  const state = makeState();
+  state.globalJson = helpJsonParsed.found;
 
   const [cmd, ...rest] = args;
 
@@ -750,8 +758,8 @@ function main() {
   if (cmd === "stage") return cmdStage(state, rest);
   if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
-  if (cmd === "add") return cmdAdd(state, rest);
-  if (cmd === "subtract") return cmdSubtract(state, rest);
+  if (cmd === "add") return cmdAddLike(state, rest, "add");
+  if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
   if (cmd === "merge") return cmdMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
@@ -764,11 +772,8 @@ try {
 } catch (e) {
   if (e instanceof GlError) {
     console.error(`gl: ${e.message}`);
-    process.exit(e.code);
+    Deno.exit(e.code);
   }
   console.error(`gl: unexpected error: ${e?.message ?? e}`);
-  process.exit(EXIT.EXTERNAL);
+  Deno.exit(EXIT.EXTERNAL);
 }
-
-// Keep an explicit module boundary for tooling that imports this file in tests.
-export const __filename = fileURLToPath(import.meta.url);

@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "gl": "deno run -A lib/gl.ts",
+    "test:unit": "deno test -A tests/unit/",
+    "test:e2e": "deno run -A scripts/run-e2e.ts"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.unstable"]
+  },
+  "nodeModulesDir": "auto"
+}

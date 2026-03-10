@@ -2,7 +2,7 @@
  * CLI helpers: info, commandOutput, parseFlag, consumeBooleanFlag, ensureHelpNotRequested.
  */
 import { readFileSync } from "node:fs";
-import { EXIT, fail } from "./errors.js";
+import { EXIT, fail } from "./errors.ts";
 
 export function info(message: string): void {
   console.error(`gl: ${message}`);
@@ -13,14 +13,14 @@ export function commandOutput(
   asJson: boolean = false
 ): void {
   if (asJson) {
-    process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+    Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(data, null, 2)}\n`));
     return;
   }
   if (typeof data === "string") {
-    process.stdout.write(`${data}\n`);
+    Deno.stdout.writeSync(new TextEncoder().encode(`${data}\n`));
     return;
   }
-  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+  Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(data, null, 2)}\n`));
 }
 
 export interface ParseFlagResult {
@@ -63,7 +63,7 @@ export function consumeBooleanFlag(
 export function ensureHelpNotRequested(args: string[], text: string): void {
   if (args.includes("--help") || args.includes("-h")) {
     commandOutput(text);
-    process.exit(EXIT.OK);
+    Deno.exit(EXIT.OK);
   }
 }
 

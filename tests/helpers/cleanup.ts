@@ -2,13 +2,23 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { toRemoteUrl } from "../e2e/config.mjs";
 
-function runGit(args, { cwd = null, silent = false } = {}) {
+export function toRemoteUrl(source: string): string {
+  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
+  if (token && source.includes("github.com")) {
+    return `https://x-access-token:${token}@${source}`;
+  }
+  return `https://${source}`;
+}
+
+function runGit(
+  args: string[],
+  opts: { cwd?: string | null; silent?: boolean } = {}
+): string {
   const result = spawnSync("git", args, {
-    cwd,
+    cwd: opts.cwd ?? undefined,
     encoding: "utf8",
-    stdio: ["ignore", silent ? "ignore" : "pipe", "pipe"],
+    stdio: ["ignore", opts.silent ? "ignore" : "pipe", "pipe"],
   });
 
   if (result.error) {
@@ -20,25 +30,38 @@ function runGit(args, { cwd = null, silent = false } = {}) {
     throw new Error(stderr);
   }
 
-  return result.stdout || "";
+  return (result.stdout || "").trim();
 }
 
-function cleanupLocalCopies(pinName) {
+function cleanupLocalCopies(pinName: string | null): void {
   if (!pinName) return;
 
-  const versionsDir = path.join(process.cwd(), ".giterloper", "versions", pinName);
-  const stagedDir = path.join(process.cwd(), ".giterloper", "staged", pinName);
+  const root = Deno.cwd();
+  const versionsDir = path.join(root, ".giterloper", "versions", pinName);
+  const stagedDir = path.join(root, ".giterloper", "staged", pinName);
 
-  rmSync(versionsDir, { recursive: true, force: true });
-  rmSync(stagedDir, { recursive: true, force: true });
+  try {
+    rmSync(versionsDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+  try {
+    rmSync(stagedDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
 }
 
-/**
- * @param {string} remoteSource - e.g. "github.com/jcwilk/giterloper_test_knowledge"
- * @param {string} cleanMainSha - SHA to reset main to
- * @param {string|null|{ pinName?: string, branchName?: string }} opts - If string: legacy pinName for local cleanup only (deletes ALL remote branches). If object: { pinName, branchName } for parallel-safe cleanup (only deletes our branch, creates it from main).
- */
-export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null) {
+interface CleanupOpts {
+  pinName?: string | null;
+  branchName?: string | null;
+}
+
+export function cleanupTestKnowledgeRepo(
+  remoteSource: string,
+  cleanMainSha: string,
+  opts: string | CleanupOpts | null = null
+): void {
   const pinName = typeof opts === "string" ? opts : opts?.pinName ?? null;
   const branchName = typeof opts === "object" && opts?.branchName ? opts.branchName : null;
 
@@ -52,7 +75,8 @@ export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const [, ref] = line.split(/\s+/);
+      const parts = line.split(/\s+/);
+      const ref = parts[1];
       return ref?.replace("refs/heads/", "");
     })
     .filter(Boolean);

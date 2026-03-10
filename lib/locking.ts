@@ -5,8 +5,8 @@ import { readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 
-import { EXIT, fail } from "./errors.js";
-import { ensureDir } from "./paths.js";
+import { EXIT, fail } from "./errors.ts";
+import { ensureDir } from "./paths.ts";
 
 export interface LockOptions {
   maxWaitMs?: number;
@@ -36,7 +36,7 @@ export function withFifoLock<T>(
   }
 
   const ts = String(Date.now()).padStart(15, "0");
-  const ticket = `${ts}_${process.pid}_${randomBytes(4).toString("hex")}`;
+  const ticket = `${ts}_${Deno.pid}_${randomBytes(4).toString("hex")}`;
   const ticketPath = path.join(lockDir, ticket);
   writeFileSync(ticketPath, "", "utf8");
 

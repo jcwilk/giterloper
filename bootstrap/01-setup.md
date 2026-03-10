@@ -3,9 +3,8 @@
 ## 1. Ensure prerequisites
 
 1. `git` available: `git --version`
-2. Node.js >= 22 (or Bun): `node --version` (or `bun --version`)
-3. Install dependencies: `npm install` (provides locked `@tobilu/qmd` for `gl reconcile`)
-4. QMD available: `qmd status` (if not on PATH, run `npm install -g @tobilu/qmd`)
+2. Deno: `deno --version` (install from https://deno.land)
+3. QMD available: `qmd status` (if not on PATH, run `npm install -g @tobilu/qmd`)
 5. **CUDA Toolkit** (recommended for GPU acceleration):
 
    If an NVIDIA GPU is present but the CUDA Toolkit is not installed, you must stop and get an explicit user choice before proceeding.
@@ -29,9 +28,11 @@
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-node .cursor/skills/gl/scripts/gl.mjs clone
-node .cursor/skills/gl/scripts/gl.mjs index
+deno run -A lib/gl.ts clone
+deno run -A lib/gl.ts index
 ```
+
+Or: `npm run gl -- clone` and `npm run gl -- index`
 
 `gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
 
