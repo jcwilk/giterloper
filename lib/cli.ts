@@ -1,8 +1,7 @@
 /**
  * CLI helpers: info, commandOutput, parseFlag, consumeBooleanFlag, ensureHelpNotRequested.
  */
-import { readFileSync } from "node:fs";
-import { EXIT, fail } from "./errors.js";
+import { EXIT, fail } from "./errors.ts";
 
 export function info(message: string): void {
   console.error(`gl: ${message}`);
@@ -13,14 +12,14 @@ export function commandOutput(
   asJson: boolean = false
 ): void {
   if (asJson) {
-    process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+    Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(data, null, 2)}\n`));
     return;
   }
   if (typeof data === "string") {
-    process.stdout.write(`${data}\n`);
+    Deno.stdout.writeSync(new TextEncoder().encode(`${data}\n`));
     return;
   }
-  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+  Deno.stdout.writeSync(new TextEncoder().encode(`${JSON.stringify(data, null, 2)}\n`));
 }
 
 export interface ParseFlagResult {
@@ -63,12 +62,26 @@ export function consumeBooleanFlag(
 export function ensureHelpNotRequested(args: string[], text: string): void {
   if (args.includes("--help") || args.includes("-h")) {
     commandOutput(text);
-    process.exit(EXIT.OK);
+    Deno.exit(EXIT.OK);
   }
 }
 
 export function readStdinOrFail(): string {
-  const text = readFileSync(0, "utf8");
+  const chunks: Uint8Array[] = [];
+  const buf = new Uint8Array(8192);
+  while (true) {
+    const n = Deno.stdin.readSync(buf);
+    if (n === null || n === 0) break;
+    chunks.push(buf.subarray(0, n).slice());
+  }
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    combined.set(c, offset);
+    offset += c.length;
+  }
+  const text = new TextDecoder().decode(combined);
   if (!text || !text.trim()) fail("stdin content is required", EXIT.USER);
   return text;
 }

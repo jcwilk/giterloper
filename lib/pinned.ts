@@ -4,10 +4,10 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { EXIT, fail } from "./errors.js";
-import type { GlState } from "./types.js";
-import type { Pin } from "./types.js";
-import { withFifoLock } from "./locking.js";
+import { EXIT, fail } from "./errors.ts";
+import type { GlState } from "./types.ts";
+import type { Pin } from "./types.ts";
+import { withFifoLock } from "./locking.ts";
 
 export function parsePinned(content: string): Pin[] {
   const pins: Pin[] = [];

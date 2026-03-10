@@ -4,9 +4,9 @@
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
-import type { GlState, Pin } from "./types.js";
+import type { GlState, Pin } from "./types.ts";
 
-export function findProjectRoot(startDir: string = process.cwd()): string | null {
+export function findProjectRoot(startDir: string = Deno.cwd()): string | null {
   let current = path.resolve(startDir);
   while (true) {
     if (existsSync(path.join(current, ".git"))) return current;

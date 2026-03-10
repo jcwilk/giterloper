@@ -5,10 +5,10 @@
 import { existsSync, readdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 
-import { EXIT, fail } from "./errors.js";
-import { run, runSoft } from "./run.js";
-import type { GlState } from "./types.js";
-import type { Pin } from "./types.js";
+import { EXIT, fail } from "./errors.ts";
+import { run, runSoft } from "./run.ts";
+import type { GlState } from "./types.ts";
+import type { Pin } from "./types.ts";
 
 export function collectionName(pin: Pin): string {
   return `${pin.name}@${pin.sha}`;

@@ -20,8 +20,8 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 
 ## Quick start
 
-1. Ensure prerequisites: git, Node.js >= 22. Run `npm install`, then `qmd status` (or `npm install -g @tobilu/qmd`).
-2. From this repo: `node .cursor/skills/gl/scripts/gl.mjs clone` then `node .cursor/skills/gl/scripts/gl.mjs index`
+1. Ensure prerequisites: git, Deno. Install qmd: `npm install -g @tobilu/qmd`, then `qmd status`.
+2. From this repo: `deno run -A lib/gl.ts clone` then `deno run -A lib/gl.ts index`
 3. See `bootstrap/02-verification.md` for verification steps.
 
 See `bootstrap/` for detailed setup.
@@ -31,7 +31,8 @@ See `bootstrap/` for detailed setup.
 E2E tests use random pin/branch names per run and can execute in parallel:
 
 ```bash
-node scripts/run-e2e.mjs
+deno task test:unit   # unit tests
+deno task test:e2e    # E2E tests (requires GITERLOPER_GH_TOKEN)
 ```
 
 See `AGENTS.md` for collision-avoidance guidance.

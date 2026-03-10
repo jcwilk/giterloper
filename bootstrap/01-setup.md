@@ -3,10 +3,9 @@
 ## 1. Ensure prerequisites
 
 1. `git` available: `git --version`
-2. Node.js >= 22 (or Bun): `node --version` (or `bun --version`)
-3. Install dependencies: `npm install` (provides locked `@tobilu/qmd` for `gl reconcile`)
-4. QMD available: `qmd status` (if not on PATH, run `npm install -g @tobilu/qmd`)
-5. **CUDA Toolkit** (recommended for GPU acceleration):
+2. Deno available: `deno --version` (install: `curl -fsSL https://deno.land/install.sh | sh`)
+3. QMD available: `qmd status` (if not on PATH, run `npm install -g @tobilu/qmd`). Deno imports `@tobilu/qmd` for reconcile chunking via npm specifier.
+4. **CUDA Toolkit** (recommended for GPU acceleration):
 
    If an NVIDIA GPU is present but the CUDA Toolkit is not installed, you must stop and get an explicit user choice before proceeding.
 
@@ -22,15 +21,15 @@
      sudo apt update && sudo apt install cuda-toolkit-13-1
      ```
    - After installing, run `gl gpu` to re-detect. If the user prefers CPU-only, run `gl gpu --cpu` (only after they have explicitly approved).
-6. Optional: `vulkaninfo --summary` for Vulkan fallback.
+5. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
 ## 2. Materialize the knowledge store
 
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-node .cursor/skills/gl/scripts/gl.mjs clone
-node .cursor/skills/gl/scripts/gl.mjs index
+deno run -A lib/gl.ts clone
+deno run -A lib/gl.ts index
 ```
 
 `gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.

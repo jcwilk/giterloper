@@ -2,13 +2,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { toRemoteUrl } from "../e2e/config.mjs";
+import { toRemoteUrl } from "../e2e/config.ts";
 
-function runGit(args, { cwd = null, silent = false } = {}) {
+function runGit(args: string[], opts: { cwd?: string | null; silent?: boolean } = {}): string {
   const result = spawnSync("git", args, {
-    cwd,
+    cwd: opts.cwd ?? undefined,
     encoding: "utf8",
-    stdio: ["ignore", silent ? "ignore" : "pipe", "pipe"],
+    stdio: ["ignore", opts.silent ? "ignore" : "pipe", "pipe"],
   });
 
   if (result.error) {
@@ -23,22 +23,34 @@ function runGit(args, { cwd = null, silent = false } = {}) {
   return result.stdout || "";
 }
 
-function cleanupLocalCopies(pinName) {
+function cleanupLocalCopies(pinName: string | null): void {
   if (!pinName) return;
 
-  const versionsDir = path.join(process.cwd(), ".giterloper", "versions", pinName);
-  const stagedDir = path.join(process.cwd(), ".giterloper", "staged", pinName);
+  const versionsDir = path.join(Deno.cwd(), ".giterloper", "versions", pinName);
+  const stagedDir = path.join(Deno.cwd(), ".giterloper", "staged", pinName);
 
-  rmSync(versionsDir, { recursive: true, force: true });
-  rmSync(stagedDir, { recursive: true, force: true });
+  try {
+    rmSync(versionsDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+  try {
+    rmSync(stagedDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
 }
 
 /**
- * @param {string} remoteSource - e.g. "github.com/jcwilk/giterloper_test_knowledge"
- * @param {string} cleanMainSha - SHA to reset main to
- * @param {string|null|{ pinName?: string, branchName?: string }} opts - If string: legacy pinName for local cleanup only (deletes ALL remote branches). If object: { pinName, branchName } for parallel-safe cleanup (only deletes our branch, creates it from main).
+ * @param remoteSource - e.g. "github.com/jcwilk/giterloper_test_knowledge"
+ * @param cleanMainSha - SHA to reset main to
+ * @param opts - If string: legacy pinName for local cleanup only (deletes ALL remote branches). If object: { pinName, branchName } for parallel-safe cleanup (only deletes our branch, creates it from main).
  */
-export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null) {
+export function cleanupTestKnowledgeRepo(
+  remoteSource: string,
+  cleanMainSha: string,
+  opts: string | { pinName?: string; branchName?: string } | null = null
+): void {
   const pinName = typeof opts === "string" ? opts : opts?.pinName ?? null;
   const branchName = typeof opts === "object" && opts?.branchName ? opts.branchName : null;
 
@@ -55,7 +67,7 @@ export function cleanupTestKnowledgeRepo(remoteSource, cleanMainSha, opts = null
       const [, ref] = line.split(/\s+/);
       return ref?.replace("refs/heads/", "");
     })
-    .filter(Boolean);
+    .filter(Boolean) as string[];
 
   if (branchName) {
     if (branches.includes(branchName)) {
