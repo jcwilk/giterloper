@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
@@ -13,6 +14,7 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 import { runGl, runGlJson } from "../helpers/gl.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -89,6 +91,32 @@ function pushCommitToBranch(
     runGit(["add", path.relative(repoDir, fullPath)], { cwd: repoDir });
     runGit(["commit", "-m", `stale update ${Date.now()}`], { cwd: repoDir });
     runGit(["push", "origin", `HEAD:${branch}`], { cwd: repoDir });
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function createBranchFromBranch(
+  parentBranch: string,
+  newBranch: string,
+  contentPath: string,
+  contentBody: string
+): string {
+  const tempRoot = Deno.makeTempDirSync({ prefix: "giterloper-branch-from-" });
+  const repoDir = path.join(tempRoot, "repo");
+  try {
+    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
+    runGit(["checkout", parentBranch], { cwd: repoDir });
+    runGit(["checkout", "-b", newBranch], { cwd: repoDir });
+    runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
+    runGit(["config", "user.email", "giterloper-test@example.com"], { cwd: repoDir });
+    const fullPath = path.join(repoDir, contentPath);
+    mkdirSync(path.dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, contentBody, "utf8");
+    runGit(["add", path.relative(repoDir, fullPath)], { cwd: repoDir });
+    runGit(["commit", "-m", `Branch ${newBranch} from ${parentBranch}`], { cwd: repoDir });
+    runGit(["push", "origin", `HEAD:${newBranch}`], { cwd: repoDir });
+    return runGit(["rev-parse", "HEAD"], { cwd: repoDir });
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
@@ -249,6 +277,33 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
     );
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge combines two branched pins", () => {
+  const sourcePin = randomPin("merge-src");
+  const targetPin = randomPin("merge-tgt");
+  const targetBranch = `merge_tgt_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+  const sourceBranch = `merge_src_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+  const sourceFile = `knowledge/merge_src_${RUN_ID}_${randomBytes(4).toString("hex")}.md`;
+  try {
+    createRemoteBranchFromMain(targetBranch, "knowledge/scratch.md", "# target base");
+    createBranchFromBranch(targetBranch, sourceBranch, sourceFile, "# source addition");
+    runGlJson(["pin", "add", sourcePin, TEST_SOURCE, "--ref", sourceBranch, "--branch", sourceBranch]);
+    runGlJson(["pin", "add", targetPin, TEST_SOURCE, "--ref", targetBranch, "--branch", targetBranch]);
+    runGlJson(["add", "--pin", sourcePin, "--name", "source-only"], {
+      stdin: "# source-only\n\nmerge source marker",
+    });
+    runGlJson(["reconcile", "--pin", sourcePin]);
+    runGlJson(["promote", "--pin", sourcePin]);
+    runGlJson(["merge", sourcePin, targetPin]);
+    const merged = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], targetPin);
+    assertEquals(!!merged?.sha, true, "target pin should have sha after merge");
+  } finally {
+    ensurePinRemoved(sourcePin);
+    ensurePinRemoved(targetPin);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: sourceBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: targetBranch });
   }
 });
 

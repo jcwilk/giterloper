@@ -640,7 +640,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges one branched pin into another branched pin.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -658,7 +658,11 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   } else {
     run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
   }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
+  const isShallow = run("git", ["-C", dir, "rev-parse", "--is-shallow-repository"]).trim() === "true";
+  if (isShallow) {
+    run("git", ["-C", dir, "fetch", "--unshallow", "origin"]);
+  }
+  run("git", ["-C", dir, "fetch", remoteName, source.branch!]);
   const merge = runSoft("git", [
     "-C",
     dir,
