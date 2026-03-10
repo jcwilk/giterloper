@@ -38,7 +38,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ### 3. Shared State: pinned.yaml and QMD
 
 - **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
+- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `lib/gl.ts`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
 ### 4. Cleanup and Branch Isolation
@@ -62,10 +62,12 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
+- **`lib/`** — TypeScript source (CLI entry `gl.ts`, paths, reconcile, pinned, etc.)
+- **`dist/`** — Compiled output (`npm run build`). CLI runs from `dist/lib/gl.js`.
+- **`.cursor/skills/gl/`** — Skill documentation only (SKILL.md)
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
-- **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
+- **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson; spawns `dist/lib/gl.js`), `cleanup.mjs` (cleanupTestKnowledgeRepo)
 
 ## pinned.yaml Format
 
@@ -86,11 +88,11 @@ Branchless pins are read-only.
 
 - **Node.js >= 22** and **Git** are available in the VM by default.
 - **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
-- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `npm run gl -- gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
-The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
+The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `lib/gl.ts` (via `git.ts`) and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
 - **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
@@ -98,9 +100,9 @@ Without the secret, `gl` falls back to plain `https://` URLs (works locally with
 
 ### Running the CLI
 
-All `gl` commands run from the workspace root:
+All `gl` commands run from the workspace root. Build first (`npm run build` or `npm install`), then:
 ```bash
-node .cursor/skills/gl/scripts/gl.mjs <command>
+npm run gl -- <command>
 ```
 
 See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
@@ -115,7 +117,7 @@ E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledg
 
 ### Build and typecheck
 
-Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
+All TypeScript lives in `lib/` at the project root. Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify types. The CLI runs from `dist/lib/gl.js`; run `npm run build` after changing `lib/`. Unit tests import directly from `lib/*.ts` and run via `tsx`; they require a prior build for the E2E helpers (which spawn the compiled CLI).
 
 ### Embed performance benchmark
 

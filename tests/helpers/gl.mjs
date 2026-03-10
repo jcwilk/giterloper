@@ -6,11 +6,9 @@ const GL_SCRIPT = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
-  ".cursor",
-  "skills",
-  "gl",
-  "scripts",
-  "gl.mjs"
+  "dist",
+  "lib",
+  "gl.js"
 );
 
 function normalizeOutput(stdout, parseJson) {

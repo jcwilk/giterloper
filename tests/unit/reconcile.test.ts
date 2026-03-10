@@ -1,17 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const libPath = path.join(__dirname, "../../.cursor/skills/gl/dist/reconcile.js");
-const {
+import {
   safeName,
   makeQueueFilename,
   parseSearchJson,
   normalizeKnowledgeRelPath,
   chooseMatchedKnowledgePath,
-} = await import(pathToFileURL(libPath).href);
+} from "../../lib/reconcile.js";
 
 describe("safeName", () => {
   it("trims and replaces invalid chars with dashes", () => {

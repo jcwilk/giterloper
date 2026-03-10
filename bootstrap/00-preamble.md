@@ -6,7 +6,7 @@ Essential pieces:
 - `CONSTITUTION.md`: normative operation contract (copy; canonical lives in the knowledge store)
 - `CONSTITUTION.md5`: checksum for verification
 - `bootstrap/`: setup and verification
-- `.cursor/skills/gl/`: the `gl` skill and CLI
+- `.cursor/skills/gl/`: the `gl` skill (documentation)
 
 Knowledge lives in separate repositories. The default knowledge store is [giterloper_knowledge](https://github.com/jcwilk/giterloper_knowledge). Connections are defined in `.giterloper/pinned.yaml`.
 
@@ -23,4 +23,4 @@ Knowledge lives in separate repositories. The default knowledge store is [giterl
 
 3. **Run from this repo**
    - All `gl` commands run from the Giterloper project root
-   - Use: `node .cursor/skills/gl/scripts/gl.mjs <command>`
+   - Use: `npm run gl -- <command>`

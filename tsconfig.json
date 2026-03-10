@@ -6,16 +6,11 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "allowJs": true,
-    "checkJs": false,
+    "outDir": "dist",
+    "rootDir": ".",
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": [
-    ".cursor/skills/gl/scripts/gl.mjs",
-    ".cursor/skills/gl/lib/**/*.ts",
-    "scripts/**/*.mjs",
-    "types/**/*.ts"
-  ]
+  "include": ["lib/**/*.ts", "types/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
