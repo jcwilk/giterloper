@@ -38,7 +38,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ### 3. Shared State: pinned.yaml and QMD
 
 - **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
+- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `lib/gl.ts`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
 ### 4. Cleanup and Branch Isolation
@@ -50,7 +50,12 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ### 5. Auto-Index Lifecycle
 
-`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use.
+`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use. (`gl extended clone`, `gl extended index` exist for debugging.)
+
+## Gl Command Split
+
+- **gl** (main) — Minimal surface for agents: diagnostic, add, subtract, reconcile, promote, merge, search, query, get, pin list/add/remove/update, gpu. See `.cursor/skills/gl/SKILL.md`.
+- **gl extended** — Debugging/low-level: status, clone, index, teardown, stage, stage-cleanup, verify. Script: `.cursor/skills/gl/scripts/gl-extended` or `gl extended <cmd>`.
 
 ## Gl Script Notes
 
@@ -91,7 +96,7 @@ Branchless pins are read-only.
 
 ### Git access to knowledge repos
 
-The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
+The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `lib/gl.ts` (and E2E helpers) embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
 - **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
@@ -104,7 +109,7 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic`, `pin list` confirm the environment is healthy. Use `gl extended status` or `gl extended verify` for detailed debugging.
 
 ### Running tests
 

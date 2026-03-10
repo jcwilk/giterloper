@@ -73,34 +73,50 @@ export function readStdinOrFail(): string {
   return text;
 }
 
-const TOP_HELP = [
-  "gl - giterloper CLI",
+const MAIN_HELP = [
+  "gl - giterloper CLI (main commands)",
   "",
   "Usage:",
   "  gl <command> [subcommand] [options]",
   "",
   "Commands:",
-  "  status",
-  "  gpu [--cpu]",
-  "  pin list|add|remove|update",
-  "  clone [--pin <name>|--all]",
-  "  index [--pin <name>|--all]",
-  "  teardown <name>",
-  "  search <query> [--pin <name>] [-n N] [--json]",
-  "  query <question> [--pin <name>] [--json]",
-  "  get <path> [--pin <name>] [--full] [--json]",
-  "  stage [branch] [--pin <name>]",
-  "  promote [--pin <name>]",
-  "  stage-cleanup [branch] [--pin <name>]",
-  "  add [--pin <name>] [--name <name>]",
-  "  subtract [--pin <name>] [--name <name>]",
-  "  reconcile [--pin <name>]",
-  "  merge <source-pin> <target-pin>",
-  "  verify [--pin <name>] [--json]",
+  "  diagnostic [--pin <name>]       Health check: pins, clones, collections, vectors",
+  "  add [--pin <name>] [--name]    Queue content (stdin)",
+  "  subtract [--pin <name>] [--name]  Queue subtraction (stdin)",
+  "  reconcile [--pin <name>]       Process queues into knowledge/",
+  "  promote [--pin <name>]          Finalize staged changes to remote",
+  "  merge <source> <target>        Merge source pin branch into target",
+  "  search <query> [--pin <name>]   Keyword search",
+  "  query <question> [--pin <name>] Question answering",
+  "  get <path> [--pin <name>]      Retrieve document",
+  "  pin list|add|remove|update      Pin management",
+  "  gpu [--cpu]                    GPU/CPU detection",
   "",
   'Run "gl <command> --help" for command-specific usage.',
 ].join("\n");
 
+const EXTENDED_HELP = [
+  "gl extended - debugging and low-level commands",
+  "",
+  "Usage:",
+  "  gl extended <command> [options]",
+  "",
+  "Commands:",
+  "  status [--json]                Raw pin/clone/collection state",
+  "  clone [--pin <name>|--all]     Manual clone (normally auto via pin add/update)",
+  "  index [--pin <name>|--all]     Manual index (normally auto)",
+  "  teardown <name>                Same as pin remove",
+  "  stage [branch] [--pin <name>]  Manual staged clone (normally auto)",
+  "  stage-cleanup [branch]         Discard staged clone without promoting",
+  "  verify [--pin <name>]          Detailed verification",
+  "",
+  'Run "gl extended <command> --help" for command-specific usage.',
+].join("\n");
+
 export function printTopHelp(): void {
-  commandOutput(TOP_HELP);
+  commandOutput(MAIN_HELP);
+}
+
+export function printExtendedHelp(): void {
+  commandOutput(EXTENDED_HELP);
 }

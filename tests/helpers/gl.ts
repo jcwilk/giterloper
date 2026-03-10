@@ -20,10 +20,11 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
 
 export function runGl(
   args: string[],
-  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null; extended?: boolean } = {}
 ) {
   const parseJson = opts.parseJson ?? true;
-  const cliArgs = ["--json", ...args];
+  const fullArgs = opts.extended ? ["extended", ...args] : args;
+  const cliArgs = ["--json", ...fullArgs];
   const cwd = opts.cwd ?? root;
   // When stdin provided, use temp file + redirect - avoids spawnSync input quirks in Deno test context
   let result;
@@ -69,7 +70,17 @@ export function runGl(
 
 export function runGlJson(
   args: string[],
-  opts: { cwd?: string; stdin?: string | null } = {}
+  opts: { cwd?: string; stdin?: string | null; extended?: boolean } = {}
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
+}
+
+/** Run extended (debugging) commands: status, clone, index, teardown, stage, stage-cleanup, verify */
+export function runGlExtended(args: string[], opts: { cwd?: string; stdin?: string | null } = {}): ReturnType<typeof runGl> {
+  return runGl(args, { ...opts, extended: true });
+}
+
+/** Run extended commands and parse JSON output */
+export function runGlExtendedJson(args: string[], opts: { cwd?: string; stdin?: string | null } = {}): unknown {
+  return runGlExtended(args, { ...opts }).data;
 }
