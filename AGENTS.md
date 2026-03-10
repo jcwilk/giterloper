@@ -50,7 +50,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ### 5. Auto-Index Lifecycle
 
-`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl-extended clone` or `gl-extended index` needed for normal use.
+`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl-maintenance clone` or `gl-maintenance index` needed for normal use.
 
 ## Gl Script Notes
 
@@ -87,14 +87,16 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./scripts/gl-extended gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./scripts/gl-maintenance gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
-**GITERLOPER_GH_TOKEN is available in this environment.** The Cursor Cloud VM is configured with this secret. You do not need to check for it or warn that it might be missing — assume it is set.
+**Cloud:** GITERLOPER_GH_TOKEN is available in Cursor Cloud. Assume it is set.
 
-The `cursor[bot]` token only covers `jcwilk/giterloper`. The `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is used for the knowledge repos. When set, gl and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token provides:
-- **Read** access to `jcwilk/giterloper_knowledge` (for clone/index, e.g. via `gl pin add` or `gl-extended clone`)
+**Local:** Either set GITERLOPER_GH_TOKEN or use session-based auth (`gh auth login` for merge API; git credential helper for clone/push).
+
+When GITERLOPER_GH_TOKEN is set, gl and the E2E test helpers embed it in HTTPS URLs — no gitconfig changes required. When not set, git operations use credential helper (e.g. `gh auth git-credential`), and the merge API uses `gh auth token`. The token provides:
+- **Read** access to `jcwilk/giterloper_knowledge` (for clone/index, e.g. via `gl pin add` or `gl-maintenance clone`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
 E2E tests will run successfully in this environment.
@@ -108,22 +110,22 @@ All `gl` commands run from the workspace root:
 
 See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic`, `pin list` confirm the environment is healthy.
 
-### gl extended (debugging and maintenance)
+### gl maintenance (debugging and maintenance)
 
-A separate **gl extended** CLI exposes low-level commands for debugging and maintenance. It is **not** listed in the gl skill and agents should **not** use it for normal workflows.
+A separate **gl maintenance** CLI exposes low-level commands for debugging and maintenance (plus all main commands). It is **not** listed in the gl skill and agents should **not** use it for normal workflows.
 
-**Invoke gl extended:**
+**Invoke gl maintenance:**
 ```bash
-./scripts/gl-extended <command>
+./scripts/gl-maintenance <command>
 # or
-deno run -A lib/gl-extended.ts <command>
+deno run -A lib/gl-maintenance.ts <command>
 ```
 
-**Commands:** `status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`, `promote`. Run `./scripts/gl-extended --help` for usage.
+**Commands:** All main commands plus `status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`, `promote`. Run `./scripts/gl-maintenance --help` for usage.
 
 **When to use:** Only when debugging failed operations, performing manual maintenance (e.g. re-cloning, re-indexing without pin add), or running tests. Prefer main `gl` commands (`diagnostic`, `pin add`, `pin update`, etc.) for normal agent workflows.
 
-**Directive:** Do **not** invoke gl extended for routine tasks. If a main gl command fails, run `gl diagnostic` first to understand state. Use gl extended only when explicitly debugging/maintaining (e.g. user asks to re-clone, or you are fixing a corrupted index). Prefer the narrower main command surface to reduce confusion and make agent behavior easier to debug.
+**Directive:** Do **not** invoke gl maintenance for routine tasks. If a main gl command fails, run `gl diagnostic` first to understand state. Use gl maintenance only when explicitly debugging/maintaining (e.g. user asks to re-clone, or you are fixing a corrupted index). Prefer the narrower main command surface to reduce confusion and make agent behavior easier to debug.
 
 ### Running tests
 
@@ -133,7 +135,7 @@ deno run -A scripts/run-e2e.ts
 
 Unit tests: `deno test -A tests/unit/`
 
-E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; **GITERLOPER_GH_TOKEN is available in this environment** and provides that access.
+E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; use GITERLOPER_GH_TOKEN (cloud) or `gh auth login` (local).
 
 ### Typecheck
 

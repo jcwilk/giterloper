@@ -13,7 +13,7 @@ import {
   TEST_SUBTRACT_CONTENT,
   toRemoteUrl,
 } from "./config.ts";
-import { runGlExtendedJson, runGlJson } from "../helpers/gl.ts";
+import { runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -78,7 +78,7 @@ Deno.test("add queues content in added and advances pin sha", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlExtendedJson(["stage", branch, "--pin", pinName]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
@@ -100,7 +100,7 @@ Deno.test("subtract queues content in subtracts and advances pin sha", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlExtendedJson(["stage", branch, "--pin", pinName]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT });
     const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     const result = runGlJson(["subtract", "--pin", pinName], { stdin: TEST_SUBTRACT_CONTENT }) as {
@@ -123,7 +123,7 @@ Deno.test("add with --name uses requested file name", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlExtendedJson(["stage", branch, "--pin", pinName]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     const result = runGlJson(["add", "--pin", pinName, "--name", "named-entry"], {
       stdin: "hello",
     }) as { file?: string };
@@ -139,7 +139,7 @@ Deno.test("reconcile processes queued files", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlExtendedJson(["stage", branch, "--pin", pinName]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     runGlJson(["add", "--pin", pinName, "--name", "to-reconcile"], {
       stdin: "# reconcile test content",
     });

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
-const GL_EXTENDED_SCRIPT = path.join(root, "scripts", "gl-extended");
+const GL_MAINTENANCE_SCRIPT = path.join(root, "scripts", "gl-maintenance");
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
@@ -26,6 +26,7 @@ export function runGl(
   const parseJson = opts.parseJson ?? true;
   const cliArgs = ["--json", ...args];
   const cwd = opts.cwd ?? root;
+  const env = { ...Deno.env.toObject() };
   // When stdin provided, use temp file + redirect - avoids spawnSync input quirks in Deno test context
   let result;
   if (opts.stdin != null && opts.stdin !== "") {
@@ -37,6 +38,7 @@ export function runGl(
         cwd,
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
+        env,
       });
     } finally {
       rmSync(tmp, { recursive: true, force: true });
@@ -46,6 +48,7 @@ export function runGl(
       cwd,
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
+      env,
     });
   }
 
@@ -75,28 +78,30 @@ export function runGlJson(
   return runGl(args, { ...opts, parseJson: true }).data;
 }
 
-/** Run gl-extended commands (status, verify, clone, index, stage, stage-cleanup, teardown, gpu). */
-export function runGlExtended(
+/** Run gl-maintenance commands (status, verify, clone, index, stage, stage-cleanup, teardown, gpu, plus all main commands). */
+export function runGlMaintenance(
   args: string[],
   opts: { parseJson?: boolean; cwd?: string } = {}
 ) {
   const parseJson = opts.parseJson ?? true;
   const cliArgs = parseJson ? ["--json", ...args] : args;
   const cwd = opts.cwd ?? root;
-  const result = spawnSync(GL_EXTENDED_SCRIPT, cliArgs, {
+  const env = { ...Deno.env.toObject() };
+  const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {
     cwd,
     encoding: "utf8",
     stdio: ["pipe", "pipe", "pipe"],
+    env,
   });
 
   if (result.error) {
-    throw new Error(`Failed to launch gl-extended: ${result.error.message}`);
+    throw new Error(`Failed to launch gl-maintenance: ${result.error.message}`);
   }
 
   const stdout = result.stdout || "";
   const stderr = result.stderr || "";
   if (result.status !== 0) {
-    const detail = (stderr || stdout || "gl-extended command failed").trim();
+    const detail = (stderr || stdout || "gl-maintenance command failed").trim();
     throw new Error(detail);
   }
 
@@ -108,6 +113,6 @@ export function runGlExtended(
   };
 }
 
-export function runGlExtendedJson(args: string[], opts: { cwd?: string } = {}): unknown {
-  return runGlExtended(args, { ...opts, parseJson: true }).data;
+export function runGlMaintenanceJson(args: string[], opts: { cwd?: string } = {}): unknown {
+  return runGlMaintenance(args, { ...opts, parseJson: true }).data;
 }

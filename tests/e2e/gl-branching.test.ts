@@ -14,7 +14,7 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
-import { runGl, runGlExtended, runGlExtendedJson, runGlJson } from "../helpers/gl.ts";
+import { runGl, runGlMaintenance, runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -115,7 +115,7 @@ Deno.test("promote fails for branchless pin", () => {
   try {
     runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGlExtended(["promote", "--pin", branchlessPin]),
+      () => runGlMaintenance(["promote", "--pin", branchlessPin]),
       Error,
       "has no branch"
     );
@@ -250,7 +250,7 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
       `# stale\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGlExtended(["stage", branch, "--pin", pinName]),
+      () => runGlMaintenance(["stage", branch, "--pin", pinName]),
       Error,
       "does not match"
     );
@@ -265,7 +265,7 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlExtendedJson(["stage", branch, "--pin", pinName]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;

@@ -93,13 +93,24 @@ const TOP_HELP = [
   'Run "gl <command> --help" for command-specific usage.',
 ].join("\n");
 
-const EXTENDED_HELP = [
-  "gl extended - giterloper extended CLI (debugging, maintenance)",
+const MAINTENANCE_HELP = [
+  "gl maintenance - giterloper CLI (all commands + maintenance)",
   "",
   "Usage:",
-  "  gl-extended <command> [subcommand] [options]",
+  "  gl-maintenance <command> [subcommand] [options]",
   "",
-  "Commands:",
+  "Main commands:",
+  "  diagnostic [--pin <name>] [--json]",
+  "  pin list|add|remove|update",
+  "  search <query> [--pin <name>] [-n N] [--json]",
+  "  query <question> [--pin <name>] [--json]",
+  "  get <path> [--pin <name>] [--full] [--json]",
+  "  add [--pin <name>] [--name <name>]",
+  "  subtract [--pin <name>] [--name <name>]",
+  "  reconcile [--pin <name>]",
+  "  merge <source-pin> <target-pin>",
+  "",
+  "Maintenance commands:",
   "  status [--json]",
   "  verify [--pin <name>] [--json]",
   "  gpu [--cpu]",
@@ -111,15 +122,15 @@ const EXTENDED_HELP = [
   "  promote [--pin <name>]",
   "  qmd-orphan-cleanup",
   "",
-  "Invoke: ./scripts/gl-extended <command> or deno run -A lib/gl-extended.ts <command>",
+  "Invoke: ./scripts/gl-maintenance <command> or deno run -A lib/gl-maintenance.ts <command>",
   "",
-  'Run "gl-extended <command> --help" for command-specific usage.',
+  'Run "gl-maintenance <command> --help" for command-specific usage.',
 ].join("\n");
 
 export function printTopHelp(): void {
   commandOutput(TOP_HELP);
 }
 
-export function printExtendedHelp(): void {
-  commandOutput(EXTENDED_HELP);
+export function printMaintenanceHelp(): void {
+  commandOutput(MAINTENANCE_HELP);
 }

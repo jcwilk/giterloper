@@ -20,7 +20,7 @@
      sudo dpkg -i cuda-keyring_1.1-1_all.deb
      sudo apt update && sudo apt install cuda-toolkit-13-1
      ```
-   - After installing, run `./scripts/gl-extended gpu` to re-detect. If the user prefers CPU-only, run `./scripts/gl-extended gpu --cpu` (only after they have explicitly approved).
+   - After installing, run `./scripts/gl-maintenance gpu` to re-detect. If the user prefers CPU-only, run `./scripts/gl-maintenance gpu --cpu` (only after they have explicitly approved).
 6. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
 ## 2. Materialize the knowledge store
@@ -28,11 +28,11 @@
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-./scripts/gl-extended clone
-./scripts/gl-extended index
+./scripts/gl-maintenance clone
+./scripts/gl-maintenance index
 ```
 
-`gl-extended clone` fetches pinned stores into `.giterloper/versions/`. `gl-extended index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl-extended` will exit with instructions; present the choice to the user before proceeding.
+`gl-maintenance clone` fetches pinned stores into `.giterloper/versions/`. `gl-maintenance index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl-maintenance` will exit with instructions; present the choice to the user before proceeding.
 
 Alternatively, adding a pin with `./.cursor/skills/gl/scripts/gl pin add` automatically clones and indexes. Cloning always targets the SHA; see `gl pin add --help` for branch vs SHA semantics.
 

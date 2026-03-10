@@ -1,8 +1,11 @@
 /**
  * GitHub API operations (merge, partial SHA resolution) for remote-only workflows.
  * Keeps clones shallow; merge is performed on GitHub, not locally.
+ *
+ * Auth: uses GITERLOPER_GH_TOKEN if set, otherwise `gh auth token` (session-based).
  */
 import { EXIT, fail } from "./errors.ts";
+import { runSoft } from "./run.ts";
 
 /**
  * Parse github.com/owner/repo into { owner, repo }.
@@ -28,12 +31,12 @@ export async function resolvePartialShaViaGithub(source: string, shortSha: strin
       EXIT.USER
     );
   }
-  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
+  const token = getGitHubToken();
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
+    Authorization: `Bearer ${token}`,
   };
-  if (token) headers.Authorization = `Bearer ${token}`;
   const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${shortSha}`;
   const res = await fetch(url, { headers });
   if (!res.ok) {
@@ -57,8 +60,23 @@ export interface MergeResult {
 }
 
 /**
+ * Get GitHub API token from GITERLOPER_GH_TOKEN or `gh auth token` (session-based).
+ */
+function getGitHubToken(): string {
+  const envToken = Deno.env.get("GITERLOPER_GH_TOKEN");
+  if (envToken?.trim()) return envToken.trim();
+  const gh = runSoft("gh", ["auth", "token"]);
+  if (gh.ok && gh.stdout?.trim()) return gh.stdout.trim();
+  fail(
+    "GitHub API requires auth. Set GITERLOPER_GH_TOKEN or run `gh auth login` for session-based auth.",
+    EXIT.EXTERNAL
+  );
+  throw new Error("unreachable");
+}
+
+/**
  * Merge head into base via GitHub API.
- * Requires GITERLOPER_GH_TOKEN. No local fetch.
+ * Auth: GITERLOPER_GH_TOKEN or `gh auth token` (session-based). No local fetch.
  *
  * Returns { sha, merged } on success. On 204 (already up-to-date), base already
  * contains head; we refetch base SHA to confirm.
@@ -73,13 +91,7 @@ export async function mergeBranchesRemotely(
   if (!parsed) {
     fail("remote merge requires github.com source", EXIT.USER);
   }
-  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
-  if (!token) {
-    fail(
-      "remote merge requires GITERLOPER_GH_TOKEN (for github.com API)",
-      EXIT.EXTERNAL
-    );
-  }
+  const token = getGitHubToken();
   const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/merges`;
   const body = JSON.stringify({
     base: baseBranch,

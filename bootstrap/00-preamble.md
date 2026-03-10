@@ -23,4 +23,4 @@ Knowledge lives in separate repositories. The default knowledge store is [giterl
 
 3. **Run from this repo**
    - All `gl` commands run from the Giterloper project root
-   - Use: `./.cursor/skills/gl/scripts/gl <command>` (main CLI) or `./scripts/gl-extended <command>` (extended/debugging)
+   - Use: `./.cursor/skills/gl/scripts/gl <command>` (main CLI) or `./scripts/gl-maintenance <command>` (maintenance/debugging)

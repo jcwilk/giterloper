@@ -7,7 +7,7 @@ After setup, prefer CLI-driven checks first, then manual fallbacks.
    - Confirm it reports ok=true for expected pin(s).
 
 2. **CLI status/verify (extended, optional)**
-   - Run: `./scripts/gl-extended status` or `./scripts/gl-extended verify`
+   - Run: `./scripts/gl-maintenance status` or `./scripts/gl-maintenance verify`
    - Use for deeper debugging if needed.
 
 3. **Manual fallback checks (if needed)**
