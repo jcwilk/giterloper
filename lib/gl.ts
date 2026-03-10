@@ -619,7 +619,8 @@ function cmdReconcile(state: ReturnType<typeof makeState>, args: string[]) {
       for (const rawChunk of chunks) {
         const chunk = rawChunk.trim();
         if (!chunk) continue;
-        const searchOut = run("qmd", pinQmd(pin, ["search", chunk.slice(0, 1500), "-c", collectionName(pin), "--json", "-n", "3"]));
+        const query = chunk.slice(0, 1500).replace(/\s+/g, " ").trim();
+        const searchOut = run("qmd", pinQmd(pin, ["search", "-c", collectionName(pin), "--json", "-n", "3", "--", query]));
         const results = parseSearchJson(searchOut);
         const matchedPath = chooseMatchedKnowledgePath(results);
 

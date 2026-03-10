@@ -1,3 +1,7 @@
+spitfire:
+  repo: github.com/jcwilk/giterloper_knowledge
+  sha: abfa785ad030c22cbffebf9a927bfc2fbe271956
+  branch: spitfire
 subtract_gle2e_524e7bdda20407e9_9a9c7f49:
   repo: github.com/jcwilk/giterloper_test_knowledge
   sha: d2a9ca439f419007cd0fea2b996f4eb2758faf7f
