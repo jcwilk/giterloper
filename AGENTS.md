@@ -38,7 +38,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ### 3. Shared State: pinned.yaml and QMD
 
 - **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
+- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in the gl CLI. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
 ### 4. Cleanup and Branch Isolation
@@ -62,9 +62,13 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
+- **`lib/`** — TypeScript library code (paths, pinned, reconcile, branch, etc.)
+- **`gl.ts`** — Main CLI entry; compiled to `dist/gl.js`
+- **`dist/`** — Compiled output (`npm run build`). The launcher and E2E tests use this.
+- **`.cursor/skills/gl/`** — Skill metadata and thin launcher (`scripts/gl.mjs` → `dist/gl.js`)
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
+- **`tests/unit/`** — Unit tests (TypeScript); import from `lib/`; run with `tsx --test`
 - **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
 
 ## pinned.yaml Format
@@ -115,7 +119,7 @@ E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledg
 
 ### Build and typecheck
 
-Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
+Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. The launcher at `.cursor/skills/gl/scripts/gl.mjs` imports `dist/gl.js`. After changing `lib/` or `gl.ts`, run `npm run build` before invoking the CLI. Run `npm run typecheck` to verify TypeScript types.
 
 ### Embed performance benchmark
 

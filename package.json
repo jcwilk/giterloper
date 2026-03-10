@@ -8,9 +8,9 @@
   },
   "scripts": {
     "gl": "node .cursor/skills/gl/scripts/gl.mjs",
-    "build": "tsc -p .cursor/skills/gl/tsconfig.json",
+    "build": "tsc",
     "prepare": "npm run build",
-    "test:unit": "npm run build && node --test tests/unit/reconcile.test.mjs tests/unit/paths.test.mjs tests/unit/pinned.test.mjs",
+    "test:unit": "tsx --test tests/unit/reconcile.test.ts tests/unit/paths.test.ts tests/unit/pinned.test.ts",
     "typecheck": "tsc --noEmit",
     "benchmark:embed": "node scripts/benchmark-embed.mjs"
   },
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.4.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.7"
   }
 }

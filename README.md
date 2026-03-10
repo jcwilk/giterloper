@@ -28,7 +28,13 @@ See `bootstrap/` for detailed setup.
 
 ## Tests
 
-E2E tests use random pin/branch names per run and can execute in parallel:
+**Unit tests** (TypeScript, import from `lib/`):
+
+```bash
+npm run test:unit
+```
+
+**E2E tests** use random pin/branch names per run and can execute in parallel:
 
 ```bash
 node scripts/run-e2e.mjs

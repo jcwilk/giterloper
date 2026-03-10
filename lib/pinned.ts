@@ -100,7 +100,7 @@ export function writePinsAtomic(state: GlState, pins: Pin[]): void {
   renameSync(temp, state.pinnedPath);
 }
 
-export function resolvePin(state: GlState, pinName: string | null | undefined): Pin {
+export function resolvePin(state: GlState, pinName?: string | null): Pin {
   const pins = readPins(state);
   if (pins.length === 0) fail("no pins configured in .giterloper/pinned.yaml", EXIT.STATE);
   if (!pinName) return pins[0];
