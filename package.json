@@ -4,7 +4,6 @@
   "description": "Git-based knowledge store manager",
   "type": "module",
   "scripts": {
-    "gl": "deno run -A lib/gl.ts",
     "test:unit": "deno test -A tests/unit/",
     "test:e2e": "deno run -A scripts/run-e2e.ts",
     "benchmark:embed": "deno run -A scripts/benchmark-embed.ts"

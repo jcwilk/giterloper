@@ -28,11 +28,9 @@
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-deno run -A lib/gl.ts clone
-deno run -A lib/gl.ts index
+./.cursor/skills/gl/scripts/gl clone
+./.cursor/skills/gl/scripts/gl index
 ```
-
-Or: `npm run gl -- clone` and `npm run gl -- index`
 
 `gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
 

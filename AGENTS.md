@@ -18,7 +18,7 @@ E2E tests use a **shared remote repository** (`giterloper_test_knowledge`) and *
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ```
 
-(`E2E_MARKER` is `"gle2e_"` from `tests/e2e/config.mjs`. The runner's safety net removes any pins whose name includes this marker after tests finish.)
+(`E2E_MARKER` is `"gle2e_"` from `tests/e2e/config.ts`. The runner's safety net removes any pins whose name includes this marker after tests finish.)
 
 **Every** name that could collide MUST include `RUN_ID` or equivalent entropy:
 
@@ -63,10 +63,10 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ## Project Structure
 
 - **`lib/`** — TypeScript source for the gl CLI (paths, reconcile, pinned, git, etc.)
-- **`.cursor/skills/gl/`** — Skill definition; CLI entry point is `lib/gl.ts`
+- **`.cursor/skills/gl/scripts/gl`** — Executable shell script; run from workspace root
 - **`bootstrap/`** — Setup and verification docs
-- **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
-- **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
+- **`tests/e2e/`** — E2E tests; use `deno run -A scripts/run-e2e.ts`
+- **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo)
 
 ## pinned.yaml Format
 
@@ -87,7 +87,7 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `deno run -A lib/gl.ts gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -101,20 +101,18 @@ Without the secret, `gl` falls back to plain `https://` URLs (works locally with
 
 All `gl` commands run from the workspace root:
 ```bash
-deno run -A lib/gl.ts <command>
+./.cursor/skills/gl/scripts/gl <command>
 ```
-Or: `npm run gl -- <command>`
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
 
 ### Running tests
 
 ```bash
 deno run -A scripts/run-e2e.ts
-# or: npm run test:e2e
 ```
 
-Unit tests: `deno test -A tests/unit/` or `npm run test:unit`
+Unit tests: `deno test -A tests/unit/`
 
 E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`).
 

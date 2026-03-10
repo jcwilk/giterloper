@@ -29,13 +29,11 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 
 ## CLI First
 
-Run the CLI script:
+Run the CLI (from workspace root):
 
 ```bash
-deno run -A lib/gl.ts --help
+./.cursor/skills/gl/scripts/gl --help
 ```
-
-Or from package scripts: `npm run gl --help`
 
 Every command supports `--help`. Use command help instead of guessing flags or behavior.
 
@@ -43,14 +41,14 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 
 ### Answering from context
 
-1. Run `deno run -A lib/gl.ts query "<question>"` or `deno run -A lib/gl.ts search "<keywords>"`.
-2. If needed, run `deno run -A lib/gl.ts get "<path>" --full`.
+1. Run `./.cursor/skills/gl/scripts/gl query "<question>"` or `./.cursor/skills/gl/scripts/gl search "<keywords>"`.
+2. If needed, run `./.cursor/skills/gl/scripts/gl get "<path>" --full`.
 3. Respond with citations to file paths/headings from retrieved content.
 
 ### Retrieving context
 
-1. Run multiple `deno run -A lib/gl.ts search` or `deno run -A lib/gl.ts query` commands if the request spans topics.
-2. Fetch full docs with `deno run -A lib/gl.ts get`.
+1. Run multiple `./.cursor/skills/gl/scripts/gl search` or `./.cursor/skills/gl/scripts/gl query` commands if the request spans topics.
+2. Fetch full docs with `./.cursor/skills/gl/scripts/gl get`.
 3. Summarize what is relevant and where it was found.
 
 ### Verifying claims
@@ -61,34 +59,34 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 
 ### Adding knowledge
 
-1. Queue new content (stdin): `echo "<markdown>" | deno run -A lib/gl.ts add --pin <name> [--name <file>]`.
+1. Queue new content (stdin): `echo "<markdown>" | ./.cursor/skills/gl/scripts/gl add --pin <name> [--name <file>]`.
 2. Repeat `add` as needed to build a paper trail of queued changes.
-3. Reconcile queue into `knowledge/`: `deno run -A lib/gl.ts reconcile --pin <name>`.
-4. Optional finalization: `deno run -A lib/gl.ts promote --pin <name>`.
+3. Reconcile queue into `knowledge/`: `./.cursor/skills/gl/scripts/gl reconcile --pin <name>`.
+4. Optional finalization: `./.cursor/skills/gl/scripts/gl promote --pin <name>`.
 
 ### Subtracting knowledge
 
-1. Queue subtraction intent (stdin): `echo "<markdown>" | deno run -A lib/gl.ts subtract --pin <name> [--name <file>]`.
-2. Reconcile queue into `knowledge/`: `deno run -A lib/gl.ts reconcile --pin <name>`.
+1. Queue subtraction intent (stdin): `echo "<markdown>" | ./.cursor/skills/gl/scripts/gl subtract --pin <name> [--name <file>]`.
+2. Reconcile queue into `knowledge/`: `./.cursor/skills/gl/scripts/gl reconcile --pin <name>`.
 
 ### Merging knowledge branches
 
 1. Ensure both pins are branched.
-2. Merge source pin branch into target pin branch: `deno run -A lib/gl.ts merge <source-pin> <target-pin>`.
+2. Merge source pin branch into target pin branch: `./.cursor/skills/gl/scripts/gl merge <source-pin> <target-pin>`.
 
 ### Intersecting knowledge
 
 1. Identify overlapping vs non-overlapping content.
 2. Stage a branch and remove non-overlapping content from staged clone.
-3. Promote with `deno run -A lib/gl.ts promote <branch>`.
+3. Promote with `./.cursor/skills/gl/scripts/gl promote <branch>`.
 
 ### Pin management
 
-- List: `deno run -A lib/gl.ts pin list`
-- Add: `deno run -A lib/gl.ts pin add <name> <source> [--ref <ref>] [--branch <branch>]`
-- Remove: `deno run -A lib/gl.ts pin remove <name>`
-- Update SHA: `deno run -A lib/gl.ts pin update <name> [--ref <ref>]`
-- Add pin, then materialize: `gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `gl clone` and `gl index`
+- List: `./.cursor/skills/gl/scripts/gl pin list`
+- Add: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]`
+- Remove: `./.cursor/skills/gl/scripts/gl pin remove <name>`
+- Update SHA: `./.cursor/skills/gl/scripts/gl pin update <name> [--ref <ref>]`
+- Add pin, then materialize: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `clone` and `index`
 
 ### Creating a new branch (no manual git)
 
@@ -96,19 +94,19 @@ When adding a pin with `--branch`, if the branch does not yet exist on the remot
 
 **Branch off from main (or any ref):**
 ```bash
-gl pin add my_feature github.com/owner/knowledge --ref main --branch my_feature
+./.cursor/skills/gl/scripts/gl pin add my_feature github.com/owner/knowledge --ref main --branch my_feature
 ```
-Then run `gl add`, `gl reconcile`, etc. The first push during a write operation creates the remote branch.
+Then run `add`, `reconcile`, etc. The first push during a write operation creates the remote branch.
 
 **Branch from an earlier state:** Use `--ref` to specify the starting point (branch name, tag, or SHA):
 ```bash
-gl pin add snapshot github.com/owner/knowledge --ref v1.0.0 --branch snapshot-v1
-gl pin add experiment github.com/owner/knowledge --ref abc1234 --branch experiment
+./.cursor/skills/gl/scripts/gl pin add snapshot github.com/owner/knowledge --ref v1.0.0 --branch snapshot-v1
+./.cursor/skills/gl/scripts/gl pin add experiment github.com/owner/knowledge --ref abc1234 --branch experiment
 ```
 
 **Save a snapshot of current:** Pin the existing branch and work there, or create a new branch from the same ref:
 ```bash
-gl pin add backup github.com/owner/knowledge --ref main --branch backup-2024-03
+./.cursor/skills/gl/scripts/gl pin add backup github.com/owner/knowledge --ref main --branch backup-2024-03
 ```
 
 If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
@@ -133,16 +131,16 @@ If directionality is ambiguous, ask the user before making changes.
 
 Treat reference input as one of:
 - Raw text from the conversation
-- Another pin name (resolve via `deno run -A lib/gl.ts pin list` and `--pin`)
+- Another pin name (resolve via `./.cursor/skills/gl/scripts/gl pin list` and `--pin`)
 - A full asset reference (`source@sha`) that must be resolved/cloned/indexed
 
 If the input type is unclear, ask a clarifying question first.
 
 ## Guidance and Safety
 
-- Prefer `deno run -A lib/gl.ts status` before making assumptions about local state.
-- Use `deno run -A lib/gl.ts verify` after clone/index or promotions.
+- Prefer `./.cursor/skills/gl/scripts/gl status` before making assumptions about local state.
+- Use `./.cursor/skills/gl/scripts/gl verify` after clone/index or promotions.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
-- Write operations fail if the tracked branch is stale; run `gl pin update <name>` and retry.
+- Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
 - Confirm with the user before destructive actions (teardown, subtract, intersect).
 - Never edit `.giterloper/versions/` directly; write via staged clones only.

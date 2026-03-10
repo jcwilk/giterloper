@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const GL_SCRIPT = path.join(root, "lib", "gl.ts");
+const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
@@ -32,7 +32,7 @@ export function runGl(
     const stdinFile = path.join(tmp, "stdin.txt");
     try {
       writeFileSync(stdinFile, opts.stdin, "utf8");
-      result = spawnSync("sh", ["-c", `deno run -A ${GL_SCRIPT} ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
+      result = spawnSync("sh", ["-c", `"${GL_SCRIPT}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
         cwd,
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
@@ -41,7 +41,7 @@ export function runGl(
       rmSync(tmp, { recursive: true, force: true });
     }
   } else {
-    result = spawnSync("deno", ["run", "-A", GL_SCRIPT, ...cliArgs], {
+    result = spawnSync(GL_SCRIPT, cliArgs, {
       cwd,
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
