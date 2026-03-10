@@ -95,7 +95,7 @@ const TOP_HELP = [
   "  add [--pin <name>] [--name <name>]",
   "  subtract [--pin <name>] [--name <name>]",
   "  reconcile [--pin <name>]",
-  "  merge <source-pin> <target-pin>  (WIP)",
+  "  merge <source-pin> <target-pin>",
   "  verify [--pin <name>] [--json]",
   "",
   'Run "gl <command> --help" for command-specific usage.',

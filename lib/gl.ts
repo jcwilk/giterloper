@@ -35,6 +35,7 @@ import {
   writePinsAtomic,
 } from "./pinned.ts";
 import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
+import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "./paths.ts";
 import {
   ensureGitignoreEntries,
@@ -635,12 +636,13 @@ function cmdReconcile(state: ReturnType<typeof makeState>, args: string[]) {
   );
 }
 
-function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
+async function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges one branched pin into another via GitHub API (no local fetch).",
+      "Source and target must point to the same github.com repo.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -649,52 +651,31 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   requirePinBranch(source, "merge");
   requirePinBranch(target, "merge");
 
-  const dir = ensureWorkingClone(state, target, { infoFn: info });
-  assertBranchFresh(state, target, dir);
-  const remoteName = `glsrc_${safeName(source.name)}`;
-  const remotes = run("git", ["-C", dir, "remote"]).split(/\r?\n/).filter(Boolean);
-  if (!remotes.includes(remoteName)) {
-    run("git", ["-C", dir, "remote", "add", remoteName, toRemoteUrl(source.source)]);
-  } else {
-    run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
-  }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
-  const merge = runSoft("git", [
-    "-C",
-    dir,
-    "merge",
-    `${remoteName}/${source.branch}`,
-    "--no-edit",
-    "-m",
-    `gl: merge ${source.name} into ${target.name}`,
-  ]);
-  if (!merge.ok) {
-    const conflicts = runSoft("git", ["-C", dir, "diff", "--name-only", "--diff-filter=U"])
-      .stdout.split(/\r?\n/)
-      .filter(Boolean)
-      .map((f) => `  - ${f}`)
-      .join("\n");
+  if (source.source !== target.source) {
     fail(
-      [
-        `merge conflict merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
-        "Conflicting files:",
-        conflicts || "  - (unable to determine)",
-        "The working clone is left in a conflicted state at:",
-        `  ${stagedDir(state, target.name, target.branch!)}`,
-        `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
-        `To abort: run "git -C ${stagedDir(state, target.name, target.branch!)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
-      ].join("\n"),
-      EXIT.STATE
+      `merge requires same repo: source "${source.name}" and target "${target.name}" point to different sources. ` +
+        "Use GitHub to merge across repositories.",
+      EXIT.USER
     );
   }
-  pushBranchOrFail(dir, target, "merge");
-  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
-  updatePinSha(state, target.name, newSha, { infoFn: info });
+  if (!parseGithubSource(source.source)) {
+    fail("merge requires github.com source", EXIT.USER);
+  }
+
+  const commitMessage = `gl: merge ${source.name} into ${target.name}`;
+  const result = await mergeBranchesRemotely(
+    source.source,
+    target.branch!,
+    source.branch!,
+    commitMessage
+  );
+
+  updatePinSha(state, target.name, result.sha, { infoFn: info });
   commandOutput(
     {
       action: "merged",
       source: { pin: source.name, branch: source.branch, sha: source.sha },
-      target: { pin: target.name, branch: target.branch, oldSha: target.sha, newSha },
+      target: { pin: target.name, branch: target.branch, oldSha: target.sha, newSha: result.sha },
     },
     state.globalJson
   );
@@ -725,7 +706,7 @@ function makeState() {
   return state;
 }
 
-function main() {
+async function main() {
   let args = [...Deno.args];
   const helpJsonParsed = consumeBooleanFlag(args, "--json");
   args = helpJsonParsed.args;
@@ -761,14 +742,14 @@ function main() {
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
-  if (cmd === "merge") return cmdMerge(state, rest);
+  if (cmd === "merge") return await cmdMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
 }
 
 try {
-  main();
+  await main();
 } catch (e) {
   if (e instanceof GlError) {
     console.error(`gl: ${e.message}`);

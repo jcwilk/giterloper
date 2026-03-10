@@ -1,4 +1,4 @@
-import { assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "jsr:@std/assert";
 import { assertThrows } from "jsr:@std/assert";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -6,12 +6,14 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import { runGl, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
@@ -268,5 +270,40 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge merges source pin branch into target via GitHub API", () => {
+  const srcBranch = `${RUN_ID}_merge_src`;
+  const tgtBranch = `${RUN_ID}_merge_tgt`;
+  const srcPin = randomPin("merge-src");
+  const tgtPin = randomPin("merge-tgt");
+  try {
+    createRemoteBranchFromMain(
+      srcBranch,
+      `knowledge/e2e_${RUN_ID}_merge_src.md`,
+      `# Merge source\n\nmerge-src-marker-${RUN_ID}`
+    );
+    createRemoteBranchFromMain(
+      tgtBranch,
+      `knowledge/e2e_${RUN_ID}_merge_tgt.md`,
+      `# Merge target\n\nmerge-tgt-marker-${RUN_ID}`
+    );
+    runGlJson(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
+    runGlJson(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
+    const beforeTgt = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], tgtPin);
+    assertEquals(!!beforeTgt?.sha, true);
+    const mergeResult = runGlJson(["merge", srcPin, tgtPin]) as {
+      action?: string;
+      target?: { pin?: string; oldSha?: string; newSha?: string };
+    };
+    assertEquals(mergeResult.action, "merged");
+    assertEquals(mergeResult.target?.oldSha, beforeTgt!.sha);
+    assert(mergeResult.target?.newSha !== beforeTgt!.sha, "target sha should advance after merge");
+  } finally {
+    ensurePinRemoved(srcPin);
+    ensurePinRemoved(tgtPin);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: srcBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: tgtBranch });
   }
 });

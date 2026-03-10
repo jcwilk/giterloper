@@ -63,18 +63,10 @@ Previously, `fail()` called `process.exit()`, which bypassed `withFifoLock`'s `f
 
 ---
 
-## 6. `gl merge` fails with shallow fetch (depth=1); better merge workflow needed (WIP)
+## 6. `gl merge` fails with shallow fetch (depth=1) (resolved)
 
-**Observed:** `gl merge` uses `git fetch --depth 1` when fetching the source branch into the target's staged clone. With shallow history, git often cannot find the merge base, leading to merge failures or conflicts. Increasing to an arbitrary depth (e.g. `--depth 100`) "fixes" it by hoping the branches diverged recently, but that is brittle and wastes bandwidth.
+**Observed:** `gl merge` used `git fetch --depth 1` when fetching the source branch into the target's staged clone. With shallow history, git often cannot find the merge base, leading to merge failures or conflicts.
 
-**Preferred fix (not yet implemented):**
+**Fix (applied):** Merge is now performed remotely via the GitHub REST API (`POST /repos/{owner}/{repo}/merges`). No local fetch. Source and target must point to the same github.com repo. Requires `GITERLOPER_GH_TOKEN`. On success (201 or 204), the target pin's SHA is updated. On conflict (409), the command fails with instructions to create a PR on GitHub, resolve there, merge the PR, then run `gl pin update <target-pin>`. Clones stay shallow; no `gl complete-merge` needed for the conflict path.
 
-1. **Attempt trivial merge remotely first** — Use the remote (e.g. via `gh` or git server capabilities) to merge the branches when they merge trivially, without downloading full history or an arbitrary recent subset. If the remote can fast-forward or perform a trivial merge, do it there and update pins accordingly.
-
-2. **If not trivially mergeable** — Ensure both branches are pinned (merge already requires this). Stage a change for the target branch:
-   - With partial merge applied, if possible without downloading full history; or
-   - If not possible, stage the pre-merged state of the target branch so the agent can conduct the merge manually in the staged clone.
-
-3. **Add `gl complete-merge` (or `gl finish-merge`)** — A follow-up command the agent invokes once the merged code is prepared (e.g. after resolving conflicts or conducting the merge manually). It creates the merge commit and pushes.
-
-**Status:** The merge command is WIP. The merge test is marked pending until this is addressed.
+**Flow:** (1) Validate both pins are branched, same repo, github.com. (2) POST merge to GitHub API: `base` = target branch, `head` = source branch. (3) **201**: merge commit created; response body has `sha` → `updatePinSha`. (4) **204**: already up-to-date (base contains head); GET base branch ref to confirm SHA → `updatePinSha`. (5) **409**: fail with PR instructions (conflicts resolved on GitHub, not locally).
