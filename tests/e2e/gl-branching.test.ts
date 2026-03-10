@@ -14,7 +14,7 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
-import { runGl, runGlJson } from "../helpers/gl.ts";
+import { runGl, runGlExtendedJson, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -245,7 +245,7 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
       `# stale\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGl(["stage", branch, "--pin", pinName]),
+      () => runGlExtendedJson(["stage", branch, "--pin", pinName]),
       Error,
       "does not match"
     );
@@ -260,7 +260,7 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlJson(["stage", branch, "--pin", pinName]);
+    runGlExtendedJson(["stage", branch, "--pin", pinName]);
     const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;

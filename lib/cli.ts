@@ -73,34 +73,51 @@ export function readStdinOrFail(): string {
   return text;
 }
 
-const TOP_HELP = [
+const GL_TOP_HELP = [
   "gl - giterloper CLI",
   "",
   "Usage:",
   "  gl <command> [subcommand] [options]",
   "",
   "Commands:",
-  "  status",
-  "  gpu [--cpu]",
+  "  diagnostic [--pin <name>] [--json]",
   "  pin list|add|remove|update",
-  "  clone [--pin <name>|--all]",
-  "  index [--pin <name>|--all]",
-  "  teardown <name>",
   "  search <query> [--pin <name>] [-n N] [--json]",
   "  query <question> [--pin <name>] [--json]",
   "  get <path> [--pin <name>] [--full] [--json]",
-  "  stage [branch] [--pin <name>]",
-  "  promote [--pin <name>]",
-  "  stage-cleanup [branch] [--pin <name>]",
   "  add [--pin <name>] [--name <name>]",
   "  subtract [--pin <name>] [--name <name>]",
   "  reconcile [--pin <name>]",
   "  merge <source-pin> <target-pin>",
-  "  verify [--pin <name>] [--json]",
+  "  promote [--pin <name>]",
   "",
   'Run "gl <command> --help" for command-specific usage.',
 ].join("\n");
 
+const GL_EXTENDED_TOP_HELP = [
+  "gl extended - giterloper debugging and low-level operations",
+  "",
+  "Usage:",
+  "  deno run -A lib/gl-extended.ts <command> [options]",
+  "",
+  "Commands:",
+  "  status [--json]",
+  "  verify [--pin <name>] [--json]",
+  "  gpu [--cpu]",
+  "  clone [--pin <name>|--all]",
+  "  index [--pin <name>|--all]",
+  "  teardown <name>",
+  "  stage [branch] [--pin <name>]",
+  "  stage-cleanup [branch] [--pin <name>]",
+  "",
+  "Use for debugging and maintenance. Prefer main gl commands for normal workflows.",
+  'Run "deno run -A lib/gl-extended.ts <command> --help" for command-specific usage.',
+].join("\n");
+
 export function printTopHelp(): void {
-  commandOutput(TOP_HELP);
+  commandOutput(GL_TOP_HELP);
+}
+
+export function printExtendedTopHelp(): void {
+  commandOutput(GL_EXTENDED_TOP_HELP);
 }

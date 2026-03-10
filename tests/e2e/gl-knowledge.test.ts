@@ -16,7 +16,7 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 
-import { runGlJson } from "../helpers/gl.ts";
+import { runGlExtendedJson, runGlJson } from "../helpers/gl.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
@@ -122,7 +122,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
     try {
       createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
       runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-      const stageResult = runGlJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
+      const stageResult = runGlExtendedJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
       assertEquals(stageResult.created, true, "stage should create branch for first run");
       const dir = stagedDir(pinName, branch);
       assertEquals(stageResult.staged, dir, "stage command should return expected path");
@@ -140,7 +140,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
       createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
       runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
       const dir = stagedDir(pinName, branch);
-      runGlJson(["stage", branch, "--pin", pinName]);
+      runGlExtendedJson(["stage", branch, "--pin", pinName]);
       const filePath = path.join(dir, TEST_TOPIC_PATH);
       mkdirSync(path.dirname(filePath), { recursive: true });
       writeFileSync(filePath, branchContentText(), "utf8");
@@ -162,7 +162,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
       const beforePin = getPin(beforePins, pinName);
       assertExists(beforePin, "test pin should exist before promote");
       const dir = stagedDir(pinName, branch);
-      runGlJson(["stage", branch, "--pin", pinName]);
+      runGlExtendedJson(["stage", branch, "--pin", pinName]);
       const filePath = path.join(dir, TEST_TOPIC_PATH);
       mkdirSync(path.dirname(filePath), { recursive: true });
       writeFileSync(filePath, branchContentText(), "utf8");
@@ -221,7 +221,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
   });
 
   await t.step("verify reports healthy state", () => {
-    const result = runGlJson(["verify", "--pin", TEST_PIN_NAME]) as {
+    const result = runGlExtendedJson(["verify", "--pin", TEST_PIN_NAME]) as {
       ok?: boolean;
       checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean; collectionPresent?: boolean; contextPresent?: boolean; vectorsOk?: boolean }[];
     };
@@ -238,10 +238,10 @@ Deno.test("gl-knowledge e2e", async (t) => {
 
   await t.step("stage-cleanup removes staged clone", () => {
     const branch = `${RUN_ID}_cleanup`;
-    const staged = runGlJson(["stage", branch, "--pin", TEST_PIN_NAME]) as { staged?: string };
+    const staged = runGlExtendedJson(["stage", branch, "--pin", TEST_PIN_NAME]) as { staged?: string };
     const stagedPath = staged.staged!;
     assertEquals(existsSync(stagedPath), true, "staged path should exist before cleanup");
-    const cleanup = runGlJson(["stage-cleanup", branch, "--pin", TEST_PIN_NAME]) as { cleaned?: boolean; path?: string };
+    const cleanup = runGlExtendedJson(["stage-cleanup", branch, "--pin", TEST_PIN_NAME]) as { cleaned?: boolean; path?: string };
     assertEquals(cleanup.cleaned, true, "cleanup should report cleaned");
     assertEquals(cleanup.path, stagedPath, "cleanup path should match stage path");
     assertEquals(existsSync(stagedPath), false, "staged path should be removed after cleanup");
@@ -253,12 +253,12 @@ Deno.test("gl-knowledge e2e", async (t) => {
     try {
       createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
       runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-      const first = runGlJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
+      const first = runGlExtendedJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
       assertEquals(first.created, true, "first stage call should create clone");
-      const second = runGlJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
+      const second = runGlExtendedJson(["stage", branch, "--pin", pinName]) as { created?: boolean; staged?: string };
       assertEquals(second.created, false, "second stage call should reuse existing clone");
       assertEquals(second.staged, first.staged, "stage should reuse same path");
-      runGlJson(["stage-cleanup", branch, "--pin", pinName]);
+      runGlExtendedJson(["stage-cleanup", branch, "--pin", pinName]);
     } finally {
       ensurePinRemoved(pinName);
     }
@@ -321,8 +321,24 @@ Deno.test("gl-knowledge e2e", async (t) => {
     }
   });
 
-  await t.step("status returns pinned state", () => {
-    const status = runGlJson(["status"]) as {
+  await t.step("diagnostic returns health check", () => {
+    const result = runGlJson(["diagnostic", "--pin", TEST_PIN_NAME]) as {
+      ok?: boolean;
+      checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean; collectionPresent?: boolean; contextPresent?: boolean; vectorsOk?: boolean }[];
+    };
+    assertEquals(result.ok, true, "diagnostic should report ok=true");
+    assertEquals((result.checks?.length ?? 0) > 0, true, "diagnostic should include checks");
+    const check = result.checks![0];
+    assertEquals(check.pin, TEST_PIN_NAME, "check should target test pin");
+    assertEquals(check.clonePresent, true, "clone should be present");
+    assertEquals(check.cloneShaOk, true, "clone should match pinned sha");
+    assertEquals(check.collectionPresent, true, "collection should be present");
+    assertEquals(check.contextPresent, true, "context should be present");
+    assertEquals(check.vectorsOk, true, "vectors should be ready");
+  });
+
+  await t.step("status returns pinned state (extended)", () => {
+    const status = runGlExtendedJson(["status"]) as {
       pins?: { name?: string; cloneExists?: boolean; cloneAtExpectedSha?: boolean; collectionExists?: boolean; contextExists?: boolean }[];
     };
     assertEquals(Array.isArray(status.pins), true, "status should include pins");
@@ -344,7 +360,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
 
   await t.step("teardown", async () => {
     try {
-      runGlJson(["teardown", TEST_PIN_NAME]);
+      runGlJson(["pin", "remove", TEST_PIN_NAME]);
     } finally {
       cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, {
         pinName: TEST_PIN_NAME,

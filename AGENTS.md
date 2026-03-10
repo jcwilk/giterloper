@@ -87,7 +87,7 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -104,7 +104,25 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic` and `pin list` confirm the environment is healthy.
+
+### gl extended (debugging/maintenance only)
+
+A separate **gl extended** interface provides low-level and debugging commands (`status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`). It is **not** exposed in the gl skill. Agents should **not** use it for normal workflows.
+
+**Use gl extended only when:**
+- Debugging failed operations or environment issues
+- Performing maintenance (e.g. GPU detection, manual clone/index, teardown)
+- Running tests that exercise extended commands directly
+
+**How to invoke:**
+```bash
+./.cursor/skills/gl/scripts/gl-extended <command>
+# or
+deno run -A lib/gl-extended.ts <command>
+```
+
+Prefer main `gl` commands for all normal workflows. If an operation fails and the agent suspects an environment or low-level issue, it may invoke gl extended for debugging—but must not rely on it for the primary user-facing flow.
 
 ### Running tests
 
