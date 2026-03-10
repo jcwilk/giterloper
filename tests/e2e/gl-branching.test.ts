@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals, assertExists } from "jsr:@std/assert";
 import { assertThrows } from "jsr:@std/assert";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -39,12 +39,12 @@ function runGit(args: string[], opts: { cwd?: string } = {}): string {
   return (result.stdout || "").trim();
 }
 
-function pinByName(list: { name?: string; sha?: string }[], name: string) {
-  return list.find((p) => p.name === name);
+function pinByName(list: { name?: string; sha?: string }[] | null | undefined, name: string) {
+  return Array.isArray(list) ? list.find((p) => p.name === name) : undefined;
 }
 
 function ensurePinRemoved(name: string): void {
-  const pins = runGlJson(["pin", "list"]) as { name?: string }[];
+  const pins = (runGlJson(["pin", "list"]) ?? []) as { name?: string }[];
   if (pinByName(pins, name)) runGlJson(["pin", "remove", name]);
 }
 
@@ -199,12 +199,17 @@ Deno.test("query on branched pin does not create remote branch", () => {
   const branch = `${pinName}-branch`;
   try {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
-    const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const beforePins = (runGlJson(["pin", "list"]) ?? []) as { name?: string; sha?: string }[];
     const beforePin = pinByName(beforePins, pinName);
+    assertExists(beforePin, `pin ${pinName} should exist in list after add`);
     runGlJson(["query", "what content exists", "--pin", pinName]);
-    const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const afterPins = (runGlJson(["pin", "list"]) ?? []) as { name?: string; sha?: string }[];
     const afterPin = pinByName(afterPins, pinName);
-    assertEquals(afterPin!.sha, beforePin!.sha, "query should not change pin sha");
+    assertExists(
+      afterPin,
+      `pin ${pinName} disappeared from list after query (before: ${beforePin.sha}, afterPins: ${JSON.stringify(afterPins.map((p) => p.name))})`
+    );
+    assertEquals(afterPin.sha, beforePin.sha, "query should not change pin sha");
   } finally {
     ensurePinRemoved(pinName);
   }
