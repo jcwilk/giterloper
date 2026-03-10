@@ -72,7 +72,8 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 ### Merging knowledge branches
 
 1. Ensure both pins are branched.
-2. Merge source pin branch into target pin branch: `./.cursor/skills/gl/scripts/gl merge <source-pin> <target-pin>`.
+2. Merge source into target: `./.cursor/skills/gl/scripts/gl merge <source-pin> <target-pin>`.
+3. On conflict: resolve conflicts in the staged clone, then run `./.cursor/skills/gl/scripts/gl complete-merge --pin <target-pin>`.
 
 ### Intersecting knowledge
 

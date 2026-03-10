@@ -6,12 +6,14 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import { runGl, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
@@ -268,5 +270,34 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge integrates source branch into target", () => {
+  const srcPin = randomPin("merge-src");
+  const tgtPin = randomPin("merge-tgt");
+  const srcBranch = `${srcPin}-branch`;
+  const tgtBranch = `${tgtPin}-branch`;
+  const srcPath = `knowledge/merge_src_${RUN_ID}_${randomBytes(4).toString("hex")}.md`;
+  const tgtPath = `knowledge/merge_tgt_${RUN_ID}_${randomBytes(4).toString("hex")}.md`;
+  try {
+    createRemoteBranchFromMain(srcBranch, srcPath, "# from source");
+    createRemoteBranchFromMain(tgtBranch, tgtPath, "# from target");
+    runGlJson(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
+    runGlJson(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
+    const result = runGlJson(["merge", srcPin, tgtPin]) as {
+      action?: string;
+      target?: { pin?: string; newSha?: string };
+    };
+    assertEquals(result.action, "merged");
+    assertEquals(result.target?.pin, tgtPin);
+    const mergedDir = stagedDir(tgtPin, tgtBranch);
+    assertEquals(existsSync(path.join(mergedDir, srcPath)), true);
+    assertEquals(existsSync(path.join(mergedDir, tgtPath)), true);
+  } finally {
+    ensurePinRemoved(srcPin);
+    ensurePinRemoved(tgtPin);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: srcPin, branchName: srcBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: tgtPin, branchName: tgtBranch });
   }
 });

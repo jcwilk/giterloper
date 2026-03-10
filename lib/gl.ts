@@ -640,7 +640,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges source pin's branch into target pin's branch. On conflict, resolve in the staged clone, then run gl complete-merge --pin <target>.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -651,6 +651,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
 
   const dir = ensureWorkingClone(state, target, { infoFn: info });
   assertBranchFresh(state, target, dir);
+  run("git", ["-C", dir, "fetch", "origin", target.branch!, "--depth", "50"]);
   const remoteName = `glsrc_${safeName(source.name)}`;
   const remotes = run("git", ["-C", dir, "remote"]).split(/\r?\n/).filter(Boolean);
   if (!remotes.includes(remoteName)) {
@@ -658,7 +659,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   } else {
     run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
   }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
+  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "50"]);
   const merge = runSoft("git", [
     "-C",
     dir,
@@ -681,7 +682,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
         conflicts || "  - (unable to determine)",
         "The working clone is left in a conflicted state at:",
         `  ${stagedDir(state, target.name, target.branch!)}`,
-        `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
+        `To resolve: fix conflicts in the working clone, then run "gl complete-merge --pin ${target.name}".`,
         `To abort: run "git -C ${stagedDir(state, target.name, target.branch!)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
       ].join("\n"),
       EXIT.STATE
@@ -696,6 +697,46 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
       source: { pin: source.name, branch: source.branch, sha: source.sha },
       target: { pin: target.name, branch: target.branch, oldSha: target.sha, newSha },
     },
+    state.globalJson
+  );
+}
+
+function cmdCompleteMerge(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl complete-merge [--pin <name>]",
+      "Finishes an in-progress merge in the staged clone after conflicts are resolved.",
+      "Run this after resolving merge conflicts, then push and update the pin.",
+    ].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  requirePinBranch(pin, "complete-merge");
+  const dir = stagedDir(state, pin.name, pin.branch!);
+  if (!existsSync(dir)) {
+    fail(
+      `no staged clone for pin "${pin.name}" at ${dir}. Run "gl merge <source> <target>" first.`,
+      EXIT.STATE
+    );
+  }
+  const mergeHead = runSoft("git", ["-C", dir, "rev-parse", "-q", "--verify", "MERGE_HEAD"]);
+  if (!mergeHead.ok) {
+    fail(
+      `no merge in progress for pin "${pin.name}". Staged clone at ${dir} is not in a merge state.`,
+      EXIT.STATE
+    );
+  }
+  run("git", ["-C", dir, "add", "-A"]);
+  run("git", ["-C", dir, "merge", "--continue"]);
+  pushBranchOrFail(dir, pin, "complete-merge");
+  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+  updatePinSha(state, pin.name, newSha, { infoFn: info });
+  commandOutput(
+    { action: "merge-completed", pin: pin.name, branch: pin.branch, newSha },
     state.globalJson
   );
 }
@@ -762,6 +803,7 @@ function main() {
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
   if (cmd === "merge") return cmdMerge(state, rest);
+  if (cmd === "complete-merge") return cmdCompleteMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
