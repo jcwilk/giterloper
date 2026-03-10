@@ -1,0 +1,4 @@
+#!/bin/sh
+ROOT="$(cd "$(dirname "$0")/../../../../" && pwd)"
+export GL_EXTENDED=1
+exec deno run -A "$ROOT/lib/gl.ts" "$@"

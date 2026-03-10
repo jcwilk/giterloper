@@ -451,13 +451,7 @@ function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
-function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
-  ensureHelpNotRequested(
-    args,
-    ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, vector health, and branch freshness."].join(
-      "\n"
-    )
-  );
+function runDiagnostic(state: ReturnType<typeof makeState>, args: string[]) {
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
   rest = pinParsed.args;
@@ -501,7 +495,29 @@ function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
   }
   const allOk = results.every((r) => r.ok);
   commandOutput({ ok: allOk, checks: results }, state.globalJson);
-  if (!allOk) fail("verify: not all pins are healthy", EXIT.STATE);
+  if (!allOk) fail("not all pins are healthy", EXIT.STATE);
+}
+
+function cmdDiagnostic(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl diagnostic [--pin <name>] [--json]",
+      "Checks pin, clone, collection, vector health, and branch freshness.",
+    ].join("\n")
+  );
+  return runDiagnostic(state, args);
+}
+
+function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl-extended verify [--pin <name>] [--json]",
+      "Verifies pin, clone, collection, vector health, and branch freshness.",
+    ].join("\n")
+  );
+  return runDiagnostic(state, args);
 }
 
 function cmdAddLike(state: ReturnType<typeof makeState>, args: string[], mode: "add" | "subtract") {
@@ -706,12 +722,15 @@ function makeState() {
   return state;
 }
 
+const EXTENDED = Deno.env.get("GL_EXTENDED") === "1";
+
 async function main() {
+  const prog = EXTENDED ? "gl-extended" : "gl";
   let args = [...Deno.args];
   const helpJsonParsed = consumeBooleanFlag(args, "--json");
   args = helpJsonParsed.args;
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
-    printTopHelp();
+    printTopHelp(EXTENDED);
     return;
   }
   const state = makeState();
@@ -719,9 +738,8 @@ async function main() {
 
   const [cmd, ...rest] = args;
 
-  if (cmd === "status") return cmdStatus(state, rest);
   if (cmd === "pin") {
-    if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
+    if (rest.length === 0) fail(`usage: ${prog} pin <list|add|remove|update>`, EXIT.USER);
     const [sub, ...subArgs] = rest;
     if (sub === "list") return cmdPinList(state, subArgs);
     if (sub === "add") return cmdPinAdd(state, subArgs);
@@ -729,23 +747,29 @@ async function main() {
     if (sub === "update") return cmdPinUpdate(state, subArgs);
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
-  if (cmd === "gpu") return cmdGpu(state, rest);
-  if (cmd === "clone") return cmdClone(state, rest);
-  if (cmd === "index") return cmdIndex(state, rest);
-  if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "search") return cmdSearchLike(state, "search", rest);
   if (cmd === "query") return cmdSearchLike(state, "query", rest);
   if (cmd === "get") return cmdGet(state, rest);
-  if (cmd === "stage") return cmdStage(state, rest);
-  if (cmd === "promote") return cmdPromote(state, rest);
-  if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
-  if (cmd === "verify") return cmdVerify(state, rest);
 
-  fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
+  if (EXTENDED) {
+    if (cmd === "status") return cmdStatus(state, rest);
+    if (cmd === "gpu") return cmdGpu(state, rest);
+    if (cmd === "clone") return cmdClone(state, rest);
+    if (cmd === "index") return cmdIndex(state, rest);
+    if (cmd === "teardown") return cmdTeardown(state, rest);
+    if (cmd === "stage") return cmdStage(state, rest);
+    if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
+    if (cmd === "verify") return cmdVerify(state, rest);
+  } else {
+    if (cmd === "diagnostic") return cmdDiagnostic(state, rest);
+  }
+
+  fail(`unknown command "${cmd}". Run "${prog} --help".`, EXIT.USER);
 }
 
 try {

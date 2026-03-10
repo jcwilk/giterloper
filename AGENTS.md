@@ -52,6 +52,11 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 `updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use.
 
+### 6. gl vs gl-extended
+
+- **gl** (main): Minimal agent-facing CLI. Commands: diagnostic, pin list/add/remove/update, search, query, get, add, subtract, reconcile, promote, merge. Documented in the skill.
+- **gl-extended**: Debugging, setup, under the hood. Adds: status, gpu, clone, index, teardown, stage, stage-cleanup, verify. Use for E2E tests that need stage/status/verify/teardown, and for bootstrap/setup (clone, index).
+
 ## Gl Script Notes
 
 - **pinQmd** — All QMD invocations go through `pinQmd(pin, args)` which prepends `--index ${pin.name}_${pin.sha}`. No bare qmd wrapper; every call is pinned.
@@ -87,12 +92,12 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
 The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
-- **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
+- **Read** access to `jcwilk/giterloper_knowledge` (for `gl-extended clone` / `gl-extended index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
 Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).
@@ -104,7 +109,12 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+For extended commands (clone, index, status, verify, stage, etc.):
+```bash
+./.cursor/skills/gl/scripts/gl-extended <command>
+```
+
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic` and `pin list` confirm the environment is healthy.
 
 ### Running tests
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
+const GL_EXTENDED_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl-extended");
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
@@ -18,7 +19,8 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   }
 }
 
-export function runGl(
+function runGlImpl(
+  script: string,
   args: string[],
   opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
 ) {
@@ -32,7 +34,7 @@ export function runGl(
     const stdinFile = path.join(tmp, "stdin.txt");
     try {
       writeFileSync(stdinFile, opts.stdin, "utf8");
-      result = spawnSync("sh", ["-c", `"${GL_SCRIPT}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
+      result = spawnSync("sh", ["-c", `"${script}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
         cwd,
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
@@ -41,7 +43,7 @@ export function runGl(
       rmSync(tmp, { recursive: true, force: true });
     }
   } else {
-    result = spawnSync(GL_SCRIPT, cliArgs, {
+    result = spawnSync(script, cliArgs, {
       cwd,
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
@@ -67,9 +69,30 @@ export function runGl(
   };
 }
 
+export function runGl(
+  args: string[],
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+) {
+  return runGlImpl(GL_SCRIPT, args, opts);
+}
+
+export function runGlExtended(
+  args: string[],
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+) {
+  return runGlImpl(GL_EXTENDED_SCRIPT, args, opts);
+}
+
 export function runGlJson(
   args: string[],
   opts: { cwd?: string; stdin?: string | null } = {}
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
+}
+
+export function runGlExtendedJson(
+  args: string[],
+  opts: { cwd?: string; stdin?: string | null } = {}
+): unknown {
+  return runGlExtended(args, { ...opts, parseJson: true }).data;
 }

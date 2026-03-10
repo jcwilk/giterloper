@@ -1,13 +1,13 @@
 ---
 name: gl
-description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to search, query, retrieve, verify, stage, promote, or manage pins in .giterloper/pinned.yaml.
+description: Interact with giterloper knowledge stores. Use when the user needs to search, query, retrieve, add, subtract, reconcile, promote, merge, or manage pins in .giterloper/pinned.yaml.
 ---
 
 # gl
 
 ## Overview
 
-Use this skill for giterloper operations in this project.
+Use this skill for giterloper operations in this project. The gl CLI exposes a minimal surface for day-to-day workflows. For debugging and low-level operations (clone, index, stage, status, verify), use `gl-extended` (not documented here).
 
 Project state lives in `.giterloper/`:
 - `.giterloper/pinned.yaml`: pin name -> object with `repo`, `sha`, optional `branch`
@@ -20,12 +20,12 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 
 - **Pin**: A named store reference (`name`, `source`, `sha`, optional `branch`).
 - **Branched pin**: Supports write operations (`add`, `subtract`, `reconcile`, `promote`, `merge`).
-- **Branchless pin**: Read-only for `search`, `query`, `get`, `verify`.
+- **Branchless pin**: Read-only for `search`, `query`, `get`, `diagnostic`.
 - **Collection**: QMD index name derived as `<name>@<sha>`.
 - **Base store**: The pin being modified for write operations.
 - **Reference input**: The comparison source (raw text, conversation context, or another pin).
-- **Read operations**: Search, query, retrieve, verify.
-- **Write operations**: Stage, edit, promote, teardown.
+- **Read operations**: Search, query, retrieve, diagnostic.
+- **Write operations**: Add, subtract, reconcile, promote, merge.
 
 ## CLI First
 
@@ -36,6 +36,19 @@ Run the CLI (from workspace root):
 ```
 
 Every command supports `--help`. Use command help instead of guessing flags or behavior.
+
+## Commands (gl main)
+
+- **diagnostic** [--pin \<name\>] [--json] — Check pin, clone, collection, and branch health
+- **pin list|add|remove|update**
+- **search** \<query\> [--pin \<name\>] [-n N] [--json]
+- **query** \<question\> [--pin \<name\>] [--json]
+- **get** \<path\> [--pin \<name\>] [--full] [--json]
+- **add** [--pin \<name\>] [--name \<name\>] — Reads stdin, queues content in added/
+- **subtract** [--pin \<name\>] [--name \<name\>] — Reads stdin, queues content in subtracts/
+- **reconcile** [--pin \<name\>] — Process added/ and subtracts/ queues into knowledge/
+- **promote** [--pin \<name\>] — Push staged work, update pin SHA
+- **merge** \<source-pin\> \<target-pin\> — Merge branches via GitHub API
 
 ## Common Workflows
 
@@ -74,19 +87,14 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 1. Ensure both pins are branched.
 2. Merge source pin branch into target pin branch: `./.cursor/skills/gl/scripts/gl merge <source-pin> <target-pin>`.
 
-### Intersecting knowledge
-
-1. Identify overlapping vs non-overlapping content.
-2. Stage a branch and remove non-overlapping content from staged clone.
-3. Promote with `./.cursor/skills/gl/scripts/gl promote <branch>`.
-
 ### Pin management
 
 - List: `./.cursor/skills/gl/scripts/gl pin list`
 - Add: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]`
 - Remove: `./.cursor/skills/gl/scripts/gl pin remove <name>`
 - Update SHA: `./.cursor/skills/gl/scripts/gl pin update <name> [--ref <ref>]`
-- Add pin, then materialize: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `clone` and `index`
+
+`pin add` automatically clones and indexes. No separate clone/index needed.
 
 ### Creating a new branch (no manual git)
 
@@ -101,19 +109,13 @@ Then run `add`, `reconcile`, etc. The first push during a write operation create
 **Branch from an earlier state:** Use `--ref` to specify the starting point (branch name, tag, or SHA):
 ```bash
 ./.cursor/skills/gl/scripts/gl pin add snapshot github.com/owner/knowledge --ref v1.0.0 --branch snapshot-v1
-./.cursor/skills/gl/scripts/gl pin add experiment github.com/owner/knowledge --ref abc1234 --branch experiment
-```
-
-**Save a snapshot of current:** Pin the existing branch and work there, or create a new branch from the same ref:
-```bash
-./.cursor/skills/gl/scripts/gl pin add backup github.com/owner/knowledge --ref main --branch backup-2024-03
 ```
 
 If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
 
-**Read vs write:** Read operations (search, query, get, verify) never push or create branches. Write operations (add, subtract, reconcile, promote, stage) check branch state before proceeding:
-- **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately (before creating staged copy) with remote SHA. Pin the remote head under a different named pin to investigate.
-- **Branch does not exist:** Proceed; the branch is created atomically when the first push runs (no empty branch, then commits).
+**Read vs write:** Read operations (search, query, get, diagnostic) never push or create branches. Write operations (add, subtract, reconcile, promote) check branch state before proceeding:
+- **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately with remote SHA. Run `gl pin update <name>` to sync.
+- **Branch does not exist:** Proceed; the branch is created atomically when the first push runs.
 - **Branch exists and matches:** Proceed normally.
 
 ## Write Directionality (Critical)
@@ -122,8 +124,7 @@ For write-style operations:
 - The **base store** is always the `--pin` target (or default first pin).
 - The **reference** is the second input (raw text, conversation context, or another pin).
 - **Subtract**: remove reference-overlapping content **from** the base.
-- **Intersect**: keep only content in the base that overlaps **with** the reference.
-- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`, then promoted). When any knowledge operation fails—promote, index, clone, etc.—do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide. Orphaned copies outside the store are unindexed, inconsistent, and unhelpful.
+- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`, then promoted). When any knowledge operation fails, do not copy or write that content elsewhere. Report the failure and let the user decide.
 
 If directionality is ambiguous, ask the user before making changes.
 
@@ -138,9 +139,8 @@ If the input type is unclear, ask a clarifying question first.
 
 ## Guidance and Safety
 
-- Prefer `./.cursor/skills/gl/scripts/gl status` before making assumptions about local state.
-- Use `./.cursor/skills/gl/scripts/gl verify` after clone/index or promotions.
-- If the script reports a state error, fix state (pin, clone, index) before retrying.
+- Prefer `./.cursor/skills/gl/scripts/gl diagnostic` before making assumptions about local state.
+- If the script reports a state error, fix state (pin, clone, index) before retrying; use `gl-extended` for low-level fixes.
 - Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
-- Confirm with the user before destructive actions (teardown, subtract, intersect).
-- Never edit `.giterloper/versions/` directly; write via staged clones only.
+- Confirm with the user before destructive actions (pin remove, subtract).
+- Never edit `.giterloper/versions/` directly; write via staged clones only (created automatically by add/subtract/reconcile/promote).
