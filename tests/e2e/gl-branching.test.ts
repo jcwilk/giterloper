@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals, assertExists } from "jsr:@std/assert";
 import { assertThrows } from "jsr:@std/assert";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -39,7 +39,8 @@ function runGit(args: string[], opts: { cwd?: string } = {}): string {
   return (result.stdout || "").trim();
 }
 
-function pinByName(list: { name?: string; sha?: string }[], name: string) {
+function pinByName(list: { name?: string; sha?: string }[] | null | undefined, name: string) {
+  if (!Array.isArray(list)) return undefined;
   return list.find((p) => p.name === name);
 }
 
@@ -199,12 +200,14 @@ Deno.test("query on branched pin does not create remote branch", () => {
   const branch = `${pinName}-branch`;
   try {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
-    const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[] | null;
     const beforePin = pinByName(beforePins, pinName);
+    assertExists(beforePin, `pin "${pinName}" should exist in list before query`);
     runGlJson(["query", "what content exists", "--pin", pinName]);
-    const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[] | null;
     const afterPin = pinByName(afterPins, pinName);
-    assertEquals(afterPin!.sha, beforePin!.sha, "query should not change pin sha");
+    assertExists(afterPin, `pin "${pinName}" should exist in list after query (query must not remove pin)`);
+    assertEquals(afterPin.sha, beforePin.sha, "query should not change pin sha");
   } finally {
     ensurePinRemoved(pinName);
   }
