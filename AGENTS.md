@@ -50,7 +50,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ### 5. Auto-Index Lifecycle
 
-`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use.
+`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl-extended clone` or `gl-extended index` needed for normal use.
 
 ## Gl Script Notes
 
@@ -92,7 +92,7 @@ Branchless pins are read-only.
 ### Git access to knowledge repos
 
 The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
-- **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
+- **Read** access to `jcwilk/giterloper_knowledge` (for clone/index, e.g. via `gl pin add` or `gl-extended clone`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
 Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).
@@ -104,7 +104,24 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic`, `pin list` confirm the environment is healthy.
+
+### gl extended (debugging and maintenance)
+
+A separate **gl extended** CLI exposes low-level commands for debugging and maintenance. It is **not** listed in the gl skill and agents should **not** use it for normal workflows.
+
+**Invoke gl extended:**
+```bash
+./scripts/gl-extended <command>
+# or
+deno run -A lib/gl-extended.ts <command>
+```
+
+**Commands:** `status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`. Run `./scripts/gl-extended --help` for usage.
+
+**When to use:** Only when debugging failed operations, performing manual maintenance (e.g. re-cloning, re-indexing without pin add), or running tests. Prefer main `gl` commands (`diagnostic`, `pin add`, `pin update`, etc.) for normal agent workflows.
+
+**Directive:** Do **not** invoke gl extended for routine tasks. If a main gl command fails, run `gl diagnostic` first to understand state. Use gl extended only when explicitly debugging/maintaining (e.g. user asks to re-clone, or you are fixing a corrupted index). Prefer the narrower main command surface to reduce confusion and make agent behavior easier to debug.
 
 ### Running tests
 

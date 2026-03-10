@@ -20,7 +20,7 @@
      sudo dpkg -i cuda-keyring_1.1-1_all.deb
      sudo apt update && sudo apt install cuda-toolkit-13-1
      ```
-   - After installing, run `gl gpu` to re-detect. If the user prefers CPU-only, run `gl gpu --cpu` (only after they have explicitly approved).
+   - After installing, run `./scripts/gl-extended gpu` to re-detect. If the user prefers CPU-only, run `./scripts/gl-extended gpu --cpu` (only after they have explicitly approved).
 6. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
 ## 2. Materialize the knowledge store
@@ -28,18 +28,20 @@
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-./.cursor/skills/gl/scripts/gl clone
-./.cursor/skills/gl/scripts/gl index
+./scripts/gl-extended clone
+./scripts/gl-extended index
 ```
 
-`gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
+`gl-extended clone` fetches pinned stores into `.giterloper/versions/`. `gl-extended index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl-extended` will exit with instructions; present the choice to the user before proceeding.
+
+Alternatively, adding a pin with `./.cursor/skills/gl/scripts/gl pin add` automatically clones and indexes.
 
 ## 3. Creating a new branch (optional)
 
 To work on a new branch without manual git:
 
 ```sh
-gl pin add my_branch github.com/owner/knowledge --ref main --branch my_branch
+./.cursor/skills/gl/scripts/gl pin add my_branch github.com/owner/knowledge --ref main --branch my_branch
 ```
 
 If the branch does not exist on the remote, gl creates it automatically on the first write (add, reconcile). Use `--ref` to branch from main, a tag, or another ref.

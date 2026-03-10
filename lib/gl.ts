@@ -451,10 +451,10 @@ function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
-function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
+function cmdVerify(state: ReturnType<typeof makeState>, args: string[], cmdName: string = "verify") {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, vector health, and branch freshness."].join(
+    [`Usage: gl ${cmdName} [--pin <name>] [--json]`, "Verifies pin, clone, collection, vector health, and branch freshness."].join(
       "\n"
     )
   );
@@ -719,7 +719,7 @@ async function main() {
 
   const [cmd, ...rest] = args;
 
-  if (cmd === "status") return cmdStatus(state, rest);
+  if (cmd === "diagnostic") return cmdVerify(state, rest, "diagnostic");
   if (cmd === "pin") {
     if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
     const [sub, ...subArgs] = rest;
@@ -729,32 +729,40 @@ async function main() {
     if (sub === "update") return cmdPinUpdate(state, subArgs);
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
-  if (cmd === "gpu") return cmdGpu(state, rest);
-  if (cmd === "clone") return cmdClone(state, rest);
-  if (cmd === "index") return cmdIndex(state, rest);
-  if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "search") return cmdSearchLike(state, "search", rest);
   if (cmd === "query") return cmdSearchLike(state, "query", rest);
   if (cmd === "get") return cmdGet(state, rest);
-  if (cmd === "stage") return cmdStage(state, rest);
-  if (cmd === "promote") return cmdPromote(state, rest);
-  if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
-  if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
 }
 
-try {
-  await main();
-} catch (e) {
-  if (e instanceof GlError) {
-    console.error(`gl: ${e.message}`);
-    Deno.exit(e.code);
+// Exports for gl-extended.ts (extended commands)
+export {
+  makeState,
+  cmdStatus,
+  cmdVerify,
+  cmdGpu,
+  cmdClone,
+  cmdIndex,
+  cmdTeardown,
+  cmdStage,
+  cmdStageCleanup,
+};
+
+if (import.meta.main) {
+  try {
+    await main();
+  } catch (e) {
+    if (e instanceof GlError) {
+      console.error(`gl: ${e.message}`);
+      Deno.exit(e.code);
+    }
+    console.error(`gl: unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+    Deno.exit(EXIT.EXTERNAL);
   }
-  console.error(`gl: unexpected error: ${e?.message ?? e}`);
-  Deno.exit(EXIT.EXTERNAL);
 }

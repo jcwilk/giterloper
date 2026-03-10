@@ -80,27 +80,45 @@ const TOP_HELP = [
   "  gl <command> [subcommand] [options]",
   "",
   "Commands:",
-  "  status",
-  "  gpu [--cpu]",
+  "  diagnostic [--pin <name>] [--json]",
   "  pin list|add|remove|update",
-  "  clone [--pin <name>|--all]",
-  "  index [--pin <name>|--all]",
-  "  teardown <name>",
   "  search <query> [--pin <name>] [-n N] [--json]",
   "  query <question> [--pin <name>] [--json]",
   "  get <path> [--pin <name>] [--full] [--json]",
-  "  stage [branch] [--pin <name>]",
-  "  promote [--pin <name>]",
-  "  stage-cleanup [branch] [--pin <name>]",
   "  add [--pin <name>] [--name <name>]",
   "  subtract [--pin <name>] [--name <name>]",
   "  reconcile [--pin <name>]",
+  "  promote [--pin <name>]",
   "  merge <source-pin> <target-pin>",
-  "  verify [--pin <name>] [--json]",
   "",
   'Run "gl <command> --help" for command-specific usage.',
 ].join("\n");
 
+const EXTENDED_HELP = [
+  "gl extended - giterloper extended CLI (debugging, maintenance)",
+  "",
+  "Usage:",
+  "  gl-extended <command> [subcommand] [options]",
+  "",
+  "Commands:",
+  "  status [--json]",
+  "  verify [--pin <name>] [--json]",
+  "  gpu [--cpu]",
+  "  clone [--pin <name> | --all]",
+  "  index [--pin <name> | --all]",
+  "  teardown <name>",
+  "  stage [branch] [--pin <name>]",
+  "  stage-cleanup [branch] [--pin <name>]",
+  "",
+  "Invoke: ./scripts/gl-extended <command> or deno run -A lib/gl-extended.ts <command>",
+  "",
+  'Run "gl-extended <command> --help" for command-specific usage.',
+].join("\n");
+
 export function printTopHelp(): void {
   commandOutput(TOP_HELP);
+}
+
+export function printExtendedHelp(): void {
+  commandOutput(EXTENDED_HELP);
 }

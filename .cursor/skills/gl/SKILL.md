@@ -1,6 +1,6 @@
 ---
 name: gl
-description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to search, query, retrieve, verify, stage, promote, or manage pins in .giterloper/pinned.yaml.
+description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to search, query, retrieve, promote, or manage pins in .giterloper/pinned.yaml.
 ---
 
 # gl
@@ -20,12 +20,12 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 
 - **Pin**: A named store reference (`name`, `source`, `sha`, optional `branch`).
 - **Branched pin**: Supports write operations (`add`, `subtract`, `reconcile`, `promote`, `merge`).
-- **Branchless pin**: Read-only for `search`, `query`, `get`, `verify`.
+- **Branchless pin**: Read-only for `search`, `query`, `get`.
 - **Collection**: QMD index name derived as `<name>@<sha>`.
 - **Base store**: The pin being modified for write operations.
 - **Reference input**: The comparison source (raw text, conversation context, or another pin).
-- **Read operations**: Search, query, retrieve, verify.
-- **Write operations**: Stage, edit, promote, teardown.
+- **Read operations**: Search, query, retrieve.
+- **Write operations**: Add, subtract, reconcile, promote, merge.
 
 ## CLI First
 
@@ -74,19 +74,14 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 1. Ensure both pins are branched.
 2. Merge source pin branch into target pin branch: `./.cursor/skills/gl/scripts/gl merge <source-pin> <target-pin>`.
 
-### Intersecting knowledge
-
-1. Identify overlapping vs non-overlapping content.
-2. Stage a branch and remove non-overlapping content from staged clone.
-3. Promote with `./.cursor/skills/gl/scripts/gl promote <branch>`.
-
 ### Pin management
 
 - List: `./.cursor/skills/gl/scripts/gl pin list`
 - Add: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]`
 - Remove: `./.cursor/skills/gl/scripts/gl pin remove <name>`
 - Update SHA: `./.cursor/skills/gl/scripts/gl pin update <name> [--ref <ref>]`
-- Add pin, then materialize: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` then `clone` and `index`
+
+`pin add` automatically clones and indexes; no separate clone/index step needed.
 
 ### Creating a new branch (no manual git)
 
@@ -111,7 +106,7 @@ Then run `add`, `reconcile`, etc. The first push during a write operation create
 
 If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
 
-**Read vs write:** Read operations (search, query, get, verify) never push or create branches. Write operations (add, subtract, reconcile, promote, stage) check branch state before proceeding:
+**Read vs write:** Read operations (search, query, get) never push or create branches. Write operations (add, subtract, reconcile, promote) check branch state before proceeding:
 - **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately (before creating staged copy) with remote SHA. Pin the remote head under a different named pin to investigate.
 - **Branch does not exist:** Proceed; the branch is created atomically when the first push runs (no empty branch, then commits).
 - **Branch exists and matches:** Proceed normally.
@@ -138,9 +133,8 @@ If the input type is unclear, ask a clarifying question first.
 
 ## Guidance and Safety
 
-- Prefer `./.cursor/skills/gl/scripts/gl status` before making assumptions about local state.
-- Use `./.cursor/skills/gl/scripts/gl verify` after clone/index or promotions.
+- Run `./.cursor/skills/gl/scripts/gl diagnostic` before making assumptions about local state.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
 - Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
-- Confirm with the user before destructive actions (teardown, subtract, intersect).
-- Never edit `.giterloper/versions/` directly; write via staged clones only.
+- Confirm with the user before destructive actions (pin remove, subtract).
+- Never edit `.giterloper/versions/` directly; write via add/subtract/reconcile/promote flow only.
