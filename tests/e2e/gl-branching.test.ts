@@ -6,12 +6,14 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import { runGl, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
@@ -268,5 +270,43 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge merges source pin into target pin remotely via GitHub API", () => {
+  const srcPinName = randomPin("merge-src");
+  const tgtPinName = randomPin("merge-tgt");
+  const srcBranch = `${srcPinName}-branch`;
+  const tgtBranch = `${tgtPinName}-branch`;
+  try {
+    createRemoteBranchFromMain(tgtBranch, "knowledge/scratch.md", "# target base");
+    createRemoteBranchFromMain(
+      srcBranch,
+      `knowledge/merge_src_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
+      "# merged content"
+    );
+    runGlJson(["pin", "add", tgtPinName, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
+    runGlJson(["pin", "add", srcPinName, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
+
+    const beforeTgt = pinByName(
+      runGlJson(["pin", "list"]) as { name?: string; sha?: string }[],
+      tgtPinName
+    );
+    const result = runGlJson(["merge", srcPinName, tgtPinName]) as {
+      action?: string;
+      target?: { oldSha?: string; newSha?: string };
+    };
+    assertEquals(result.action, "merged");
+    assertEquals(result.target?.newSha !== result.target?.oldSha, true);
+    const afterTgt = pinByName(
+      runGlJson(["pin", "list"]) as { name?: string; sha?: string }[],
+      tgtPinName
+    );
+    assertEquals(afterTgt!.sha, result.target!.newSha);
+  } finally {
+    ensurePinRemoved(srcPinName);
+    ensurePinRemoved(tgtPinName);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: srcPinName, branchName: srcBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: tgtPinName, branchName: tgtBranch });
   }
 });

@@ -63,18 +63,8 @@ Previously, `fail()` called `process.exit()`, which bypassed `withFifoLock`'s `f
 
 ---
 
-## 6. `gl merge` fails with shallow fetch (depth=1); better merge workflow needed (WIP)
+## 6. `gl merge` fails with shallow fetch (depth=1) — resolved
 
-**Observed:** `gl merge` uses `git fetch --depth 1` when fetching the source branch into the target's staged clone. With shallow history, git often cannot find the merge base, leading to merge failures or conflicts. Increasing to an arbitrary depth (e.g. `--depth 100`) "fixes" it by hoping the branches diverged recently, but that is brittle and wastes bandwidth.
+**Was:** `gl merge` used `git fetch --depth 1` and local `git merge`, which fails with shallow clones (no merge base).
 
-**Preferred fix (not yet implemented):**
-
-1. **Attempt trivial merge remotely first** — Use the remote (e.g. via `gh` or git server capabilities) to merge the branches when they merge trivially, without downloading full history or an arbitrary recent subset. If the remote can fast-forward or perform a trivial merge, do it there and update pins accordingly.
-
-2. **If not trivially mergeable** — Ensure both branches are pinned (merge already requires this). Stage a change for the target branch:
-   - With partial merge applied, if possible without downloading full history; or
-   - If not possible, stage the pre-merged state of the target branch so the agent can conduct the merge manually in the staged clone.
-
-3. **Add `gl complete-merge` (or `gl finish-merge`)** — A follow-up command the agent invokes once the merged code is prepared (e.g. after resolving conflicts or conducting the merge manually). It creates the merge commit and pushes.
-
-**Status:** The merge command is WIP. The merge test is marked pending until this is addressed.
+**Fix (applied):** Merge is done remotely via GitHub REST API `POST /repos/{owner}/{repo}/merges`. No local fetch or clone needed; clones stay shallow. Requires `GITERLOPER_GH_TOKEN`. On conflict (409), creates a PR for manual resolution.
