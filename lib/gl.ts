@@ -450,6 +450,48 @@ function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
+function cmdCompleteMerge(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl complete-merge [--pin <name>]",
+      "Finishes an in-progress merge after conflicts are resolved. Run after fixing conflicts in the staged clone.",
+    ].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  requirePinBranch(pin, "complete-merge");
+  const dir = stagedDir(state, pin.name, pin.branch!);
+  if (!existsSync(path.join(dir, ".git", "MERGE_HEAD"))) {
+    fail(
+      `no merge in progress for pin "${pin.name}". The staged clone at ${dir} is not in a conflicted merge state.`,
+      EXIT.STATE
+    );
+  }
+  run("git", ["-C", dir, "add", "-A"]);
+  const commit = runSoft("git", ["-C", dir, "commit", "--no-edit"]);
+  if (!commit.ok) {
+    const unmerged = runSoft("git", ["-C", dir, "diff", "--name-only", "--diff-filter=U"])
+      .stdout.split(/\r?\n/)
+      .filter(Boolean);
+    fail(
+      [
+        `merge not complete: unresolved conflicts in ${unmerged.join(", ") || "(unknown)"}.`,
+        "Fix all conflicts in the staged clone, then run complete-merge again.",
+      ].join(" "),
+      EXIT.STATE
+    );
+  }
+  pushBranchOrFail(dir, pin, "complete-merge");
+  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+  updatePinSha(state, pin.name, newSha, { infoFn: info });
+  removeStagedDir(state, pin.name, pin.branch!);
+  commandOutput({ action: "merged", pin: pin.name, newSha, branch: pin.branch }, state.globalJson);
+}
+
 function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
@@ -640,7 +682,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges one branched pin into another. On conflict, fix conflicts then run 'gl complete-merge --pin <target-pin>'.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -651,6 +693,9 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
 
   const dir = ensureWorkingClone(state, target, { infoFn: info });
   assertBranchFresh(state, target, dir);
+  if (runSoft("git", ["-C", dir, "rev-parse", "--is-shallow-repository"]).stdout?.trim() === "true") {
+    runSoft("git", ["-C", dir, "fetch", "--unshallow", "origin"]);
+  }
   const remoteName = `glsrc_${safeName(source.name)}`;
   const remotes = run("git", ["-C", dir, "remote"]).split(/\r?\n/).filter(Boolean);
   if (!remotes.includes(remoteName)) {
@@ -658,7 +703,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   } else {
     run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
   }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
+  run("git", ["-C", dir, "fetch", remoteName, source.branch!]);
   const merge = runSoft("git", [
     "-C",
     dir,
@@ -681,7 +726,7 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
         conflicts || "  - (unable to determine)",
         "The working clone is left in a conflicted state at:",
         `  ${stagedDir(state, target.name, target.branch!)}`,
-        `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
+        `To resolve: fix conflicts in the staged clone, then run "gl complete-merge --pin ${target.name}".`,
         `To abort: run "git -C ${stagedDir(state, target.name, target.branch!)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
       ].join("\n"),
       EXIT.STATE
@@ -762,6 +807,7 @@ function main() {
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
   if (cmd === "merge") return cmdMerge(state, rest);
+  if (cmd === "complete-merge") return cmdCompleteMerge(state, rest);
   if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
