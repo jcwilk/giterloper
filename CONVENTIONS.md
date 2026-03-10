@@ -8,4 +8,4 @@
 ## TypeScript
 
 - Use `interface` for object shapes and `type` for unions/aliases.
-- Enable all strict mode options in `tsconfig.json`.
+- Enable all strict mode options in `deno.json`.
