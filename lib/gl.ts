@@ -24,14 +24,14 @@ import {
   parseSearchJson,
   safeName,
 } from "./reconcile.ts";
-import { isBranchNotFoundError, run, runSoft } from "./run.ts";
+import { run, runSoft } from "./run.ts";
 import {
   ensureGiterloperRoot,
   mutatePins,
   readPins,
   resolvePin,
 } from "./pinned.ts";
-import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
+import { resolveSha } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "./paths.ts";
 import {
@@ -43,6 +43,7 @@ import {
   assertBranchFresh,
   assertBranchReadyForWrite,
   branchFreshSoft,
+  cloneToStaged,
   commitIfDirty,
   ensureWorkingClone,
   pushBranchOrFail,
@@ -401,25 +402,7 @@ function cmdStage(state: ReturnType<typeof makeState>, args: string[]) {
   if (pin.branch && branch === pin.branch) {
     assertBranchReadyForWrite(state, pin);
   }
-  ensureDir(path.dirname(dir));
-  const url = toRemoteUrl(pin.source);
-  if (pin.branch && branch === pin.branch) {
-    const result = runSoft("git", ["clone", "--depth", "1", "--branch", branch, url, dir]);
-    if (!result.ok) {
-      if (isBranchNotFoundError(result)) {
-        if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
-        info(`branch "${branch}" not found; creating from default branch`);
-        run("git", ["clone", "--depth", "1", url, dir]);
-        run("git", ["-C", dir, "checkout", "-b", branch]);
-      } else {
-        fail(`git clone failed: ${(result.stderr || result.stdout).trim()}`, EXIT.EXTERNAL);
-      }
-    }
-  } else {
-    run("git", ["clone", "--depth", "1", url, dir]);
-    run("git", ["-C", dir, "checkout", "-b", branch]);
-  }
-  setCloneIdentity(dir);
+  cloneToStaged(state, pin, branch, { infoFn: info });
   commandOutput({ staged: dir, branch, pin: pin.name, created: true }, state.globalJson);
 }
 

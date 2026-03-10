@@ -38,6 +38,48 @@ export function assertBranchReadyForWrite(state: GlState, pin: Pin): void {
   );
 }
 
+/**
+ * Clone repository to staged directory for a branch.
+ * Tries --branch first; if branch not found, clones default and creates branch.
+ * Caller must ensure dir does not exist.
+ */
+export function cloneToStaged(
+  state: GlState,
+  pin: Pin,
+  branch: string,
+  opts?: { infoFn?: (msg: string) => void }
+): string {
+  const dir = stagedDir(state, pin.name, branch);
+  ensureDir(path.dirname(dir));
+  const url = toRemoteUrl(pin.source);
+  const result = runSoft("git", [
+    "clone",
+    "--depth",
+    "1",
+    "--branch",
+    branch,
+    url,
+    dir,
+  ]);
+  if (!result.ok) {
+    if (isBranchNotFoundError(result)) {
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+      (opts?.infoFn ?? (() => {}))(
+        `branch "${branch}" not found; creating from default branch`
+      );
+      run("git", ["clone", "--depth", "1", url, dir]);
+      run("git", ["-C", dir, "checkout", "-b", branch]);
+    } else {
+      fail(
+        `git clone failed: ${(result.stderr || result.stdout).trim()}`,
+        EXIT.EXTERNAL
+      );
+    }
+  }
+  setCloneIdentity(dir);
+  return dir;
+}
+
 export function ensureWorkingClone(
   state: GlState,
   pin: Pin,
@@ -45,35 +87,8 @@ export function ensureWorkingClone(
 ): string {
   assertBranchReadyForWrite(state, pin);
   const dir = stagedDir(state, pin.name, pin.branch!);
-  if (!existsSync(dir)) {
-    ensureDir(path.dirname(dir));
-    const url = toRemoteUrl(pin.source);
-    const result = runSoft("git", [
-      "clone",
-      "--depth",
-      "1",
-      "--branch",
-      pin.branch!,
-      url,
-      dir,
-    ]);
-    if (!result.ok) {
-      if (isBranchNotFoundError(result)) {
-        if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
-        (opts?.infoFn ?? (() => {}))(
-          `branch "${pin.branch}" not found; creating from default branch`
-        );
-        run("git", ["clone", "--depth", "1", url, dir]);
-        run("git", ["-C", dir, "checkout", "-b", pin.branch!]);
-      } else {
-        fail(
-          `git clone failed: ${(result.stderr || result.stdout).trim()}`,
-          EXIT.EXTERNAL
-        );
-      }
-    }
-  }
-  setCloneIdentity(dir);
+  if (!existsSync(dir)) cloneToStaged(state, pin, pin.branch!, opts);
+  else setCloneIdentity(dir);
   return dir;
 }
 
