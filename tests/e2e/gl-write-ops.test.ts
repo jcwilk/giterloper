@@ -1,11 +1,9 @@
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
+import { assertEquals, assert } from "jsr:@std/assert";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { test } from "node:test";
-
 import {
   E2E_MARKER,
   TEST_ADD_CONTENT,
@@ -13,23 +11,22 @@ import {
   TEST_SOURCE,
   TEST_SUBTRACT_CONTENT,
   toRemoteUrl,
-} from "./config.mjs";
-import { runGl, runGlJson } from "../helpers/gl.mjs";
+} from "./config.ts";
+import { runGl, runGlJson } from "../helpers/gl.ts";
 
-/** Unique per test file run; ALL collision-prone names must include this. */
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
-function randomPin(prefix) {
+function randomPin(prefix: string): string {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
-function stagedDir(pinName, branch) {
-  return path.join(process.cwd(), ".giterloper", "staged", pinName, branch);
+function stagedDir(pinName: string, branch: string): string {
+  return join(Deno.cwd(), ".giterloper", "staged", pinName, branch);
 }
 
-function runGit(args, { cwd = process.cwd() } = {}) {
+function runGit(args: string[], opts: { cwd?: string } = {}): string {
   const result = spawnSync("git", args, {
-    cwd,
+    cwd: opts.cwd ?? Deno.cwd(),
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -40,37 +37,38 @@ function runGit(args, { cwd = process.cwd() } = {}) {
   return (result.stdout || "").trim();
 }
 
-function pinByName(list, name) {
-  return list.find((p) => p.name === name);
+function pinByName(list: unknown, name: string): { name?: string; sha?: string } | undefined {
+  const pins = Array.isArray(list) ? list : [];
+  return pins.find((p: { name?: string }) => p.name === name);
 }
 
-function ensurePinRemoved(name) {
-  const pins = runGlJson(["pin", "list"]);
+function ensurePinRemoved(name: string): void {
+  const pins = runGlJson(["pin", "list"]) as { name?: string }[];
   if (pinByName(pins, name)) runGlJson(["pin", "remove", name]);
 }
 
-function createRemoteBranchFromMain(branchName, contentPath, contentBody) {
-  const tempRoot = fs.mkdtempSync(path.join(tmpdir(), "giterloper-branch-"));
-  const repoDir = path.join(tempRoot, "repo");
+function createRemoteBranchFromMain(branchName: string, contentPath: string, contentBody: string): string {
+  const tempRoot = Deno.makeTempDirSync({ prefix: "giterloper-branch-" });
+  const repoDir = join(tempRoot, "repo");
   try {
     runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
     runGit(["checkout", TEST_MAIN_REF], { cwd: repoDir });
     runGit(["checkout", "-b", branchName], { cwd: repoDir });
     runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
     runGit(["config", "user.email", "giterloper-test@example.com"], { cwd: repoDir });
-    const fullPath = path.join(repoDir, contentPath);
-    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-    fs.writeFileSync(fullPath, contentBody, "utf8");
-    runGit(["add", path.relative(repoDir, fullPath)], { cwd: repoDir });
+    const fullPath = join(repoDir, contentPath);
+    Deno.mkdirSync(join(fullPath, ".."), { recursive: true });
+    Deno.writeTextFileSync(fullPath, contentBody);
+    runGit(["add", contentPath], { cwd: repoDir });
     runGit(["commit", "-m", `Test branch ${branchName}`], { cwd: repoDir });
     runGit(["push", "origin", `HEAD:${branchName}`], { cwd: repoDir });
     return runGit(["rev-parse", "HEAD"], { cwd: repoDir });
   } finally {
-    fs.rmSync(tempRoot, { recursive: true, force: true });
+    Deno.removeSync(tempRoot, { recursive: true });
   }
 }
 
-test("add queues content in added and advances pin sha", () => {
+Deno.test("add queues content in added and advances pin sha", () => {
   const pinName = randomPin("add");
   const branch = `${pinName}-branch`;
   try {
@@ -78,18 +76,18 @@ test("add queues content in added and advances pin sha", () => {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlJson(["stage", branch, "--pin", pinName]);
     const before = pinByName(runGlJson(["pin", "list"]), pinName);
-    const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT });
-    assert.equal(result.action, "added");
-    const filePath = path.join(stagedDir(pinName, branch), "added", result.file);
-    assert.equal(fs.existsSync(filePath), true);
+    const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as { action?: string; file?: string };
+    assertEquals(result.action, "added");
+    const filePath = join(stagedDir(pinName, branch), "added", result.file!);
+    assertEquals(existsSync(filePath), true);
     const after = pinByName(runGlJson(["pin", "list"]), pinName);
-    assert.notEqual(after.sha, before.sha);
+    assert(after!.sha !== before!.sha);
   } finally {
     ensurePinRemoved(pinName);
   }
 });
 
-test("subtract queues content in subtracts and advances pin sha", () => {
+Deno.test("subtract queues content in subtracts and advances pin sha", () => {
   const pinName = randomPin("subtract");
   const branch = `${pinName}-branch`;
   try {
@@ -98,32 +96,32 @@ test("subtract queues content in subtracts and advances pin sha", () => {
     runGlJson(["stage", branch, "--pin", pinName]);
     runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT });
     const before = pinByName(runGlJson(["pin", "list"]), pinName);
-    const result = runGlJson(["subtract", "--pin", pinName], { stdin: TEST_SUBTRACT_CONTENT });
-    assert.equal(result.action, "subtracted");
-    const filePath = path.join(stagedDir(pinName, branch), "subtracts", result.file);
-    assert.equal(fs.existsSync(filePath), true);
+    const result = runGlJson(["subtract", "--pin", pinName], { stdin: TEST_SUBTRACT_CONTENT }) as { action?: string; file?: string };
+    assertEquals(result.action, "subtracted");
+    const filePath = join(stagedDir(pinName, branch), "subtracts", result.file!);
+    assertEquals(existsSync(filePath), true);
     const after = pinByName(runGlJson(["pin", "list"]), pinName);
-    assert.notEqual(after.sha, before.sha);
+    assert(after!.sha !== before!.sha);
   } finally {
     ensurePinRemoved(pinName);
   }
 });
 
-test("add with --name uses requested file name", () => {
+Deno.test("add with --name uses requested file name", () => {
   const pinName = randomPin("add-name");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlJson(["stage", branch, "--pin", pinName]);
-    const result = runGlJson(["add", "--pin", pinName, "--name", "named-entry"], { stdin: "hello" });
-    assert.equal(result.file, "named-entry.md");
+    const result = runGlJson(["add", "--pin", pinName, "--name", "named-entry"], { stdin: "hello" }) as { file?: string };
+    assertEquals(result.file, "named-entry.md");
   } finally {
     ensurePinRemoved(pinName);
   }
 });
 
-test("reconcile processes queued files", () => {
+Deno.test("reconcile processes queued files", () => {
   const pinName = randomPin("reconcile");
   const branch = `${pinName}-branch`;
   try {
@@ -131,11 +129,10 @@ test("reconcile processes queued files", () => {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlJson(["stage", branch, "--pin", pinName]);
     runGlJson(["add", "--pin", pinName, "--name", "to-reconcile"], { stdin: "# reconcile test content" });
-    const result = runGlJson(["reconcile", "--pin", pinName]);
-    assert.equal(result.action, "reconciled");
-    assert.equal(result.commits >= 1, true);
+    const result = runGlJson(["reconcile", "--pin", pinName]) as { action?: string; commits?: number };
+    assertEquals(result.action, "reconciled");
+    assert((result.commits ?? 0) >= 1);
   } finally {
     ensurePinRemoved(pinName);
   }
 });
-

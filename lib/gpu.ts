@@ -1,10 +1,12 @@
 /**
  * GPU detection and config: detectGpuMode, ensureGpuConfig, printCudaInstallInstructions.
  */
-import { EXIT, fail } from "./errors.js";
-import { runSoft } from "./run.js";
-import type { GlState } from "./types.js";
-import { writeLocalConfig } from "./config.js";
+import process from "node:process";
+
+import { EXIT, fail } from "./errors.ts";
+import { runSoft } from "./run.ts";
+import type { GlState } from "./types.ts";
+import { writeLocalConfig } from "./config.ts";
 
 export type GpuDetection =
   | { mode: "cuda" }

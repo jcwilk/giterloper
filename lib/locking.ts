@@ -3,10 +3,11 @@
  */
 import { readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { randomBytes } from "node:crypto";
 
-import { EXIT, fail } from "./errors.js";
-import { ensureDir } from "./paths.js";
+import { EXIT, fail } from "./errors.ts";
+import { ensureDir } from "./paths.ts";
 
 export interface LockOptions {
   maxWaitMs?: number;

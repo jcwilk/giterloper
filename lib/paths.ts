@@ -3,8 +3,9 @@
  */
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import process from "node:process";
 
-import type { GlState, Pin } from "./types.js";
+import type { GlState, Pin } from "./types.ts";
 
 export function findProjectRoot(startDir: string = process.cwd()): string | null {
   let current = path.resolve(startDir);

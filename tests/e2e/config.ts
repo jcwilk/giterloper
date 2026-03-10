@@ -1,8 +1,8 @@
 export const E2E_MARKER = "gle2e_";
 export const TEST_SOURCE = "github.com/jcwilk/giterloper_test_knowledge";
 
-export function toRemoteUrl(source) {
-  const token = process.env.GITERLOPER_GH_TOKEN;
+export function toRemoteUrl(source: string): string {
+  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
   if (token && source.includes("github.com")) {
     return `https://x-access-token:${token}@${source}`;
   }
