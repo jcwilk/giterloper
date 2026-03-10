@@ -4,6 +4,7 @@
 .giterloper/pinned.yaml.lock
 .giterloper/qmd/
 .giterloper/locks/
+.giterloper/spitfire-fetch/
 .giterloper-bench/
 
 node_modules/
