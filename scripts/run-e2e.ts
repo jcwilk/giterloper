@@ -37,9 +37,11 @@ function cleanupLeakedTestPins() {
   }
 }
 
+// Run tests with --jobs=1 to avoid cross-test interference on shared pinned.yaml.
+// Parallel runs can cause flakiness when one test reads pin state while another mutates it.
 const result = spawnSync(
   "deno",
-  ["test", "-A", testDir],
+  ["test", "-A", "--jobs=1", testDir],
   { cwd: root, stdio: "inherit" }
 );
 
