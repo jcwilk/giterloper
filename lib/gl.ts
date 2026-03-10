@@ -447,6 +447,44 @@ function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
+function cmdQmdOrphanCleanup(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl-extended qmd-orphan-cleanup",
+      "Deletes qmd config/cache files whose index does not match any pin in pinned.yaml.",
+      "Safe to run after E2E tests to remove orphaned test qmd data.",
+    ].join("\n")
+  );
+  if (args.length > 0) fail("usage: gl-extended qmd-orphan-cleanup", EXIT.USER);
+
+  const pins = readPins(state);
+  const validIndexNames = new Set(pins.map((p) => indexName(p)));
+
+  const dirs = [
+    path.join(state.rootDir, "qmd", "config", "qmd"),
+    path.join(state.rootDir, "qmd", "cache", "qmd"),
+  ];
+
+  let removed = 0;
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir)) {
+      const indexPart = f.includes(".") ? f.slice(0, f.indexOf(".")) : f;
+      if (!validIndexNames.has(indexPart)) {
+        try {
+          unlinkSync(path.join(dir, f));
+          removed++;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  commandOutput({ removed, dirs: dirs.length }, state.globalJson);
+}
+
 function cmdVerify(state: ReturnType<typeof makeState>, args: string[], cmdName: string = "verify") {
   ensureHelpNotRequested(
     args,
@@ -748,6 +786,7 @@ export {
   cmdStage,
   cmdStageCleanup,
   cmdPromote,
+  cmdQmdOrphanCleanup,
 };
 
 if (import.meta.main) {

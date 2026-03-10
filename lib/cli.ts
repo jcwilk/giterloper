@@ -109,6 +109,7 @@ const EXTENDED_HELP = [
   "  stage [branch] [--pin <name>]",
   "  stage-cleanup [branch] [--pin <name>]",
   "  promote [--pin <name>]",
+  "  qmd-orphan-cleanup",
   "",
   "Invoke: ./scripts/gl-extended <command> or deno run -A lib/gl-extended.ts <command>",
   "",

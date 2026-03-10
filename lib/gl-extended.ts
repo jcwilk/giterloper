@@ -23,6 +23,7 @@ import {
   cmdStage,
   cmdStageCleanup,
   cmdPromote,
+  cmdQmdOrphanCleanup,
 } from "./gl.ts";
 
 async function main() {
@@ -47,6 +48,7 @@ async function main() {
   if (cmd === "stage") return cmdStage(state, rest);
   if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "promote") return cmdPromote(state, rest);
+  if (cmd === "qmd-orphan-cleanup") return cmdQmdOrphanCleanup(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl-extended --help".`, EXIT.USER);
 }

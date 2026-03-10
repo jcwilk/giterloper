@@ -44,4 +44,6 @@ const result = spawnSync(
 );
 
 cleanupLeakedTestPins();
+const glExtended = path.join(root, "scripts", "gl-extended");
+spawnSync(glExtended, ["qmd-orphan-cleanup"], { cwd: root, stdio: "pipe" });
 Deno.exit(result.status ?? 1);
