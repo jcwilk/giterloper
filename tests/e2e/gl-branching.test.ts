@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertExists, assertEquals } from "jsr:@std/assert";
 import { assertThrows } from "jsr:@std/assert";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -19,7 +19,7 @@ import { runGl, runGlJson } from "../helpers/gl.ts";
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 function randomPin(prefix: string): string {
-  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+  return `${prefix}_${RUN_ID}_${randomBytes(8).toString("hex")}`;
 }
 
 function stagedDir(pinName: string, branch: string): string {
@@ -201,9 +201,11 @@ Deno.test("query on branched pin does not create remote branch", () => {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
     const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
     const beforePin = pinByName(beforePins, pinName);
+    assertExists(beforePin, "pin should exist after pin add");
     runGlJson(["query", "what content exists", "--pin", pinName]);
     const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
     const afterPin = pinByName(afterPins, pinName);
+    assertExists(afterPin, "pin should still exist after query (concurrent removal may indicate name collision)");
     assertEquals(afterPin!.sha, beforePin!.sha, "query should not change pin sha");
   } finally {
     ensurePinRemoved(pinName);
