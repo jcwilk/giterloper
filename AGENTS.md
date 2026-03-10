@@ -38,7 +38,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ### 3. Shared State: pinned.yaml and QMD
 
 - **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
+- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `lib/gl.ts`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
 ### 4. Cleanup and Branch Isolation
@@ -87,11 +87,11 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
-The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
+The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `lib/gl.ts` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
 - **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
@@ -104,7 +104,22 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic`, `pin list` confirm the environment is healthy.
+
+### gl-extended (debugging/maintenance only)
+
+`gl-extended` exposes additional commands not in the main `gl` interface: `status`, `verify`, `gpu`, `pin remove`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`. Invoke via:
+```bash
+deno run -A lib/gl-extended.ts <command> [args]
+```
+Or use the wrapper: `./.cursor/skills/gl/scripts/gl-extended <command> [args]`
+
+**Do NOT use gl-extended for normal agent workflows.** The skill and main `gl` script are intentionally minimal. Use gl-extended only when:
+- Debugging a failed operation
+- Running tests or maintenance scripts
+- Performing low-level actions (manual clone/index, teardown, stage)
+
+Prefer fixing issues via main commands (`diagnostic`, `pin update`, etc.). If the agent struggles with a main-command limitation, that signals a gap to fix in the main interface, not a reason to reach for gl-extended.
 
 ### Running tests
 

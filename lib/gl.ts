@@ -79,7 +79,7 @@ import {
   pinQmd,
 } from "./qmd.ts";
 
-function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string | null }, args: string[]) {
+export function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string | null }, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -99,7 +99,7 @@ function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string |
     Deno.env.set("NODE_LLAMA_CPP_GPU", "false");
     const out = { gpuMode: "cpu", forced: true };
     commandOutput(out, state.globalJson);
-    if (!state.globalJson) info("GPU mode set to CPU. Run `gl gpu` without --cpu to re-detect after installing CUDA.");
+    if (!state.globalJson) info("GPU mode set to CPU. Run `gl-extended gpu` without --cpu to re-detect after installing CUDA.");
     return;
   }
   const detected = detectGpuMode();
@@ -117,12 +117,12 @@ function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string |
       info("No NVIDIA GPU detected. Using CPU mode.");
     } else {
       info("NVIDIA GPU detected but CUDA Toolkit not found. Using CPU mode.");
-      info("Install CUDA Toolkit from https://developer.nvidia.com/cuda-downloads and run `gl gpu` to re-detect.");
+      info("Install CUDA Toolkit from https://developer.nvidia.com/cuda-downloads and run `gl-extended gpu` to re-detect.");
     }
   }
 }
 
-function cmdStatus(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdStatus(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -220,7 +220,7 @@ function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
 }
 
-function cmdPinRemove(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdPinRemove(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -272,7 +272,7 @@ function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ name, oldSha: oldPin.sha, newSha, updated: true }, state.globalJson);
 }
 
-function cmdClone(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdClone(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -292,7 +292,7 @@ function cmdClone(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cloned: pins.map(collectionName) }, state.globalJson);
 }
 
-function cmdIndex(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdIndex(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -313,7 +313,7 @@ function cmdIndex(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ indexed: pins.map(collectionName) }, state.globalJson);
 }
 
-function cmdTeardown(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdTeardown(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(args, ["Usage: gl teardown <name>", "Tears down pin, clone, and qmd collection."].join("\n"));
   if (args.length !== 1) fail("usage: gl teardown <name>", EXIT.USER);
   cmdPinRemove(state, args);
@@ -368,7 +368,7 @@ function cmdGet(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput(out);
 }
 
-function cmdStage(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdStage(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl stage [branch] [--pin <name>]", "Creates staged working clone on a branch."].join("\n")
@@ -434,7 +434,7 @@ function cmdPromote(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ promoted: true, pin: pin.name, oldSha: pin.sha, newSha, branch: pin.branch }, state.globalJson);
 }
 
-function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl stage-cleanup [branch] [--pin <name>]", "Deletes staged clone without promoting."].join("\n")
@@ -451,7 +451,7 @@ function cmdStageCleanup(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ cleaned: true, path: dir }, state.globalJson);
 }
 
-function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
+export function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     ["Usage: gl verify [--pin <name>] [--json]", "Verifies pin, clone, collection, vector health, and branch freshness."].join(
@@ -502,6 +502,53 @@ function cmdVerify(state: ReturnType<typeof makeState>, args: string[]) {
   const allOk = results.every((r) => r.ok);
   commandOutput({ ok: allOk, checks: results }, state.globalJson);
   if (!allOk) fail("verify: not all pins are healthy", EXIT.STATE);
+}
+
+function cmdDiagnostic(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl diagnostic [--pin <name>] [--json]",
+      "Runs health checks on pins: clone, index, vectors, branch freshness.",
+      "Returns ok/summary for agent consumption.",
+    ].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  const pins = pinParsed.found ? [resolvePin(state, pinParsed.value)] : readPins(state);
+  if (pins.length === 0) fail("no pins configured", EXIT.STATE);
+  const results = [];
+  for (const pin of pins) {
+    const cdir = cloneDir(state, pin);
+    const collection = collectionName(pin);
+    const clonePresent = existsSync(cdir);
+    const cloneShaOk = clonePresent ? verifyCloneAtSha(pin, cdir) : false;
+    const collectionPresent = collectionExists(pin, collection);
+    const contextPresent = contextExists(pin, collection);
+    const freshness = branchFreshSoft(state, pin);
+    let vectorsOk = false;
+    if (collectionPresent) {
+      const status = runSoft("qmd", pinQmd(pin, ["status"]));
+      if (status.ok) {
+        const statusText = status.stdout.toLowerCase();
+        vectorsOk = statusText.includes(collection.toLowerCase()) && !statusText.includes("vectors: 0");
+      }
+    }
+    const ok = clonePresent && cloneShaOk && collectionPresent && contextPresent && vectorsOk;
+    results.push({
+      pin: pin.name,
+      ok,
+      cloneOk: clonePresent && cloneShaOk,
+      indexOk: collectionPresent && contextPresent && vectorsOk,
+      branchFresh: freshness.fresh,
+    });
+  }
+  const allOk = results.every((r) => r.ok);
+  const summary = allOk ? "ok" : results.filter((r) => !r.ok).map((r) => `${r.pin}: ${!r.cloneOk ? "clone" : !r.indexOk ? "index" : !r.branchFresh ? "stale" : "?"}`).join("; ");
+  commandOutput({ ok: allOk, summary: allOk ? "all pins healthy" : summary, checks: results }, state.globalJson);
+  if (!allOk) fail(`diagnostic: ${summary}`, EXIT.STATE);
 }
 
 function cmdAddLike(state: ReturnType<typeof makeState>, args: string[], mode: "add" | "subtract") {
@@ -681,7 +728,7 @@ async function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   );
 }
 
-function makeState() {
+export function makeState() {
   const projectRoot = findProjectRoot();
   if (!projectRoot) {
     fail("no .git directory found in current path or parents", EXIT.STATE);
@@ -719,42 +766,36 @@ async function main() {
 
   const [cmd, ...rest] = args;
 
-  if (cmd === "status") return cmdStatus(state, rest);
+  if (cmd === "diagnostic") return cmdDiagnostic(state, rest);
   if (cmd === "pin") {
-    if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
+    if (rest.length === 0) fail("usage: gl pin <list|add|update>", EXIT.USER);
     const [sub, ...subArgs] = rest;
     if (sub === "list") return cmdPinList(state, subArgs);
     if (sub === "add") return cmdPinAdd(state, subArgs);
-    if (sub === "remove") return cmdPinRemove(state, subArgs);
     if (sub === "update") return cmdPinUpdate(state, subArgs);
-    fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
+    fail(`unknown pin subcommand "${sub}". Run "gl --help".`, EXIT.USER);
   }
-  if (cmd === "gpu") return cmdGpu(state, rest);
-  if (cmd === "clone") return cmdClone(state, rest);
-  if (cmd === "index") return cmdIndex(state, rest);
-  if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "search") return cmdSearchLike(state, "search", rest);
   if (cmd === "query") return cmdSearchLike(state, "query", rest);
   if (cmd === "get") return cmdGet(state, rest);
-  if (cmd === "stage") return cmdStage(state, rest);
-  if (cmd === "promote") return cmdPromote(state, rest);
-  if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
-  if (cmd === "verify") return cmdVerify(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
 }
 
-try {
-  await main();
-} catch (e) {
-  if (e instanceof GlError) {
-    console.error(`gl: ${e.message}`);
-    Deno.exit(e.code);
+if (import.meta.main) {
+  try {
+    await main();
+  } catch (e) {
+    if (e instanceof GlError) {
+      console.error(`gl: ${e.message}`);
+      Deno.exit(e.code);
+    }
+    console.error(`gl: unexpected error: ${e?.message ?? e}`);
+    Deno.exit(EXIT.EXTERNAL);
   }
-  console.error(`gl: unexpected error: ${e?.message ?? e}`);
-  Deno.exit(EXIT.EXTERNAL);
 }
