@@ -6,12 +6,14 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import { runGl, runGlJson } from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
@@ -268,5 +270,40 @@ Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge merges source pin branch into target and updates target pin", () => {
+  const targetPinName = randomPin("merge-tgt");
+  const sourcePinName = randomPin("merge-src");
+  const targetBranch = `${targetPinName}-branch`;
+  const sourceBranch = `${sourcePinName}-branch`;
+  const targetFile = `knowledge/merge_tgt_${RUN_ID}.md`;
+  const sourceFile = `knowledge/merge_src_${RUN_ID}.md`;
+  try {
+    createRemoteBranchFromMain(targetBranch, targetFile, "# target content");
+    createRemoteBranchFromMain(sourceBranch, sourceFile, "# source content");
+    runGlJson(["pin", "add", targetPinName, TEST_SOURCE, "--ref", targetBranch, "--branch", targetBranch]);
+    runGlJson(["pin", "add", sourcePinName, TEST_SOURCE, "--ref", sourceBranch, "--branch", sourceBranch]);
+    const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const beforeTarget = pinByName(beforePins, targetPinName)!;
+    const mergeResult = runGlJson(["merge", sourcePinName, targetPinName]) as {
+      action?: string;
+      target?: { oldSha?: string; newSha?: string };
+    };
+    assertEquals(mergeResult.action, "merged");
+    assertEquals(mergeResult.target!.newSha !== mergeResult.target!.oldSha, true);
+    const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
+    const afterTarget = pinByName(afterPins, targetPinName)!;
+    assertEquals(afterTarget!.sha, mergeResult.target!.newSha);
+    assertEquals(afterTarget!.sha !== beforeTarget!.sha, true);
+    const dir = stagedDir(targetPinName, targetBranch);
+    assertEquals(existsSync(path.join(dir, targetFile)), true);
+    assertEquals(existsSync(path.join(dir, sourceFile)), true);
+  } finally {
+    ensurePinRemoved(targetPinName);
+    ensurePinRemoved(sourcePinName);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: targetPinName, branchName: targetBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: sourcePinName, branchName: sourceBranch });
   }
 });

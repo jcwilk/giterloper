@@ -640,7 +640,8 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges the source pin's branch into the target pin's branch. Both must be branched pins.",
+      "On conflict: resolve in the staged clone, then run 'gl promote --pin <target-pin>'.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -658,7 +659,10 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   } else {
     run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
   }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
+  // Deepen target and source history so git can find the merge base (ISSUES.md #6)
+  const depth = 100;
+  run("git", ["-C", dir, "fetch", "origin", target.branch!, "--depth", String(depth)]);
+  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", String(depth)]);
   const merge = runSoft("git", [
     "-C",
     dir,
