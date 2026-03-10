@@ -1,5 +1,5 @@
 /**
- * GitHub API operations (merge) for remote-only workflows.
+ * GitHub API operations (merge, partial SHA resolution) for remote-only workflows.
  * Keeps clones shallow; merge is performed on GitHub, not locally.
  */
 import { EXIT, fail } from "./errors.ts";
@@ -13,6 +13,42 @@ export function parseGithubSource(source: string): { owner: string; repo: string
   const match = source.match(/github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/);
   if (!match) return null;
   return { owner: match[1], repo: match[2] };
+}
+
+/**
+ * Resolve a partial SHA to full 40-char form via GitHub API.
+ * GET /repos/{owner}/{repo}/commits/{sha} accepts partial SHAs.
+ * Requires parseGithubSource(source) to succeed. Uses GITERLOPER_GH_TOKEN when set.
+ */
+export async function resolvePartialShaViaGithub(source: string, shortSha: string): Promise<string> {
+  const parsed = parseGithubSource(source);
+  if (!parsed) {
+    fail(
+      "partial SHA resolution requires a github.com source; use full 40-char SHA for other remotes",
+      EXIT.USER
+    );
+  }
+  const token = Deno.env.get("GITERLOPER_GH_TOKEN");
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${shortSha}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    fail(
+      `could not resolve partial SHA "${shortSha}": ${res.status} ${text}`,
+      EXIT.EXTERNAL
+    );
+  }
+  const data = (await res.json()) as { sha?: string };
+  const full = data?.sha;
+  if (!full || !/^[0-9a-f]{40}$/i.test(full)) {
+    fail(`GitHub API returned invalid SHA for ${shortSha}`, EXIT.EXTERNAL);
+  }
+  return full;
 }
 
 export interface MergeResult {

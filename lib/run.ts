@@ -56,3 +56,16 @@ export function isBranchNotFoundError(r: RunResult): boolean {
     (msg.includes("pathspec") && msg.includes("did not match"))
   );
 }
+
+/** True if the error suggests a missing object (e.g. shallow clone lacks commit/tree). */
+export function isMissingObjectError(r: RunResult): boolean {
+  if (r.ok) return false;
+  const msg = (r.stderr + "\n" + r.stdout).toLowerCase();
+  return (
+    msg.includes("unable to read tree") ||
+    msg.includes("reference is not a tree") ||
+    msg.includes("missing blob") ||
+    msg.includes("missing commit") ||
+    (msg.includes("object") && msg.includes("not found"))
+  );
+}

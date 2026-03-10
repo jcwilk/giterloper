@@ -6,8 +6,7 @@ import path from "node:path";
 
 import { EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
-import { isBranchNotFoundError } from "./run.ts";
-import { toRemoteUrl, setCloneIdentity } from "./git.ts";
+import { toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import { mutatePins, readPins } from "./pinned.ts";
 import { withFifoLock } from "./locking.ts";
@@ -44,11 +43,10 @@ export function removeStagedDir(
 }
 
 export interface ClonePinOpts {
-  branch?: string;
-  fallbackRef?: string;
   infoFn?: (msg: string) => void;
 }
 
+/** Clone directly from the pin's SHA. Branch is never used for cloning. */
 export function clonePin(
   state: GlState,
   pin: Pin,
@@ -61,40 +59,26 @@ export function clonePin(
   }
   ensureDir(path.dirname(cdir));
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
-  const branch = opts.branch ?? pin.branch;
-  const fallbackRef = opts.fallbackRef;
   const url = toRemoteUrl(pin.source);
 
-  if (branch) {
-    const result = runSoft("git", [
-      "clone",
-      "--depth",
-      "1",
-      "--branch",
-      branch,
-      url,
-      cdir,
-    ]);
-    if (!result.ok) {
-      if (isBranchNotFoundError(result)) {
-        if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
-        (opts.infoFn ?? (() => {}))(
-          `branch "${branch}" not found; cloning from ${fallbackRef || "default"} and checking out ${pin.sha}`
-        );
-        if (fallbackRef && fallbackRef !== branch) {
-          run("git", ["clone", "--depth", "1", "--branch", fallbackRef, url, cdir]);
-        } else {
-          run("git", ["clone", "--depth", "1", url, cdir]);
-        }
-      } else {
-        fail(
-          `git clone failed: ${(result.stderr || result.stdout).trim()}`,
-          EXIT.EXTERNAL
-        );
-      }
-    }
-  } else {
-    run("git", ["clone", "--depth", "1", url, cdir]);
+  // Clone from SHA: init, fetch the commit, checkout. No branch involved.
+  run("git", ["init", cdir]);
+  run("git", ["-C", cdir, "remote", "add", "origin", url]);
+  const fetchResult = runSoft("git", [
+    "-C",
+    cdir,
+    "fetch",
+    "--depth",
+    "1",
+    "origin",
+    `${pin.sha}:refs/heads/_pin`,
+  ]);
+  if (!fetchResult.ok) {
+    fail(
+      `git fetch ${pin.sha} failed: ${(fetchResult.stderr || fetchResult.stdout).trim()}. ` +
+        "The commit may not exist on the remote or the server may not allow fetch-by-SHA.",
+      EXIT.EXTERNAL
+    );
   }
   run("git", ["-C", cdir, "checkout", pin.sha]);
   if (!verifyCloneAtSha(pin, cdir)) {
@@ -146,7 +130,6 @@ export function teardownPinData(state: GlState, pin: Pin): void {
 }
 
 export interface UpdatePinShaOpts {
-  branch?: string;
   infoFn?: (msg: string) => void;
 }
 
@@ -161,10 +144,9 @@ export function updatePinSha(
   if (!target) fail(`pin "${pinName}" not found`, EXIT.USER);
   const oldPin = { ...target };
   const newPin = { ...target, sha: newSha };
-  const cloneBranch = opts.branch ?? newPin.branch;
 
   try {
-    clonePin(state, newPin, { branch: cloneBranch, infoFn: opts.infoFn });
+    clonePin(state, newPin, { infoFn: opts.infoFn });
     ensureGpuConfig(state, opts.infoFn ?? (() => {}));
     indexPin(state, newPin, { infoFn: opts.infoFn });
     teardownPinData(state, oldPin);

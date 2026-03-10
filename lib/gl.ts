@@ -31,7 +31,7 @@ import {
   readPins,
   resolvePin,
 } from "./pinned.ts";
-import { resolveSha } from "./git.ts";
+import { resolveSha, resolveShaOrRef } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "./paths.ts";
 import {
@@ -186,17 +186,19 @@ function cmdPinList(state: ReturnType<typeof makeState>, args: string[]) {
   );
 }
 
-function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
-  ensureHelpNotRequested(
-    args,
-    [
-      "Usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]",
-      "Adds or replaces a pin entry. Resolves source+ref to a full SHA.",
-      "If --branch is given and the branch does not exist on the remote, gl creates it",
-      "from the ref (use --ref main --branch my_branch to branch off main).",
-    ].join("\n")
-  );
-  if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref>] [--branch <branch>]", EXIT.USER);
+async function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
+  const helpText = [
+    "Usage: gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]",
+    "",
+    "Adds a pin. Semantics:",
+    "  Branch only (--branch X):  Resolve SHA from that branch, pin to both, clone from SHA.",
+    "  SHA only (--ref <sha>):   Pin to SHA only (no branch), clone from SHA. Short SHAs (7+ hex chars) are expanded.",
+    "  Branch + SHA (--ref <sha> --branch X): Pin both; use the SHA you passed (not derived), clone from SHA.",
+    "",
+    "Branch is stored for write ops (add, subtract, promote, reconcile). Clone always uses the SHA.",
+  ].join("\n");
+  ensureHelpNotRequested(args, helpText);
+  if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]", EXIT.USER);
   const name = args[0];
   const source = args[1];
   let rest = args.slice(2);
@@ -206,15 +208,15 @@ function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
   rest = branchParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const branch = branchParsed.found ? branchParsed.value : undefined;
-  const ref = (refParsed.found ? refParsed.value : branch || "HEAD") ?? "HEAD";
-  const sha = resolveSha(source, ref);
+  const refInput = (refParsed.found ? refParsed.value : branch || "HEAD") ?? "HEAD";
+
+  const sha = await resolveShaOrRef(source, refInput);
+
   const newPin = { name, source, sha, branch: branch ?? undefined };
   const pins = readPins(state);
   const existing = pins.find((p) => p.name === name);
-  const fallbackRef = ref !== branch ? ref : "HEAD";
-
   try {
-    clonePin(state, newPin, { branch: branch ?? undefined, fallbackRef, infoFn: info });
+    clonePin(state, newPin, { infoFn: info });
     ensureGpuConfig(state, info);
     indexPin(state, newPin, { infoFn: info });
   } catch (e) {
@@ -231,7 +233,10 @@ function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
     teardownPinData(state, existing);
     removeStagedDir(state, existing.name, existing.branch);
   }
-  commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
+  commandOutput(
+    { name, source, ref: refInput, sha, branch: branch || null, action: "pin-added" },
+    state.globalJson
+  );
 }
 
 function cmdPinRemove(state: ReturnType<typeof makeState>, args: string[]) {
@@ -253,7 +258,7 @@ function cmdPinRemove(state: ReturnType<typeof makeState>, args: string[]) {
   commandOutput({ name, removed: true }, state.globalJson);
 }
 
-function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
+async function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -271,13 +276,13 @@ function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
   const oldPin = pins.find((p) => p.name === name);
   if (!oldPin) fail(`pin "${name}" not found`, EXIT.USER);
   const ref = (refParsed.found ? refParsed.value : oldPin.branch || "HEAD") ?? "HEAD";
-  const newSha = resolveSha(oldPin.source, ref);
+  const newSha = await resolveShaOrRef(oldPin.source, ref);
   if (newSha.toLowerCase() === oldPin.sha.toLowerCase()) {
     commandOutput({ name, sha: newSha, updated: false, reason: "already at requested sha" }, state.globalJson);
     return;
   }
   const hadStaged = oldPin.branch ? existsSync(stagedDir(state, oldPin.name, oldPin.branch)) : false;
-  updatePinSha(state, name, newSha, { branch: ref ?? undefined, infoFn: info });
+  updatePinSha(state, name, newSha, { infoFn: info });
   if (hadStaged && oldPin.branch) {
     removeStagedDir(state, oldPin.name, oldPin.branch);
     const newPin = { ...oldPin, sha: newSha };
@@ -302,7 +307,7 @@ function cmdClone(state: ReturnType<typeof makeState>, args: string[]) {
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   if (allParsed.found && pinParsed.found) fail("use either --all or --pin, not both", EXIT.USER);
   const pins = allParsed.found ? readPins(state) : [resolvePin(state, pinParsed.found ? pinParsed.value : null)];
-  for (const pin of pins) clonePin(state, pin, { branch: pin.branch, infoFn: info });
+  for (const pin of pins) clonePin(state, pin, { infoFn: info });
   commandOutput({ cloned: pins.map(collectionName) }, state.globalJson);
 }
 
@@ -758,9 +763,9 @@ async function main() {
     if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
     const [sub, ...subArgs] = rest;
     if (sub === "list") return cmdPinList(state, subArgs);
-    if (sub === "add") return cmdPinAdd(state, subArgs);
+    if (sub === "add") return await cmdPinAdd(state, subArgs);
     if (sub === "remove") return cmdPinRemove(state, subArgs);
-    if (sub === "update") return cmdPinUpdate(state, subArgs);
+    if (sub === "update") return await cmdPinUpdate(state, subArgs);
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
   if (cmd === "search") return cmdSearchLike(state, "search", rest);

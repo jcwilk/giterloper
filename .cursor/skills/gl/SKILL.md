@@ -78,11 +78,16 @@ Reconcile pushes automatically; no separate promote step needed for this flow.
 ### Pin management
 
 - List: `./.cursor/skills/gl/scripts/gl pin list`
-- Add: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]`
+- Add: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]`
 - Remove: `./.cursor/skills/gl/scripts/gl pin remove <name>`
 - Update SHA: `./.cursor/skills/gl/scripts/gl pin update <name> [--ref <ref>]`
 
 `pin add` automatically clones and indexes; no separate clone/index step needed.
+
+**Pin add semantics (SHA takes priority):**
+- **Branch only** (`--branch X`): Resolve SHA from that branch, pin to both branch and SHA, clone from SHA.
+- **SHA only** (`--ref <full-sha>`): Pin to SHA only (no branch), clone from SHA.
+- **Branch + SHA** (`--ref <sha> --branch X`): Pin both; use the SHA you passed (do not derive from branch), clone from SHA.
 
 ### Creating a new branch (no manual git)
 

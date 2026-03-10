@@ -34,7 +34,7 @@ From the Giterloper project root (which has `pinned.yaml` committed):
 
 `gl-extended clone` fetches pinned stores into `.giterloper/versions/`. `gl-extended index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl-extended` will exit with instructions; present the choice to the user before proceeding.
 
-Alternatively, adding a pin with `./.cursor/skills/gl/scripts/gl pin add` automatically clones and indexes.
+Alternatively, adding a pin with `./.cursor/skills/gl/scripts/gl pin add` automatically clones and indexes. Cloning always targets the SHA; see `gl pin add --help` for branch vs SHA semantics.
 
 ## 3. Creating a new branch (optional)
 
