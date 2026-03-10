@@ -2,20 +2,14 @@
 
 Issues identified during recent work on the fail/lock fix and test suite. Not exhaustive; these are the ones surfaced in this session.
 
-## 1. Orphaned version when `updatePinSha` fails mid-flow
+## 1. Orphaned version when `updatePinSha` fails mid-flow (resolved)
 
 **Observed:** The failed "promote pushes and updates pin" test left behind
 `.giterloper/versions/scratch-promote_gle2e_.../2d044f69e413aa6d1a119732b4d2fb254d6a66ba/` even though the test's `finally` block runs `ensurePinRemoved(pinName)`.
 
-**Cause:** `updatePinSha` does, in order:
-1. `clonePin(newPin)` — creates a clone at `versions/<pin>/<newSha>/`
-2. `indexPin(newPin)`
-3. `teardownPinData(oldPin)` — removes `versions/<pin>/<oldSha>/`
-4. `mutatePins(...)` — updates pinned.yaml to point at newSha
+**Cause:** `updatePinSha` did, in order: clonePin → indexPin → teardownPinData → mutatePins. If clonePin or indexPin failed, the new clone and QMD index were orphaned.
 
-If step 1 or 2 fails (e.g. `git checkout` in clonePin fails with "unable to read tree"), we never reach steps 3–4. The pin in pinned.yaml still points at oldSha. When `gl pin remove` runs in the test's finally, it tears down the *old* clone only. The new clone at `versions/<pin>/<newSha>/` is never associated with the pin and is orphaned.
-
-**Fix direction:** On failure after `clonePin` but before `mutatePins`, explicitly remove the newly created clone at `versions/<pin>/<newSha>/` (or wrap the flow so a shared cleanup path removes it on error).
+**Fix (applied):** Wrapped the flow in try/finally. On any failure before `mutatePins` succeeds, `teardownPinData(newPin)` runs to remove the orphaned clone and QMD data.
 
 ---
 

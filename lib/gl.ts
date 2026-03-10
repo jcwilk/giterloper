@@ -28,11 +28,8 @@ import { isBranchNotFoundError, run, runSoft } from "./run.ts";
 import {
   ensureGiterloperRoot,
   mutatePins,
-  parsePinned,
   readPins,
   resolvePin,
-  serializePins,
-  writePinsAtomic,
 } from "./pinned.ts";
 import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
