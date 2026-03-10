@@ -38,7 +38,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ### 3. Shared State: pinned.yaml and QMD
 
 - **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.mjs`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
+- **QMD** — Uses `--index` per pin+SHA via `pinQmd(pin, args)` in `gl.ts`. Each pin+SHA has its own SQLite DB and YAML config. XDG_CONFIG_HOME and XDG_CACHE_HOME are set to `.giterloper/qmd/{config,cache}` for the whole repo.
 - **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
 
 ### 4. Cleanup and Branch Isolation
