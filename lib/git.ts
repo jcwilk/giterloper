@@ -1,9 +1,17 @@
 /**
- * Git operations: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity.
+ * Git operations: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity, parseGithubRepo.
  */
 import { EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
 import type { Pin } from "./types.ts";
+
+/** Parses owner/repo from a github source (e.g. github.com/jcwilk/foo -> "jcwilk/foo"). Returns null if not a GitHub repo. */
+export function parseGithubRepo(source: string): string | null {
+  const ssh = source.match(/git@github\.com:([^/]+\/[^/]+?)(?:\.git)?$/i);
+  if (ssh) return ssh[1];
+  const https = source.match(/github\.com[:\/]([^/]+\/[^/\s]+?)(?:\.git)?(?:\/|$)/i);
+  return https ? https[1] : null;
+}
 
 export function toRemoteUrl(source: string): string {
   if (

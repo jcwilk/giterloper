@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
+  CLEAN_MAIN_SHA,
   E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
@@ -14,6 +15,7 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 import { runGlJson } from "../helpers/gl.ts";
+import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -151,5 +153,31 @@ Deno.test("reconcile processes queued files", () => {
     assertEquals((result.commits ?? 0) >= 1, true);
   } finally {
     ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("merge merges source branch into target via GitHub API", () => {
+  const srcPin = randomPin("merge-src");
+  const tgtPin = randomPin("merge-tgt");
+  const srcBranch = `${srcPin}-branch`;
+  const tgtBranch = `${tgtPin}-branch`;
+  try {
+    createRemoteBranchFromMain(srcBranch, `knowledge/merge_src_${RUN_ID}.md`, "# merge source\n\ncontent from source");
+    createRemoteBranchFromMain(tgtBranch, `knowledge/merge_tgt_${RUN_ID}.md`, "# merge target\n\ncontent from target");
+    runGlJson(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
+    runGlJson(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
+    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], tgtPin);
+    const result = runGlJson(["merge", srcPin, tgtPin]) as {
+      action?: string;
+      target?: { newSha?: string; oldSha?: string };
+    };
+    assertEquals(result.action, "merged");
+    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], tgtPin);
+    assertEquals(after!.sha !== before!.sha, true, "target pin sha should advance after merge");
+  } finally {
+    ensurePinRemoved(srcPin);
+    ensurePinRemoved(tgtPin);
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: srcPin, branchName: srcBranch });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName: tgtPin, branchName: tgtBranch });
   }
 });

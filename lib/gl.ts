@@ -34,7 +34,7 @@ import {
   serializePins,
   writePinsAtomic,
 } from "./pinned.ts";
-import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
+import { parseGithubRepo, resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, findProjectRoot, stagedDir } from "./paths.ts";
 import {
   ensureGitignoreEntries,
@@ -640,7 +640,9 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
     args,
     [
       "Usage: gl merge <source-pin> <target-pin>",
-      "Merges one branched pin into another branched pin. WIP: may fail with shallow clones; see ISSUES.md.",
+      "Merges source pin's branch into target pin's branch via GitHub API (no local fetch).",
+      "Both pins must point at the same GitHub repo. Requires GITERLOPER_GH_TOKEN or gh auth.",
+      "On conflicts: resolve on GitHub (create a PR, resolve there), then run 'gl pin update <target-pin>'.",
     ].join("\n")
   );
   if (args.length !== 2) fail("usage: gl merge <source-pin> <target-pin>", EXIT.USER);
@@ -649,47 +651,57 @@ function cmdMerge(state: ReturnType<typeof makeState>, args: string[]) {
   requirePinBranch(source, "merge");
   requirePinBranch(target, "merge");
 
-  const dir = ensureWorkingClone(state, target, { infoFn: info });
-  assertBranchFresh(state, target, dir);
-  const remoteName = `glsrc_${safeName(source.name)}`;
-  const remotes = run("git", ["-C", dir, "remote"]).split(/\r?\n/).filter(Boolean);
-  if (!remotes.includes(remoteName)) {
-    run("git", ["-C", dir, "remote", "add", remoteName, toRemoteUrl(source.source)]);
-  } else {
-    run("git", ["-C", dir, "remote", "set-url", remoteName, toRemoteUrl(source.source)]);
-  }
-  run("git", ["-C", dir, "fetch", remoteName, source.branch!, "--depth", "1"]);
-  const merge = runSoft("git", [
-    "-C",
-    dir,
-    "merge",
-    `${remoteName}/${source.branch}`,
-    "--no-edit",
-    "-m",
-    `gl: merge ${source.name} into ${target.name}`,
-  ]);
-  if (!merge.ok) {
-    const conflicts = runSoft("git", ["-C", dir, "diff", "--name-only", "--diff-filter=U"])
-      .stdout.split(/\r?\n/)
-      .filter(Boolean)
-      .map((f) => `  - ${f}`)
-      .join("\n");
+  const repo = parseGithubRepo(source.source);
+  if (!repo) fail("merge requires a GitHub repo; pin sources must be github.com/owner/repo", EXIT.USER);
+  if (parseGithubRepo(target.source) !== repo) {
     fail(
-      [
-        `merge conflict merging "${source.name}" (branch "${source.branch}") into "${target.name}" (branch "${target.branch}").`,
-        "Conflicting files:",
-        conflicts || "  - (unable to determine)",
-        "The working clone is left in a conflicted state at:",
-        `  ${stagedDir(state, target.name, target.branch!)}`,
-        `To resolve: fix conflicts, then run "gl promote --pin ${target.name}".`,
-        `To abort: run "git -C ${stagedDir(state, target.name, target.branch!)} merge --abort" or "gl stage-cleanup --pin ${target.name}".`,
-      ].join("\n"),
-      EXIT.STATE
+      `merge requires both pins to point at the same GitHub repo. Source: ${source.source} Target: ${target.source}`,
+      EXIT.USER
     );
   }
-  pushBranchOrFail(dir, target, "merge");
-  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
-  updatePinSha(state, target.name, newSha, { infoFn: info });
+
+  const commitMsg = `gl: merge ${source.name} into ${target.name}`;
+  const gh = runSoft("gh", [
+    "api",
+    "--method", "POST",
+    `repos/${repo}/merges`,
+    "-f", `base=${target.branch}`,
+    "-f", `head=${source.branch}`,
+    "-f", `commit_message=${commitMsg}`,
+  ]);
+  if (!gh.ok) {
+    const is409 = (gh.stdout + gh.stderr).includes("409") || (gh.stderr + gh.stdout).includes("merge conflict");
+    const is404 = (gh.stdout + gh.stderr).includes("404") || (gh.stderr + gh.stdout).includes("Not Found");
+    let errMsg: string;
+    if (is409) {
+      errMsg = [
+        `Merge conflict: "${source.name}" (${source.branch}) into "${target.name}" (${target.branch}).`,
+        "Resolve on GitHub: create a Pull Request from the source branch into the target branch,",
+        "resolve conflicts in the PR UI, merge the PR, then run:",
+        `  gl pin update ${target.name}`,
+      ].join("\n");
+    } else if (is404) {
+      errMsg = `Branch not found. Ensure branches "${source.branch}" and "${target.branch}" exist on ${repo}. ${gh.stderr || gh.stdout}`;
+    } else {
+      errMsg = `GitHub API merge failed. Install gh CLI and run 'gh auth login', or set GITERLOPER_GH_TOKEN. ${gh.stderr || gh.stdout}`.trim();
+    }
+    fail(errMsg, EXIT.STATE);
+  }
+  const out = gh.stdout.trim();
+  let newSha: string;
+  if (!out) {
+    newSha = target.sha;
+  } else {
+    try {
+      const json = JSON.parse(out);
+      newSha = json.sha ?? target.sha;
+    } catch {
+      newSha = target.sha;
+    }
+  }
+  if (out) {
+    updatePinSha(state, target.name, newSha, { infoFn: info });
+  }
   commandOutput(
     {
       action: "merged",
