@@ -194,17 +194,25 @@ Deno.test("add on newly created branch creates remote branch on first push", () 
   }
 });
 
+function remoteBranchExists(source: string, branch: string): boolean {
+  const out = runGit(["ls-remote", "--heads", toRemoteUrl(source), branch]);
+  return out.trim().length > 0;
+}
+
 Deno.test("query on branched pin does not create remote branch", () => {
   const pinName = randomPin("read-no-push");
   const branch = `${pinName}-branch`;
   try {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
-    const beforePins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
-    const beforePin = pinByName(beforePins, pinName);
+    assert(
+      !remoteBranchExists(TEST_SOURCE, branch),
+      "branch should not exist before query (we never pushed)"
+    );
     runGlJson(["query", "what content exists", "--pin", pinName]);
-    const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
-    const afterPin = pinByName(afterPins, pinName);
-    assertEquals(afterPin!.sha, beforePin!.sha, "query should not change pin sha");
+    assert(
+      !remoteBranchExists(TEST_SOURCE, branch),
+      "query should not create remote branch"
+    );
   } finally {
     ensurePinRemoved(pinName);
   }
