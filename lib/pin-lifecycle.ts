@@ -4,13 +4,13 @@
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 
-import { EXIT, fail } from "./errors.js";
-import { run, runSoft } from "./run.js";
-import { isBranchNotFoundError } from "./run.js";
-import { toRemoteUrl, setCloneIdentity } from "./git.js";
-import { cloneDir, ensureDir, stagedDir } from "./paths.js";
-import { mutatePins, readPins } from "./pinned.js";
-import { withFifoLock } from "./locking.js";
+import { EXIT, fail } from "./errors.ts";
+import { run, runSoft } from "./run.ts";
+import { isBranchNotFoundError } from "./run.ts";
+import { toRemoteUrl, setCloneIdentity } from "./git.ts";
+import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
+import { mutatePins, readPins } from "./pinned.ts";
+import { withFifoLock } from "./locking.ts";
 import {
   collectionName,
   collectionExists,
@@ -20,10 +20,10 @@ import {
   cleanupQmdFiles,
   indexName,
   pinQmd,
-} from "./qmd.js";
-import { ensureGpuConfig } from "./gpu.js";
-import type { GlState } from "./types.js";
-import type { Pin } from "./types.js";
+} from "./qmd.ts";
+import { ensureGpuConfig } from "./gpu.ts";
+import type { GlState } from "./types.ts";
+import type { Pin } from "./types.ts";
 
 export function verifyCloneAtSha(pin: Pin, clonePath: string): boolean {
   if (!existsSync(clonePath)) return false;

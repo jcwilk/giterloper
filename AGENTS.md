@@ -55,6 +55,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ## Gl Script Notes
 
 - **pinQmd** — All QMD invocations go through `pinQmd(pin, args)` which prepends `--index ${pin.name}_${pin.sha}`. No bare qmd wrapper; every call is pinned.
+- **TypeScript** — All application code is in `lib/*.ts`. No build step: Node 22 runs TS natively via `--experimental-strip-types`. Run `npm run typecheck` to verify types.
 - **pinned.yaml locking** — All writes go through `mutatePins()`, which uses a ticket-based FIFO mutex at `.giterloper/locks/pins/`. Embed operations use a separate mutex at `.giterloper/locks/embed/`.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
 - **Branched vs branchless pins:** Write ops (`add`, `subtract`, `promote`, `reconcile`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
@@ -62,7 +63,8 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
+- **`lib/`** — TypeScript source (gl CLI, paths, pinned, reconcile, etc.). Run via Node's native TS support (`--experimental-strip-types`).
+- **`.cursor/skills/gl/`** — Skill docs (SKILL.md) and thin wrapper script that runs `lib/gl.ts`
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
 - **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
@@ -86,7 +88,7 @@ Branchless pins are read-only.
 
 - **Node.js >= 22** and **Git** are available in the VM by default.
 - **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
-- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `npm run gl -- gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -115,7 +117,7 @@ E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledg
 
 ### Build and typecheck
 
-Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
+Run `npm install` before first use; `prepare` runs `npm run typecheck` to verify TypeScript. The gl CLI runs TypeScript directly via Node's `--experimental-strip-types`; no build step. Unit tests (`npm run test:unit`) import from `lib/` and run as TypeScript.
 
 ### Embed performance benchmark
 

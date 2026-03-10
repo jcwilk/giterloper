@@ -12,12 +12,11 @@ export const EXIT = {
 export type ExitCode = (typeof EXIT)[keyof typeof EXIT];
 
 export class GlError extends Error {
-  constructor(
-    message: string,
-    public readonly code: number
-  ) {
+  readonly code: number;
+  constructor(message: string, code: number) {
     super(message);
     this.name = "GlError";
+    this.code = code;
     Object.setPrototypeOf(this, GlError.prototype);
   }
 }

@@ -1,5 +1,7 @@
 # Migration to TypeScript
 
+**Status: Complete** (2025-03). TypeScript is now the primary language. Source lives in `lib/` at project root; the gl CLI runs via Node's native `--experimental-strip-types`. See AGENTS.md for current structure.
+
 This document outlines the plan to incrementally restructure the giterloper codebase into TypeScript modules, extract logic from the monolithic `gl.mjs`, and establish a structure conducive to maintainability, testing, and future NPM packaging.
 
 **Conventions**: See [CONVENTIONS.md](./CONVENTIONS.md).

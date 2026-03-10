@@ -2,7 +2,7 @@
  * CLI helpers: info, commandOutput, parseFlag, consumeBooleanFlag, ensureHelpNotRequested.
  */
 import { readFileSync } from "node:fs";
-import { EXIT, fail } from "./errors.js";
+import { EXIT, fail } from "./errors.ts";
 
 export function info(message: string): void {
   console.error(`gl: ${message}`);

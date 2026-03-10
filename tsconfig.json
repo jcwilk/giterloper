@@ -7,15 +7,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowJs": true,
-    "checkJs": false,
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": [
-    ".cursor/skills/gl/scripts/gl.mjs",
-    ".cursor/skills/gl/lib/**/*.ts",
-    "scripts/**/*.mjs",
-    "types/**/*.ts"
-  ]
+  "include": ["lib/**/*.ts", "types/**/*.ts", "tests/**/*.ts"]
 }

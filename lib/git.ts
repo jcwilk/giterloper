@@ -1,9 +1,9 @@
 /**
  * Git operations: toRemoteUrl, resolveSha, resolveBranchSha, resolveBranchShaSoft, setCloneIdentity.
  */
-import { EXIT, fail } from "./errors.js";
-import { run, runSoft } from "./run.js";
-import type { Pin } from "./types.js";
+import { EXIT, fail } from "./errors.ts";
+import { run, runSoft } from "./run.ts";
+import type { Pin } from "./types.ts";
 
 export function toRemoteUrl(source: string): string {
   if (

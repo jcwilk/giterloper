@@ -3,13 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const libPath = path.join(__dirname, "../../.cursor/skills/gl/dist/paths.js");
-const { findProjectRoot, ensureDir, cloneDir, stagedDir } = await import(
-  pathToFileURL(libPath).href
-);
+import { findProjectRoot, ensureDir, cloneDir, stagedDir } from "../../lib/paths.ts";
 
 describe("findProjectRoot", () => {
   it("returns current dir when .git exists", () => {
@@ -37,10 +31,7 @@ describe("ensureDir", () => {
 
 describe("cloneDir", () => {
   it("returns versionsDir/name/sha", () => {
-    const state = {
-      versionsDir: "/proj/.giterloper/versions",
-      stagedRoot: "/proj/.giterloper/staged",
-    };
+    const state = { versionsDir: "/proj/.giterloper/versions", stagedRoot: "/proj/.giterloper/staged" };
     const pin = { name: "p1", source: "x", sha: "abc123" };
     assert.equal(cloneDir(state, pin), "/proj/.giterloper/versions/p1/abc123");
   });
@@ -48,10 +39,7 @@ describe("cloneDir", () => {
 
 describe("stagedDir", () => {
   it("returns stagedRoot/pinName/branchName", () => {
-    const state = {
-      versionsDir: "/x",
-      stagedRoot: "/proj/.giterloper/staged",
-    };
+    const state = { versionsDir: "/x", stagedRoot: "/proj/.giterloper/staged" };
     assert.equal(stagedDir(state, "p1", "main"), "/proj/.giterloper/staged/p1/main");
   });
 });

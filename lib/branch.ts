@@ -5,13 +5,13 @@
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 
-import { EXIT, fail } from "./errors.js";
-import { run, runSoft } from "./run.js";
-import { isBranchNotFoundError } from "./run.js";
-import { toRemoteUrl, resolveBranchShaSoft, setCloneIdentity } from "./git.js";
-import { ensureDir, stagedDir } from "./paths.js";
-import type { GlState } from "./types.js";
-import type { Pin } from "./types.js";
+import { EXIT, fail } from "./errors.ts";
+import { run, runSoft } from "./run.ts";
+import { isBranchNotFoundError } from "./run.ts";
+import { toRemoteUrl, resolveBranchShaSoft, setCloneIdentity } from "./git.ts";
+import { ensureDir, stagedDir } from "./paths.ts";
+import type { GlState } from "./types.ts";
+import type { Pin } from "./types.ts";
 
 export function requirePinBranch(pin: Pin, operation: string): void {
   if (pin.branch) return;

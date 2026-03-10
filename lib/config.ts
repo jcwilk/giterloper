@@ -9,8 +9,8 @@ import {
 } from "node:fs";
 import path from "node:path";
 
-import type { GlState } from "./types.js";
-import { ensureDir } from "./paths.js";
+import type { GlState } from "./types.ts";
+import { ensureDir } from "./paths.ts";
 
 export function readLocalConfig(state: GlState): Record<string, unknown> {
   const p = state.localConfigPath ?? path.join(state.rootDir, "local.json");

@@ -3,8 +3,8 @@
  */
 import { spawnSync } from "node:child_process";
 
-import { EXIT, fail } from "./errors.js";
-import type { RunResult } from "./types.js";
+import { EXIT, fail } from "./errors.ts";
+import type { RunResult } from "./types.ts";
 
 export function run(
   cmd: string,
