@@ -9,7 +9,6 @@ const GL_SCRIPT = path.join(
   ".cursor",
   "skills",
   "gl",
-  "scripts",
   "gl.mjs"
 );
 

@@ -3,13 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
-import { fileURLToPath, pathToFileURL } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const libPath = path.join(__dirname, "../../.cursor/skills/gl/dist/paths.js");
-const { findProjectRoot, ensureDir, cloneDir, stagedDir } = await import(
-  pathToFileURL(libPath).href
-);
+import { findProjectRoot, ensureDir, cloneDir, stagedDir } from "../../lib/paths.js";
 
 describe("findProjectRoot", () => {
   it("returns current dir when .git exists", () => {

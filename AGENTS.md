@@ -62,7 +62,8 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`.cursor/skills/gl/`** — CLI skill and `gl.mjs` script
+- **`lib/`** — TypeScript library and CLI logic (compile to `dist/`)
+- **`.cursor/skills/gl/`** — Skill metadata and thin `gl.mjs` wrapper (imports `dist/`)
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `node scripts/run-e2e.mjs` (uses `--test-concurrency=2`)
 - **`tests/helpers/`** — `gl.mjs` (runGl, runGlJson), `cleanup.mjs` (cleanupTestKnowledgeRepo)
@@ -86,7 +87,7 @@ Branchless pins are read-only.
 
 - **Node.js >= 22** and **Git** are available in the VM by default.
 - **QMD** — Run `npm install` in the workspace to get the locked `@tobilu/qmd` dependency (used for `gl reconcile` chunking). The CLI also invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`).
-- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/scripts/gl.mjs gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `node .cursor/skills/gl/gl.mjs gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -100,7 +101,7 @@ Without the secret, `gl` falls back to plain `https://` URLs (works locally with
 
 All `gl` commands run from the workspace root:
 ```bash
-node .cursor/skills/gl/scripts/gl.mjs <command>
+node .cursor/skills/gl/gl.mjs <command>
 ```
 
 See `README.md` Quick start and `bootstrap/` for setup details. After setup, `gl status`, `gl verify`, `gl pin list` confirm the environment is healthy.
@@ -115,7 +116,10 @@ E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledg
 
 ### Build and typecheck
 
-Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. Run `npm run typecheck` to verify TypeScript types and that `@tobilu/qmd` resolves correctly. `gl.mjs` imports from `dist/`; run `npm run build` after changing lib/.
+- **Structure**: All TypeScript lives in `lib/` at project root. The `gl` CLI is at `lib/gl.ts`; it compiles to `dist/lib/gl.js`. The `.cursor/skills/gl/gl.mjs` wrapper is a one-liner that imports that compiled entry point.
+- **Build**: Run `npm install` before first use; `prepare` runs `npm run build` so `dist/` is populated. After changing `lib/`, run `npm run build` before using `gl`.
+- **Typecheck**: `npm run typecheck` runs `tsc --noEmit` to verify types and that `@tobilu/qmd` resolves.
+- **Unit tests**: `npm run test:unit` uses `tsx` to run tests directly against `lib/*.ts` (no build required for tests). Tests import from `lib/` for type safety.
 
 ### Embed performance benchmark
 

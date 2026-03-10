@@ -15,35 +15,38 @@ This document outlines the plan to incrementally restructure the giterloper code
 
 ---
 
-## Target Structure
+## Target Structure (Final)
 
 ```
-.cursor/skills/gl/
-├── scripts/
-│   └── gl.mjs              # Entry point; imports from dist/, routes commands
-├── lib/                    # TypeScript source
-│   ├── types.ts
-│   ├── errors.ts
-│   ├── cli.ts
-│   ├── paths.ts
-│   ├── run.ts
-│   ├── git.ts
-│   ├── pinned.ts
-│   ├── locking.ts
-│   ├── qmd.ts
-│   ├── config.ts
-│   ├── gpu.ts
-│   ├── pin-lifecycle.ts
-│   ├── branch.ts
-│   ├── reconcile.ts
-│   └── index.ts            # Re-exports for gl.mjs
-└── dist/                   # Emitted JS (gl.mjs imports from here)
+lib/                        # TypeScript source (project root)
+├── types.ts
+├── errors.ts
+├── cli.ts
+├── paths.ts
+├── run.ts
+├── git.ts
+├── pinned.ts
+├── locking.ts
+├── qmd.ts
+├── config.ts
+├── gpu.ts
+├── pin-lifecycle.ts
+├── branch.ts
+├── reconcile.ts
+└── gl.ts                   # CLI entry point; all command handlers in TS
+
+dist/                       # Emitted JS at project root
+└── lib/
     └── *.js
 
+.cursor/skills/gl/
+├── gl.mjs                  # Thin wrapper: imports dist/lib/gl.js
+└── SKILL.md
+
 tests/
-├── e2e/                    # Unchanged
-├── helpers/                # Unchanged
-└── unit/                   # NEW: unit tests for pure modules
+├── e2e/                    # Unchanged (.mjs)
+├── helpers/                # Unchanged (.mjs)
+└── unit/                   # TypeScript; imports from lib/ via tsx
     └── *.test.ts
 ```
 
@@ -134,7 +137,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 - [x] **8.1** Extract helpers to lib: ensureGitignoreEntries (config), commitIfDirty/pushBranchOrFail (branch), readStdinOrFail/printTopHelp (cli). *Divergence*: Command handlers remain in gl.mjs; extracting to lib/commands/ would require many TS files with complex deps; helpers extraction achieves cleaner structure.
 - [x] **8.2** gl.mjs is a thin router: parse args, dispatch to cmdX, handle GlError
 - [x] **8.3** Run E2E (unit tests pass)
-- [ ] **8.4** (Optional) Convert `gl.mjs` → `gl.ts` — deferred
+- [x] **8.4** Convert `gl.mjs` → `lib/gl.ts`; move all lib/ to project root; thin wrapper at `.cursor/skills/gl/gl.mjs`
 
 ---
 
@@ -142,7 +145,7 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 
 - **Build**: `tsc` only. `npm run build` compiles `lib/**/*.ts` → `dist/`.
 - **Typecheck**: `npm run typecheck` remains `tsc --noEmit`; consider aligning with build config.
-- **Unit tests**: Node built-in `node --test tests/unit/**/*.test.ts` (light, no extra deps).
+- **Unit tests**: `npx tsx --test tests/unit/*.test.ts` (imports TypeScript from lib/ directly; no build needed for tests).
 - **E2E**: `node scripts/run-e2e.mjs` after each phase.
 
 ---
@@ -168,4 +171,4 @@ Lower-numbered modules have fewer dependencies. Extract in this order to avoid c
 | 7 | ✅ | Branch, lifecycle, CLI |
 | 8 | ✅ | Commands, entry point (helpers extracted; handlers in gl.mjs) |
 
-**Migration complete.** Core logic in TypeScript (~1100 LOC in lib/). gl.mjs reduced to ~774 lines (router + inline handlers). E2E tests, scripts, and test helpers remain .mjs (unchanged).
+**Migration complete.** All logic in TypeScript (`lib/`). Thin wrapper at `.cursor/skills/gl/gl.mjs` imports `dist/lib/gl.js`. Unit tests import from `lib/` directly via tsx. E2E tests and scripts remain .mjs.

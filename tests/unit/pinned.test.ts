@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { tmpdir } from "node:os";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
-import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const libPath = path.join(__dirname, "../../.cursor/skills/gl/dist/pinned.js");
-const { parsePinned, serializePins } = await import(pathToFileURL(libPath).href);
+import { parsePinned, serializePins } from "../../lib/pinned.js";
 
 describe("parsePinned", () => {
   it("parses nested format", () => {

@@ -6,16 +6,18 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "noEmit": true,
-    "allowJs": true,
-    "checkJs": false,
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "allowJs": false,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true
   },
   "include": [
-    ".cursor/skills/gl/scripts/gl.mjs",
-    ".cursor/skills/gl/lib/**/*.ts",
-    "scripts/**/*.mjs",
+    "lib/**/*.ts",
     "types/**/*.ts"
-  ]
+  ],
+  "exclude": ["node_modules", "dist", "tests"]
 }
