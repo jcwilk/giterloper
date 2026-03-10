@@ -115,7 +115,7 @@ export function ensureGiterloperRoot(state: GlState): void {
   }
   if (!existsSync(state.pinnedPath)) {
     fail(
-      `missing ${state.pinnedPath}. Add pins via "gl pin add" then run "gl clone" and "gl index".`,
+      `missing ${state.pinnedPath}. Add pins via "gl pin add" (auto-materializes) or run "gl-extended clone" and "gl-extended index".`,
       EXIT.STATE
     );
   }

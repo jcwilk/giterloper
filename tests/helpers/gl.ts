@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
+const GL_EXTENDED_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl-extended");
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
@@ -72,4 +73,45 @@ export function runGlJson(
   opts: { cwd?: string; stdin?: string | null } = {}
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
+}
+
+/** Runs gl-extended commands (status, verify, gpu, clone, index, teardown, stage, stage-cleanup). */
+export function runGlExtended(
+  args: string[],
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+) {
+  const parseJson = opts.parseJson ?? true;
+  const cliArgs = ["--json", ...args];
+  const cwd = opts.cwd ?? root;
+  const result = spawnSync(GL_EXTENDED_SCRIPT, cliArgs, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  if (result.error) {
+    throw new Error(`Failed to launch gl-extended: ${result.error.message}`);
+  }
+
+  const stdout = result.stdout || "";
+  const stderr = result.stderr || "";
+  if (result.status !== 0) {
+    const detail = (stderr || stdout || "gl-extended command failed").trim();
+    throw new Error(detail);
+  }
+
+  return {
+    status: result.status,
+    stdout,
+    stderr,
+    data: normalizeOutput(stdout, parseJson),
+  };
+}
+
+/** Runs gl-extended and parses JSON output. */
+export function runGlExtendedJson(
+  args: string[],
+  opts: { cwd?: string; stdin?: string | null } = {}
+): unknown {
+  return runGlExtended(args, { ...opts, parseJson: true }).data;
 }

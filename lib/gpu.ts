@@ -38,7 +38,7 @@ export function ensureGpuConfig(
 ): void {
   if (state.gpuMode === "cuda") return;
   if (state.gpuMode === "cpu") {
-    infoFn("GPU disabled. Install CUDA Toolkit and run `gl gpu` to re-detect.");
+    infoFn("GPU disabled. Install CUDA Toolkit and run `gl-extended gpu` to re-detect.");
     return;
   }
   const detected = detectGpuMode();
@@ -56,7 +56,7 @@ export function ensureGpuConfig(
   }
   printCudaInstallInstructions(infoFn);
   fail(
-    "NVIDIA GPU detected but CUDA Toolkit not found. Install CUDA Toolkit and run `gl gpu`, or run `gl gpu --cpu` to continue in CPU-only mode.",
+    "NVIDIA GPU detected but CUDA Toolkit not found. Install CUDA Toolkit and run `gl-extended gpu`, or run `gl-extended gpu --cpu` to continue in CPU-only mode.",
     EXIT.USER
   );
 }
