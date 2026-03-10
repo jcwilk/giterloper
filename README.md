@@ -21,7 +21,7 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 ## Quick start
 
 1. Ensure prerequisites: git, [Deno](https://deno.land), and QMD (`qmd status` or `npm install -g @tobilu/qmd`).
-2. From this repo: `./.cursor/skills/gl/scripts/gl clone` then `./.cursor/skills/gl/scripts/gl index`
+2. From this repo: `./.cursor/skills/gl/scripts/gl-extended clone` then `./.cursor/skills/gl/scripts/gl-extended index` (or `gl pin add` to add and materialize a pin).
 3. See `bootstrap/02-verification.md` for verification steps.
 
 See `bootstrap/` for detailed setup.

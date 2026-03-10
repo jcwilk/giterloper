@@ -54,6 +54,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Gl Script Notes
 
+- **gl vs gl extended** — Main `gl` exposes minimal commands for the agent (diagnostic, pin, search, query, get, add, subtract, reconcile, promote, merge). Debugging/under-the-hood commands (status, verify, gpu, clone, index, teardown, stage, stage-cleanup) live in `gl extended`; run `gl extended --help` or `./.cursor/skills/gl/scripts/gl-extended --help`.
 - **pinQmd** — All QMD invocations go through `pinQmd(pin, args)` which prepends `--index ${pin.name}_${pin.sha}`. No bare qmd wrapper; every call is pinned.
 - **pinned.yaml locking** — All writes go through `mutatePins()`, which uses a ticket-based FIFO mutex at `.giterloper/locks/pins/`. Embed operations use a separate mutex at `.giterloper/locks/embed/`.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
@@ -87,7 +88,7 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
@@ -104,7 +105,7 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-See `README.md` Quick start and `bootstrap/` for setup details. After setup, `status`, `verify`, `pin list` confirm the environment is healthy.
+See `README.md` Quick start and `bootstrap/` for setup details. After setup, `diagnostic` and `pin list` confirm the environment is healthy. Use `gl extended status` or `gl extended verify` for debugging.
 
 ### Running tests
 

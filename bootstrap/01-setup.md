@@ -20,7 +20,7 @@
      sudo dpkg -i cuda-keyring_1.1-1_all.deb
      sudo apt update && sudo apt install cuda-toolkit-13-1
      ```
-   - After installing, run `gl gpu` to re-detect. If the user prefers CPU-only, run `gl gpu --cpu` (only after they have explicitly approved).
+   - After installing, run `gl extended gpu` to re-detect. If the user prefers CPU-only, run `gl extended gpu --cpu` (only after they have explicitly approved).
 6. Optional: `vulkaninfo --summary` for Vulkan fallback.
 
 ## 2. Materialize the knowledge store
@@ -28,11 +28,11 @@
 From the Giterloper project root (which has `pinned.yaml` committed):
 
 ```sh
-./.cursor/skills/gl/scripts/gl clone
-./.cursor/skills/gl/scripts/gl index
+./.cursor/skills/gl/scripts/gl-extended clone
+./.cursor/skills/gl/scripts/gl-extended index
 ```
 
-`gl clone` fetches pinned stores into `.giterloper/versions/`. `gl index` adds qmd collections and runs `qmd embed`. If CUDA is missing but an NVIDIA GPU is present, `gl` will exit with instructions; present the choice to the user before proceeding.
+Alternatively, add a pin with `gl pin add` (which auto-clones and indexes). The extended script provides `clone` and `index` for manual materialization. If CUDA is missing but an NVIDIA GPU is present, `gl extended gpu --cpu` opts into CPU mode.
 
 ## 3. Creating a new branch (optional)
 

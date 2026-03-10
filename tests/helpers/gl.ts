@@ -73,3 +73,18 @@ export function runGlJson(
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
 }
+
+/** Run gl extended commands (status, verify, clone, index, teardown, stage, stage-cleanup, gpu). */
+export function runGlExtended(
+  args: string[],
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+) {
+  return runGl(["extended", ...args], opts);
+}
+
+export function runGlExtendedJson(
+  args: string[],
+  opts: { cwd?: string; stdin?: string | null } = {}
+): unknown {
+  return runGlExtended(args, { ...opts, parseJson: true }).data;
+}
