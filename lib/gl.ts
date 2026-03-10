@@ -79,7 +79,7 @@ import {
   pinQmd,
 } from "./qmd.ts";
 
-function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string | null }, args: string[]) {
+function cmdGpu(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -108,7 +108,10 @@ function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string |
   if (detected.mode === "cpu") {
     Deno.env.set("NODE_LLAMA_CPP_GPU", "false");
   }
-  const out = { gpuMode: detected.mode, reason: detected.reason };
+  const out =
+    detected.mode === "cpu"
+      ? { gpuMode: detected.mode as "cpu", reason: detected.reason }
+      : { gpuMode: detected.mode };
   commandOutput(out, state.globalJson);
   if (!state.globalJson) {
     if (detected.mode === "cuda") {
@@ -205,16 +208,16 @@ function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
   rest = branchParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const branch = branchParsed.found ? branchParsed.value : undefined;
-  const ref = refParsed.found ? refParsed.value : branch || "HEAD";
+  const ref = (refParsed.found ? refParsed.value : branch || "HEAD") ?? "HEAD";
   const sha = resolveSha(source, ref);
-  const newPin = { name, source, sha, branch };
+  const newPin = { name, source, sha, branch: branch ?? undefined };
   mutatePins(state, (pins) => {
     const updated = pins.filter((p) => p.name !== name);
     updated.unshift(newPin);
     return updated;
   });
   const fallbackRef = ref !== branch ? ref : "HEAD";
-  clonePin(state, newPin, { branch, fallbackRef, infoFn: info });
+  clonePin(state, newPin, { branch: branch ?? undefined, fallbackRef, infoFn: info });
   ensureGpuConfig(state, info);
   indexPin(state, newPin, { infoFn: info });
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
@@ -256,14 +259,14 @@ function cmdPinUpdate(state: ReturnType<typeof makeState>, args: string[]) {
   const pins = readPins(state);
   const oldPin = pins.find((p) => p.name === name);
   if (!oldPin) fail(`pin "${name}" not found`, EXIT.USER);
-  const ref = refParsed.found ? refParsed.value : oldPin.branch || "HEAD";
+  const ref = (refParsed.found ? refParsed.value : oldPin.branch || "HEAD") ?? "HEAD";
   const newSha = resolveSha(oldPin.source, ref);
   if (newSha.toLowerCase() === oldPin.sha.toLowerCase()) {
     commandOutput({ name, sha: newSha, updated: false, reason: "already at requested sha" }, state.globalJson);
     return;
   }
   const hadStaged = oldPin.branch ? existsSync(stagedDir(state, oldPin.name, oldPin.branch)) : false;
-  updatePinSha(state, name, newSha, { branch: ref, infoFn: info });
+  updatePinSha(state, name, newSha, { branch: ref ?? undefined, infoFn: info });
   if (hadStaged && oldPin.branch) {
     removeStagedDir(state, oldPin.name, oldPin.branch);
     const newPin = { ...oldPin, sha: newSha };
@@ -735,7 +738,6 @@ async function main() {
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
-  if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
@@ -752,6 +754,7 @@ export {
   cmdTeardown,
   cmdStage,
   cmdStageCleanup,
+  cmdPromote,
 };
 
 if (import.meta.main) {

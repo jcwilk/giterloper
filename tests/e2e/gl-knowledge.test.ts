@@ -166,7 +166,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
       const filePath = path.join(dir, TEST_TOPIC_PATH);
       mkdirSync(path.dirname(filePath), { recursive: true });
       writeFileSync(filePath, branchContentText(), "utf8");
-      runGlJson(["promote", "--pin", pinName]);
+      runGlExtendedJson(["promote", "--pin", pinName]);
       const afterPins = runGlJson(["pin", "list"]) as { name?: string; sha?: string }[];
       const afterPin = getPin(afterPins, pinName);
       assertExists(afterPin, "test pin should exist after promote");

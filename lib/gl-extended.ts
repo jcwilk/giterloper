@@ -22,6 +22,7 @@ import {
   cmdTeardown,
   cmdStage,
   cmdStageCleanup,
+  cmdPromote,
 } from "./gl.ts";
 
 async function main() {
@@ -45,6 +46,7 @@ async function main() {
   if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "stage") return cmdStage(state, rest);
   if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
+  if (cmd === "promote") return cmdPromote(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl-extended --help".`, EXIT.USER);
 }

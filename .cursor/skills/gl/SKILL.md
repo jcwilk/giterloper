@@ -1,6 +1,6 @@
 ---
 name: gl
-description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to search, query, retrieve, promote, or manage pins in .giterloper/pinned.yaml.
+description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to search, query, retrieve, or manage pins in .giterloper/pinned.yaml.
 ---
 
 # gl
@@ -19,13 +19,13 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 ## Core Concepts
 
 - **Pin**: A named store reference (`name`, `source`, `sha`, optional `branch`).
-- **Branched pin**: Supports write operations (`add`, `subtract`, `reconcile`, `promote`, `merge`).
+- **Branched pin**: Supports write operations (`add`, `subtract`, `reconcile`, `merge`).
 - **Branchless pin**: Read-only for `search`, `query`, `get`.
 - **Collection**: QMD index name derived as `<name>@<sha>`.
 - **Base store**: The pin being modified for write operations.
 - **Reference input**: The comparison source (raw text, conversation context, or another pin).
 - **Read operations**: Search, query, retrieve.
-- **Write operations**: Add, subtract, reconcile, promote, merge.
+- **Write operations**: Add, subtract, reconcile, merge.
 
 ## CLI First
 
@@ -62,7 +62,8 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 1. Queue new content (stdin): `echo "<markdown>" | ./.cursor/skills/gl/scripts/gl add --pin <name> [--name <file>]`.
 2. Repeat `add` as needed to build a paper trail of queued changes.
 3. Reconcile queue into `knowledge/`: `./.cursor/skills/gl/scripts/gl reconcile --pin <name>`.
-4. Optional finalization: `./.cursor/skills/gl/scripts/gl promote --pin <name>`.
+
+Reconcile pushes automatically; no separate promote step needed for this flow.
 
 ### Subtracting knowledge
 
@@ -106,7 +107,7 @@ Then run `add`, `reconcile`, etc. The first push during a write operation create
 
 If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
 
-**Read vs write:** Read operations (search, query, get) never push or create branches. Write operations (add, subtract, reconcile, promote) check branch state before proceeding:
+**Read vs write:** Read operations (search, query, get) never push or create branches. Write operations (add, subtract, reconcile) check branch state before proceeding:
 - **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately (before creating staged copy) with remote SHA. Pin the remote head under a different named pin to investigate.
 - **Branch does not exist:** Proceed; the branch is created atomically when the first push runs (no empty branch, then commits).
 - **Branch exists and matches:** Proceed normally.
@@ -137,4 +138,4 @@ If the input type is unclear, ask a clarifying question first.
 - If the script reports a state error, fix state (pin, clone, index) before retrying.
 - Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
 - Confirm with the user before destructive actions (pin remove, subtract).
-- Never edit `.giterloper/versions/` directly; write via add/subtract/reconcile/promote flow only.
+- Never edit `.giterloper/versions/` directly; write via add/subtract/reconcile flow only.

@@ -87,15 +87,17 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
-The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
+**GITERLOPER_GH_TOKEN is available in this environment.** The Cursor Cloud VM is configured with this secret. You do not need to check for it or warn that it might be missing — assume it is set.
+
+The `cursor[bot]` token only covers `jcwilk/giterloper`. The `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is used for the knowledge repos. When set, gl and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token provides:
 - **Read** access to `jcwilk/giterloper_knowledge` (for clone/index, e.g. via `gl pin add` or `gl-extended clone`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
-Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).
+E2E tests will run successfully in this environment.
 
 ### Running the CLI
 
@@ -117,7 +119,7 @@ A separate **gl extended** CLI exposes low-level commands for debugging and main
 deno run -A lib/gl-extended.ts <command>
 ```
 
-**Commands:** `status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`. Run `./scripts/gl-extended --help` for usage.
+**Commands:** `status`, `verify`, `gpu`, `clone`, `index`, `teardown`, `stage`, `stage-cleanup`, `promote`. Run `./scripts/gl-extended --help` for usage.
 
 **When to use:** Only when debugging failed operations, performing manual maintenance (e.g. re-cloning, re-indexing without pin add), or running tests. Prefer main `gl` commands (`diagnostic`, `pin add`, `pin update`, etc.) for normal agent workflows.
 
@@ -131,7 +133,7 @@ deno run -A scripts/run-e2e.ts
 
 Unit tests: `deno test -A tests/unit/`
 
-E2E tests require **push access** to `github.com/jcwilk/giterloper_test_knowledge` (provided by `GITERLOPER_GH_TOKEN`).
+E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; **GITERLOPER_GH_TOKEN is available in this environment** and provides that access.
 
 ### Typecheck
 

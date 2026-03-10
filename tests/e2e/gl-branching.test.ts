@@ -115,7 +115,7 @@ Deno.test("promote fails for branchless pin", () => {
   try {
     runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGl(["promote", "--pin", branchlessPin]),
+      () => runGlExtended(["promote", "--pin", branchlessPin]),
       Error,
       "has no branch"
     );
