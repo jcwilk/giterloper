@@ -65,3 +65,16 @@ export function setCloneIdentity(dir: string): void {
     run("git", ["-C", dir, "config", "user.email", "giterloper@localhost"]);
   }
 }
+
+/**
+ * Parse owner/repo from a GitHub source string.
+ * Handles: github.com/owner/repo, https://github.com/owner/repo,
+ * https://x-access-token:token@github.com/owner/repo, git@github.com:owner/repo.git
+ * Returns "owner/repo" or null if not a GitHub URL.
+ */
+export function parseGitHubRepo(source: string): string | null {
+  const m = source.match(
+    /github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/i
+  );
+  return m ? `${m[1]}/${m[2]}` : null;
+}
