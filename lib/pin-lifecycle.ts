@@ -163,10 +163,15 @@ export function updatePinSha(
   const newPin = { ...target, sha: newSha };
   const cloneBranch = opts.branch ?? newPin.branch;
 
-  clonePin(state, newPin, { branch: cloneBranch, infoFn: opts.infoFn });
-  ensureGpuConfig(state, opts.infoFn ?? (() => {}));
-  indexPin(state, newPin, { infoFn: opts.infoFn });
-  teardownPinData(state, oldPin);
+  try {
+    clonePin(state, newPin, { branch: cloneBranch, infoFn: opts.infoFn });
+    ensureGpuConfig(state, opts.infoFn ?? (() => {}));
+    indexPin(state, newPin, { infoFn: opts.infoFn });
+    teardownPinData(state, oldPin);
+  } catch (e) {
+    teardownPinData(state, newPin);
+    throw e;
+  }
 
   mutatePins(state, (pins) => {
     const updated = pins.filter((p) => p.name !== pinName);

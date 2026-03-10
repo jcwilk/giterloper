@@ -28,11 +28,8 @@ import { isBranchNotFoundError, run, runSoft } from "./run.ts";
 import {
   ensureGiterloperRoot,
   mutatePins,
-  parsePinned,
   readPins,
   resolvePin,
-  serializePins,
-  writePinsAtomic,
 } from "./pinned.ts";
 import { resolveSha, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
@@ -211,15 +208,28 @@ function cmdPinAdd(state: ReturnType<typeof makeState>, args: string[]) {
   const ref = (refParsed.found ? refParsed.value : branch || "HEAD") ?? "HEAD";
   const sha = resolveSha(source, ref);
   const newPin = { name, source, sha, branch: branch ?? undefined };
+  const pins = readPins(state);
+  const existing = pins.find((p) => p.name === name);
+  const fallbackRef = ref !== branch ? ref : "HEAD";
+
+  try {
+    clonePin(state, newPin, { branch: branch ?? undefined, fallbackRef, infoFn: info });
+    ensureGpuConfig(state, info);
+    indexPin(state, newPin, { infoFn: info });
+  } catch (e) {
+    teardownPinData(state, newPin);
+    throw e;
+  }
+
   mutatePins(state, (pins) => {
     const updated = pins.filter((p) => p.name !== name);
     updated.unshift(newPin);
     return updated;
   });
-  const fallbackRef = ref !== branch ? ref : "HEAD";
-  clonePin(state, newPin, { branch: branch ?? undefined, fallbackRef, infoFn: info });
-  ensureGpuConfig(state, info);
-  indexPin(state, newPin, { infoFn: info });
+  if (existing) {
+    teardownPinData(state, existing);
+    removeStagedDir(state, existing.name, existing.branch);
+  }
   commandOutput({ name, source, ref, branch: branch || null, sha, action: "pin-added" }, state.globalJson);
 }
 
