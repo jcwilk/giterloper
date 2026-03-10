@@ -50,7 +50,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ### 5. Auto-Index Lifecycle
 
-`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual `gl clone` or `gl index` needed for normal use.
+`updatePinSha()` and `cmdPinAdd` manage indices at the low level: when a pin name+SHA is written, we clone and index; when SHA changes, we tear down the old index. `add`, `subtract`, `merge`, `promote`, `reconcile`, `pin update` all flow through this. No manual clone/index needed for normal use (use `gl-extended clone`/`gl-extended index` for debugging).
 
 ## Gl Script Notes
 
@@ -63,7 +63,8 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ## Project Structure
 
 - **`lib/`** — TypeScript source for the gl CLI (paths, reconcile, pinned, git, etc.)
-- **`.cursor/skills/gl/scripts/gl`** — Executable shell script; run from workspace root
+- **`.cursor/skills/gl/scripts/gl`** — Main agent-facing script (minimal command set)
+- **`.cursor/skills/gl/scripts/gl-extended`** — Debugging/development script (full command set)
 - **`bootstrap/`** — Setup and verification docs
 - **`tests/e2e/`** — E2E tests; use `deno run -A scripts/run-e2e.ts`
 - **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo)
@@ -87,12 +88,12 @@ Branchless pins are read-only.
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
 - **QMD** — The CLI invokes the `qmd` binary (install globally if not on PATH: `npm install -g @tobilu/qmd`). Chunking for `gl reconcile` uses a pure TypeScript implementation in `lib/chunk.ts`.
-- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl gpu --cpu` during setup.
+- No GPU is present in Cloud VMs. CPU-only mode is set via `./.cursor/skills/gl/scripts/gl-extended gpu --cpu` during setup.
 
 ### Git access to knowledge repos
 
 The `cursor[bot]` token only covers `jcwilk/giterloper`. A `GITERLOPER_GH_TOKEN` secret (fine-grained PAT) is needed for the knowledge repos. When set, `gl.mjs` and the E2E test helpers embed it directly in HTTPS URLs at the code level — no gitconfig changes required. The token needs:
-- **Read** access to `jcwilk/giterloper_knowledge` (for `gl clone` / `gl index`)
+- **Read** access to `jcwilk/giterloper_knowledge` (for `gl pin add` clone/index or `gl-extended clone` / `gl-extended index`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
 
 Without the secret, `gl` falls back to plain `https://` URLs (works locally with normal git auth, e.g. SSH).

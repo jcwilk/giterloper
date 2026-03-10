@@ -122,6 +122,54 @@ function cmdGpu(state: { rootDir: string; globalJson: boolean; gpuMode: string |
   }
 }
 
+function cmdDiagnostic(state: ReturnType<typeof makeState>, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl diagnostic [--pin <name>] [--json]",
+      "Runs health checks: pins, clones, indexes, vectors, branch freshness.",
+      "Exits with error code if any check fails.",
+    ].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+  const pins = pinParsed.found ? [resolvePin(state, pinParsed.value)] : readPins(state);
+  if (pins.length === 0) fail("no pins configured", EXIT.STATE);
+  const checks = [];
+  for (const pin of pins) {
+    const cdir = cloneDir(state, pin);
+    const collection = collectionName(pin);
+    const clonePresent = existsSync(cdir);
+    const cloneShaOk = clonePresent ? verifyCloneAtSha(pin, cdir) : false;
+    const collectionPresent = collectionExists(pin, collection);
+    const contextPresent = contextExists(pin, collection);
+    const freshness = branchFreshSoft(state, pin);
+    let vectorsOk = false;
+    if (collectionPresent) {
+      const status = runSoft("qmd", pinQmd(pin, ["status"]));
+      if (status.ok) {
+        const statusText = status.stdout.toLowerCase();
+        vectorsOk = statusText.includes(collection.toLowerCase()) && !statusText.includes("vectors: 0");
+      }
+    }
+    const ok = clonePresent && cloneShaOk && collectionPresent && contextPresent && vectorsOk;
+    checks.push({
+      pin: pin.name,
+      branch: pin.branch || null,
+      cloneOk: clonePresent && cloneShaOk,
+      indexOk: collectionPresent && contextPresent,
+      vectorsOk,
+      branchFresh: freshness.fresh,
+      ok,
+    });
+  }
+  const allOk = checks.every((c) => c.ok);
+  commandOutput({ ok: allOk, checks }, state.globalJson);
+  if (!allOk) fail("diagnostic: one or more pins are unhealthy", EXIT.STATE);
+}
+
 function cmdStatus(state: ReturnType<typeof makeState>, args: string[]) {
   ensureHelpNotRequested(
     args,
@@ -719,42 +767,62 @@ async function main() {
 
   const [cmd, ...rest] = args;
 
-  if (cmd === "status") return cmdStatus(state, rest);
+  if (cmd === "diagnostic") return cmdDiagnostic(state, rest);
   if (cmd === "pin") {
-    if (rest.length === 0) fail("usage: gl pin <list|add|remove|update>", EXIT.USER);
+    if (rest.length === 0) fail("usage: gl pin <list|add|update>", EXIT.USER);
     const [sub, ...subArgs] = rest;
     if (sub === "list") return cmdPinList(state, subArgs);
     if (sub === "add") return cmdPinAdd(state, subArgs);
-    if (sub === "remove") return cmdPinRemove(state, subArgs);
     if (sub === "update") return cmdPinUpdate(state, subArgs);
-    fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
+    fail(`unknown pin subcommand "${sub}". Use "gl-extended pin remove" for removal.`, EXIT.USER);
   }
-  if (cmd === "gpu") return cmdGpu(state, rest);
-  if (cmd === "clone") return cmdClone(state, rest);
-  if (cmd === "index") return cmdIndex(state, rest);
-  if (cmd === "teardown") return cmdTeardown(state, rest);
   if (cmd === "search") return cmdSearchLike(state, "search", rest);
   if (cmd === "query") return cmdSearchLike(state, "query", rest);
   if (cmd === "get") return cmdGet(state, rest);
-  if (cmd === "stage") return cmdStage(state, rest);
-  if (cmd === "promote") return cmdPromote(state, rest);
-  if (cmd === "stage-cleanup") return cmdStageCleanup(state, rest);
   if (cmd === "add") return cmdAddLike(state, rest, "add");
   if (cmd === "subtract") return cmdAddLike(state, rest, "subtract");
   if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "promote") return cmdPromote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
-  if (cmd === "verify") return cmdVerify(state, rest);
 
-  fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
+  fail(
+    `unknown command "${cmd}". Run "gl --help" for main commands. Use "gl-extended" for debugging/development.`,
+    EXIT.USER
+  );
 }
 
-try {
-  await main();
-} catch (e) {
-  if (e instanceof GlError) {
-    console.error(`gl: ${e.message}`);
-    Deno.exit(e.code);
+export {
+  cmdStatus,
+  cmdGpu,
+  cmdPinList,
+  cmdPinAdd,
+  cmdPinRemove,
+  cmdPinUpdate,
+  cmdClone,
+  cmdIndex,
+  cmdTeardown,
+  cmdSearchLike,
+  cmdGet,
+  cmdStage,
+  cmdPromote,
+  cmdStageCleanup,
+  cmdVerify,
+  cmdAddLike,
+  cmdReconcile,
+  cmdMerge,
+  cmdDiagnostic,
+  makeState,
+};
+
+if (import.meta.main) {
+  try {
+    await main();
+  } catch (e) {
+    if (e instanceof GlError) {
+      console.error(`gl: ${e.message}`);
+      Deno.exit(e.code);
+    }
+    console.error(`gl: unexpected error: ${e instanceof Error ? e.message : String(e)}`);
+    Deno.exit(EXIT.EXTERNAL);
   }
-  console.error(`gl: unexpected error: ${e?.message ?? e}`);
-  Deno.exit(EXIT.EXTERNAL);
 }

@@ -73,34 +73,52 @@ export function readStdinOrFail(): string {
   return text;
 }
 
-const TOP_HELP = [
-  "gl - giterloper CLI",
+const MAIN_HELP = [
+  "gl - giterloper CLI (agent-facing)",
   "",
   "Usage:",
   "  gl <command> [subcommand] [options]",
   "",
   "Commands:",
-  "  status",
-  "  gpu [--cpu]",
-  "  pin list|add|remove|update",
-  "  clone [--pin <name>|--all]",
-  "  index [--pin <name>|--all]",
-  "  teardown <name>",
+  "  diagnostic [--pin <name>] [--json]",
+  "  pin list|add|update",
   "  search <query> [--pin <name>] [-n N] [--json]",
   "  query <question> [--pin <name>] [--json]",
   "  get <path> [--pin <name>] [--full] [--json]",
-  "  stage [branch] [--pin <name>]",
-  "  promote [--pin <name>]",
-  "  stage-cleanup [branch] [--pin <name>]",
   "  add [--pin <name>] [--name <name>]",
   "  subtract [--pin <name>] [--name <name>]",
   "  reconcile [--pin <name>]",
+  "  promote [--pin <name>]",
   "  merge <source-pin> <target-pin>",
-  "  verify [--pin <name>] [--json]",
   "",
   'Run "gl <command> --help" for command-specific usage.',
+  'For debugging/development commands, run "gl-extended --help".',
+].join("\n");
+
+const EXTENDED_HELP = [
+  "gl-extended - giterloper CLI (debugging & development)",
+  "",
+  "Usage:",
+  "  gl-extended <command> [subcommand] [options]",
+  "",
+  "Includes all gl commands plus:",
+  "  status [--json]",
+  "  verify [--pin <name>] [--json]",
+  "  gpu [--cpu]",
+  "  pin remove <name>",
+  "  clone [--pin <name>|--all]",
+  "  index [--pin <name>|--all]",
+  "  teardown <name>",
+  "  stage [branch] [--pin <name>]",
+  "  stage-cleanup [branch] [--pin <name>]",
+  "",
+  'Run "gl-extended <command> --help" for command-specific usage.',
 ].join("\n");
 
 export function printTopHelp(): void {
-  commandOutput(TOP_HELP);
+  commandOutput(MAIN_HELP);
+}
+
+export function printTopHelpExtended(): void {
+  commandOutput(EXTENDED_HELP);
 }
