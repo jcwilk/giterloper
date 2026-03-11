@@ -1,13 +1,5 @@
 .giterloper/versions/
 .giterloper/staged/
-.giterloper/local.json
-.giterloper/pinned.yaml.lock
-.giterloper/qmd/
 .giterloper/locks/
-.giterloper-bench/
-
-node_modules/
-
-.cursor/skills/gl/dist/
 
 .cursor/plans/
