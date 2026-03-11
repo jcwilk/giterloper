@@ -3,7 +3,7 @@
  * gl - giterloper CLI. Run with: deno run -A lib/gl.ts [command] [args]
  */
 import { createHash } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { EXIT, GlError, fail } from "./errors.ts";
@@ -257,6 +257,44 @@ function cmdInsert(state: GlState, args: string[]) {
   );
 }
 
+function cmdInstallRemote(state: GlState, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl install-remote <pin>",
+      "Copies CONSTITUTION.md to GITERLOPER.md at the root of the pin's repo. Branched pins only.",
+    ].join("\n")
+  );
+  if (args.length !== 1) fail("usage: gl install-remote <pin>", EXIT.USER);
+  const pin = resolvePin(state, args[0]);
+  requirePinBranch(pin, "install-remote");
+  const dir = ensureWorkingClone(state, pin, { infoFn: info });
+  assertBranchFresh(state, pin, dir);
+
+  const constitutionPath = path.join(state.projectRoot, "CONSTITUTION.md");
+  if (!existsSync(constitutionPath)) {
+    fail("CONSTITUTION.md not found in project root", EXIT.STATE);
+  }
+  const content = readFileSync(constitutionPath, "utf8");
+  const destPath = path.join(dir, "GITERLOPER.md");
+  writeFileSync(destPath, content, "utf8");
+
+  commitIfDirty(dir, "gl: install-remote GITERLOPER.md");
+  pushBranchOrFail(dir, pin, "install-remote");
+  const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
+  updatePinSha(state, pin.name, newSha, { infoFn: info });
+  commandOutput(
+    {
+      action: "install-remote",
+      pin: pin.name,
+      branch: pin.branch,
+      file: "GITERLOPER.md",
+      sha: newSha,
+    },
+    state.globalJson
+  );
+}
+
 function cmdPinLoad(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
@@ -360,6 +398,7 @@ async function main() {
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
   if (cmd === "insert") return cmdInsert(state, rest);
+  if (cmd === "install-remote") return cmdInstallRemote(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
@@ -374,6 +413,7 @@ export {
   cmdPinUpdate,
   cmdPinLoad,
   cmdInsert,
+  cmdInstallRemote,
   cmdMerge,
 };
 

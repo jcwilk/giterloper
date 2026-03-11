@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
@@ -86,6 +86,33 @@ Deno.test("insert queues content in knowledge/pending and advances pin sha", () 
     assertEquals(result.action, "inserted");
     const filePath = path.join(stagedDir(pinName, branch), "knowledge", "pending", result.file!);
     assertEquals(existsSync(filePath), true);
+    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    assertEquals(after!.sha !== before!.sha, true);
+  } finally {
+    ensurePinRemoved(pinName);
+  }
+});
+
+Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha", () => {
+  const pinName = randomPin("install-remote");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const result = runGlJson(["install-remote", pinName]) as {
+      action?: string;
+      file?: string;
+      sha?: string;
+    };
+    assertEquals(result.action, "install-remote");
+    assertEquals(result.file, "GITERLOPER.md");
+    const destPath = path.join(stagedDir(pinName, branch), "GITERLOPER.md");
+    assertEquals(existsSync(destPath), true);
+    const constitutionPath = path.join(Deno.cwd(), "CONSTITUTION.md");
+    const expected = readFileSync(constitutionPath, "utf8");
+    const actual = readFileSync(destPath, "utf8");
+    assertEquals(actual, expected);
     const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);
   } finally {

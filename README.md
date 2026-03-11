@@ -4,7 +4,7 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 ## What's here
 
-- **Constitution** — `CONSTITUTION.md` and `CONSTITUTION.md5` define the normative operation contract. The canonical constitution lives in the knowledge store; this copy supports verification.
+- **Constitution** — `CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
 
 ## Knowledge stores

@@ -83,6 +83,7 @@ const TOP_HELP = [
   "  diagnostic [--pin <name>] [--json]",
   "  pin list|add|remove|update|load [--pin <name>]",
   "  insert [--pin <name>] [--name <name>]",
+  "  install-remote <pin>",
   "  merge <source-pin> <target-pin>",
   "",
   'Run "gl <command> --help" for command-specific usage.',
