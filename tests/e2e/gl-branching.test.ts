@@ -222,7 +222,7 @@ Deno.test("insert succeeds when branch exists and pin SHA matches remote", () =>
       file?: string;
     };
     assertEquals(result.action, "inserted");
-    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "pending", result.file!);
+    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", result.file!);
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);

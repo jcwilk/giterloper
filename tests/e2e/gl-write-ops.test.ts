@@ -71,7 +71,7 @@ function createRemoteBranchFromMain(
   }
 }
 
-Deno.test("insert queues content in knowledge/pending and advances pin sha", () => {
+Deno.test("insert queues content in knowledge/_pending and advances pin sha", () => {
   const pinName = randomPin("insert");
   const branch = `${pinName}-branch`;
   try {
@@ -84,7 +84,7 @@ Deno.test("insert queues content in knowledge/pending and advances pin sha", () 
       file?: string;
     };
     assertEquals(result.action, "inserted");
-    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "pending", result.file!);
+    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", result.file!);
     assertEquals(existsSync(filePath), true);
     const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);

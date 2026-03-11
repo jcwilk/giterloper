@@ -1,6 +1,6 @@
 /**
  * Add command queue: safeName, makeQueueFilename.
- * Used when queueing content into knowledge/pending/ for gl insert.
+ * Used when queueing content into knowledge/_pending/ for gl insert.
  */
 import { createHash } from "node:crypto";
 

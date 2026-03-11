@@ -216,7 +216,7 @@ function cmdVerify(state: GlState, args: string[], cmdName: string = "verify") {
 function cmdInsert(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl insert [--pin <name>] [--name <name>]", "Reads stdin and queues content in knowledge/pending/."].join("\n")
+    ["Usage: gl insert [--pin <name>] [--name <name>]", "Reads stdin and queues content in knowledge/_pending/."].join("\n")
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -230,7 +230,7 @@ function cmdInsert(state: GlState, args: string[]) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
   const content = readStdinOrFail();
-  const folder = "knowledge/pending";
+  const folder = "knowledge/_pending";
   const fileName = makeQueueFilename(content, nameParsed.found ? nameParsed.value : null);
   const folderPath = path.join(dir, folder);
   ensureDir(folderPath);
