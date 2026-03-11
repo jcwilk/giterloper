@@ -96,12 +96,12 @@ function pushCommitToBranch(
   }
 }
 
-Deno.test("add fails for branchless pin", () => {
+Deno.test("insert fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
     runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGl(["add", "--pin", branchlessPin], { stdin: "x" }),
+      () => runGl(["insert", "--pin", branchlessPin], { stdin: "x" }),
       Error,
       "has no branch"
     );
@@ -149,24 +149,24 @@ Deno.test("pin add with non-existent branch creates pin and clones from ref", ()
   }
 });
 
-Deno.test("add on newly created branch creates remote branch on first push", () => {
+Deno.test("insert on newly created branch creates remote branch on first push", () => {
   const pinName = randomPin("create-on-push");
   const branch = `${pinName}-branch`;
   try {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
-    const addResult = runGlJson(["add", "--pin", pinName, "--name", "first-push"], {
+    const insertResult = runGlJson(["insert", "--pin", pinName, "--name", "first-push"], {
       stdin: "# first",
     }) as { action?: string; sha?: string };
-    assertEquals(addResult.action, "added");
-    assertEquals(!!addResult.sha, true, "add should advance pin sha");
+    assertEquals(insertResult.action, "inserted");
+    assertEquals(!!insertResult.sha, true, "insert should advance pin sha");
     const pin = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    assertEquals(pin!.sha, addResult.sha);
+    assertEquals(pin!.sha, insertResult.sha);
   } finally {
     ensurePinRemoved(pinName);
   }
 });
 
-Deno.test("add fails before staged copy when branch exists and pin SHA mismatches remote", () => {
+Deno.test("insert fails before staged copy when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("fail-fast");
   const branch = `${pinName}-branch`;
   try {
@@ -178,7 +178,7 @@ Deno.test("add fails before staged copy when branch exists and pin SHA mismatche
       `# stale marker\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGl(["add", "--pin", pinName], { stdin: "should fail" }),
+      () => runGl(["insert", "--pin", pinName], { stdin: "should fail" }),
       Error,
       "does not match"
     );
@@ -210,19 +210,19 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
   }
 });
 
-Deno.test("add succeeds when branch exists and pin SHA matches remote", () => {
+Deno.test("insert succeeds when branch exists and pin SHA matches remote", () => {
   const pinName = randomPin("match-flow");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
+    const result = runGlJson(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;
     };
-    assertEquals(result.action, "added");
-    const filePath = path.join(stagedDir(pinName, branch), "added", result.file!);
+    assertEquals(result.action, "inserted");
+    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "pending", result.file!);
     assertEquals(existsSync(filePath), true);
   } finally {
     ensurePinRemoved(pinName);

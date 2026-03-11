@@ -49,13 +49,13 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ### 5. Pin Lifecycle
 
-`updatePinSha()` and `cmdPinAdd` manage clones: when a pin name+SHA is written, we clone; when SHA changes, we tear down the old clone. `add`, `merge`, `promote`, `pin update` flow through this. Use `gl pin load` to ensure pins are cloned without adding; use `gl-maintenance clone` for low-level cloning.
+`updatePinSha()` and `cmdPinAdd` manage clones: when a pin name+SHA is written, we clone; when SHA changes, we tear down the old clone. `insert`, `merge`, `promote`, `pin update` flow through this. Use `gl pin load` to ensure pins are cloned without adding; use `gl-maintenance clone` for low-level cloning.
 
 ## Gl Script Notes
 
 - **pinned.yaml locking** — All writes go through `mutatePins()`, which uses a ticket-based FIFO mutex at `.giterloper/locks/pins/`.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
-- **Branched vs branchless pins:** Write ops (`add`, `promote`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
+- **Branched vs branchless pins:** Write ops (`insert`, `promote`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
 - **Stale detection:** `assertBranchFresh` fails when local HEAD ≠ remote branch HEAD (ahead or behind). Sync with `gl pin update <name>` or `git -C <staged-dir> pull --rebase`.
 
 ## Project Structure

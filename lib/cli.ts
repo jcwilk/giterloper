@@ -82,7 +82,7 @@ const TOP_HELP = [
   "Commands:",
   "  diagnostic [--pin <name>] [--json]",
   "  pin list|add|remove|update|load [--pin <name>]",
-  "  add [--pin <name>] [--name <name>]",
+  "  insert [--pin <name>] [--name <name>]",
   "  merge <source-pin> <target-pin>",
   "",
   'Run "gl <command> --help" for command-specific usage.',

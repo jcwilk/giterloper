@@ -71,20 +71,20 @@ function createRemoteBranchFromMain(
   }
 }
 
-Deno.test("add queues content in added and advances pin sha", () => {
-  const pinName = randomPin("add");
+Deno.test("insert queues content in knowledge/pending and advances pin sha", () => {
+  const pinName = randomPin("insert");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
     const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
+    const result = runGlJson(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;
     };
-    assertEquals(result.action, "added");
-    const filePath = path.join(stagedDir(pinName, branch), "added", result.file!);
+    assertEquals(result.action, "inserted");
+    const filePath = path.join(stagedDir(pinName, branch), "knowledge", "pending", result.file!);
     assertEquals(existsSync(filePath), true);
     const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);
@@ -93,14 +93,14 @@ Deno.test("add queues content in added and advances pin sha", () => {
   }
 });
 
-Deno.test("add with --name uses requested file name", () => {
-  const pinName = randomPin("add-name");
+Deno.test("insert with --name uses requested file name", () => {
+  const pinName = randomPin("insert-name");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const result = runGlJson(["add", "--pin", pinName, "--name", "named-entry"], {
+    const result = runGlJson(["insert", "--pin", pinName, "--name", "named-entry"], {
       stdin: "hello",
     }) as { file?: string };
     assertEquals(result.file, "named-entry.md");

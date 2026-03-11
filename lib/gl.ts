@@ -213,10 +213,10 @@ function cmdVerify(state: GlState, args: string[], cmdName: string = "verify") {
   if (!allOk) fail("verify: not all pins are healthy", EXIT.STATE);
 }
 
-function cmdAdd(state: GlState, args: string[]) {
+function cmdInsert(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl add [--pin <name>] [--name <name>]", "Reads stdin and queues content in added/."].join("\n")
+    ["Usage: gl insert [--pin <name>] [--name <name>]", "Reads stdin and queues content in knowledge/pending/."].join("\n")
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -226,11 +226,11 @@ function cmdAdd(state: GlState, args: string[]) {
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
 
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
-  requirePinBranch(pin, "add");
+  requirePinBranch(pin, "insert");
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
   const content = readStdinOrFail();
-  const folder = "added";
+  const folder = "knowledge/pending";
   const fileName = makeQueueFilename(content, nameParsed.found ? nameParsed.value : null);
   const folderPath = path.join(dir, folder);
   ensureDir(folderPath);
@@ -241,13 +241,13 @@ function cmdAdd(state: GlState, args: string[]) {
   }
   writeFileSync(outPath, content.endsWith("\n") ? content : `${content}\n`, "utf8");
 
-  commitIfDirty(dir, `gl: add ${path.basename(outPath)}`);
-  pushBranchOrFail(dir, pin, "add");
+  commitIfDirty(dir, `gl: insert ${path.basename(outPath)}`);
+  pushBranchOrFail(dir, pin, "insert");
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   updatePinSha(state, pin.name, newSha, { infoFn: info });
   commandOutput(
     {
-      action: "added",
+      action: "inserted",
       pin: pin.name,
       branch: pin.branch,
       file: path.basename(outPath),
@@ -359,7 +359,7 @@ async function main() {
     if (sub === "load") return cmdPinLoad(state, subArgs);
     fail(`unknown pin subcommand "${sub}"`, EXIT.USER);
   }
-  if (cmd === "add") return cmdAdd(state, rest);
+  if (cmd === "insert") return cmdInsert(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
@@ -373,7 +373,7 @@ export {
   cmdPinRemove,
   cmdPinUpdate,
   cmdPinLoad,
-  cmdAdd,
+  cmdInsert,
   cmdMerge,
 };
 

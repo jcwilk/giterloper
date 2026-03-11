@@ -18,4 +18,4 @@ export const TEST_TOPIC_BODY =
   "This document is added during E2E tests to verify the giterloper gl workflow.\n" +
   "It contains the keyword `e2e-topic-keyword` for test identification.";
 export const TEST_ADD_CONTENT =
-  "# Added Queue Topic\n\nThis content is queued with gl add and contains marker `queued-add-marker`.";
+  "# Added Queue Topic\n\nThis content is queued with gl insert and contains marker `queued-add-marker`.";

@@ -19,10 +19,10 @@ Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first 
 ## Core Concepts
 
 - **Pin**: A named store reference (`name`, `source`, `sha`, optional `branch`).
-- **Branched pin**: Supports write operations (`add`, `merge`).
+- **Branched pin**: Supports write operations (`insert`, `merge`).
 - **Branchless pin**: Read-only; no write ops.
 - **Base store**: The pin being modified for write operations.
-- **Write operations**: Add, merge.
+- **Write operations**: Insert, merge.
 
 ## CLI First
 
@@ -36,11 +36,10 @@ Every command supports `--help`. Use command help instead of guessing flags or b
 
 ## Common Workflows
 
-### Adding knowledge
+### Inserting knowledge
 
-1. Queue new content (stdin): `echo "<markdown>" | ./.cursor/skills/gl/scripts/gl add --pin <name> [--name <file>]`.
-2. Repeat `add` as needed to build a paper trail of queued changes.
-3. Promote: `./scripts/gl-maintenance promote --pin <name>` to commit, push, and advance the pin.
+1. Queue new content (stdin): `echo "<markdown>" | ./.cursor/skills/gl/scripts/gl insert --pin <name> [--name <file>]`.
+2. Repeat `insert` as needed to build a paper trail of queued changes.
 
 ### Merging knowledge branches
 
@@ -70,7 +69,7 @@ When adding a pin with `--branch`, if the branch does not yet exist on the remot
 ```bash
 ./.cursor/skills/gl/scripts/gl pin add my_feature github.com/owner/knowledge --ref main --branch my_feature
 ```
-Then run `add`, etc. The first push during a write operation creates the remote branch.
+Then run `insert`, etc. The first push during a write operation creates the remote branch.
 
 **Branch from an earlier state:** Use `--ref` to specify the starting point (branch name, tag, or SHA):
 ```bash
@@ -85,7 +84,7 @@ Then run `add`, etc. The first push during a write operation creates the remote 
 
 If `--ref` is omitted when using `--branch`, it defaults to the branch name (which will fail if the branch doesn't exist). To create a new branch, always pass `--ref <existing-ref>` (e.g. `main`) and `--branch <new-branch>`.
 
-**Write operations** (add, promote) check branch state before proceeding:
+**Write operations** (insert) check branch state before proceeding:
 - **Branch exists and pin SHA ≠ remote HEAD:** Fail immediately (before creating staged copy) with remote SHA. Pin the remote head under a different named pin to investigate.
 - **Branch does not exist:** Proceed; the branch is created atomically when the first push runs (no empty branch, then commits).
 - **Branch exists and matches:** Proceed normally.
@@ -95,7 +94,7 @@ If `--ref` is omitted when using `--branch`, it defaults to the branch name (whi
 For write-style operations:
 - The **base store** is always the `--pin` target (or default first pin).
 - The **reference** is the second input (raw text, conversation context, or another pin).
-- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`, then promoted). When any knowledge operation fails—promote, clone, etc.—do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide.
+- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`). When any knowledge operation fails, do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide.
 
 If directionality is ambiguous, ask the user before making changes.
 
@@ -114,4 +113,4 @@ If the input type is unclear, ask a clarifying question first.
 - If the script reports a state error, fix state (pin, clone) before retrying.
 - Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
 - Confirm with the user before destructive actions (pin remove).
-- Never edit `.giterloper/versions/` directly; write via add/promote flow only.
+- Never edit `.giterloper/versions/` directly; write via insert flow only.
