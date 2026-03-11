@@ -39,7 +39,7 @@ function cleanupLeakedTestPins() {
 
 const result = spawnSync(
   "deno",
-  ["test", "-A", testDir],
+  ["test", "-A", "--parallel", testDir],
   { cwd: root, stdio: "inherit" }
 );
 
