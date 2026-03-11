@@ -1,20 +1,10 @@
 /**
- * Path utilities: findProjectRoot, ensureDir, cloneDir, stagedDir.
+ * Path utilities: ensureDir, cloneDir, stagedDir.
  */
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import type { GlState, Pin } from "./types.ts";
-
-export function findProjectRoot(startDir: string = Deno.cwd()): string | null {
-  let current = path.resolve(startDir);
-  while (true) {
-    if (existsSync(path.join(current, ".git"))) return current;
-    const parent = path.dirname(current);
-    if (parent === current) return null;
-    current = parent;
-  }
-}
 
 export function ensureDir(dirPath: string): void {
   if (!existsSync(dirPath)) {

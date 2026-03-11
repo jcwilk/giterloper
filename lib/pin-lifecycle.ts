@@ -1,5 +1,5 @@
 /**
- * Pin lifecycle: clonePin, indexPin, teardownPinData, updatePinSha, removeStagedDir.
+ * Pin lifecycle: clonePin, teardownPinData, updatePinSha, removeStagedDir.
  */
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
@@ -9,18 +9,6 @@ import { run, runSoft } from "./run.ts";
 import { toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import { mutatePins, readPins } from "./pinned.ts";
-import { withFifoLock } from "./locking.ts";
-import {
-  collectionName,
-  collectionExists,
-  contextExists,
-  needsEmbeddingCount,
-  assertCollectionHealthy,
-  cleanupQmdFiles,
-  indexName,
-  pinQmd,
-} from "./qmd.ts";
-import { ensureGpuConfig } from "./gpu.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
 
@@ -54,7 +42,7 @@ export function clonePin(
 ): void {
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir) && verifyCloneAtSha(pin, cdir)) {
-    (opts.infoFn ?? (() => {}))(`clone already exists for ${collectionName(pin)}`);
+    (opts.infoFn ?? (() => {}))(`clone already exists for ${pin.name}@${pin.sha}`);
     return;
   }
   ensureDir(path.dirname(cdir));
@@ -89,41 +77,7 @@ export function clonePin(
   }
 }
 
-export function indexPin(
-  state: GlState,
-  pin: Pin,
-  opts?: { infoFn?: (msg: string) => void }
-): void {
-  const cdir = cloneDir(state, pin);
-  if (!existsSync(cdir)) fail(`clone missing: ${cdir}`, EXIT.STATE);
-  const knowledge = path.join(cdir, "knowledge");
-  if (!existsSync(knowledge)) fail(`knowledge directory missing: ${knowledge}`, EXIT.STATE);
-  const collection = collectionName(pin);
-  if (!collectionExists(pin, collection)) {
-    run("qmd", pinQmd(pin, ["collection", "add", knowledge, "--name", collection, "--mask", "**/*.md"]));
-  } else {
-    (opts?.infoFn ?? (() => {}))(`collection ${collection} already exists`);
-  }
-  if (!contextExists(pin, collection)) {
-    run("qmd", pinQmd(pin, ["context", "add", `qmd://${collection}`, `${pin.name} at ${pin.sha}`]));
-  }
-  const needsEmbed = needsEmbeddingCount(state, pin);
-  if (needsEmbed === 0) {
-    (opts?.infoFn ?? (() => {}))(`collection ${collection} already fully embedded, skipping qmd embed`);
-  } else {
-    const embedLockDir = path.join(state.rootDir, "locks", "embed");
-    withFifoLock(embedLockDir, () => run("qmd", pinQmd(pin, ["embed"])), {
-      maxWaitMs: 300000,
-    });
-  }
-  assertCollectionHealthy(pin, collection);
-}
-
 export function teardownPinData(state: GlState, pin: Pin): void {
-  const collection = collectionName(pin);
-  runSoft("qmd", pinQmd(pin, ["context", "rm", `qmd://${collection}`]));
-  runSoft("qmd", pinQmd(pin, ["collection", "remove", collection]));
-  cleanupQmdFiles(state, pin);
   const cdir = cloneDir(state, pin);
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   runSoft("rmdir", [path.join(state.versionsDir, pin.name)]);
@@ -147,8 +101,6 @@ export function updatePinSha(
 
   try {
     clonePin(state, newPin, { infoFn: opts.infoFn });
-    ensureGpuConfig(state, opts.infoFn ?? (() => {}));
-    indexPin(state, newPin, { infoFn: opts.infoFn });
     teardownPinData(state, oldPin);
   } catch (e) {
     teardownPinData(state, newPin);

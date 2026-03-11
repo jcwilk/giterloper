@@ -5,8 +5,7 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 ## What's here
 
 - **Constitution** — `CONSTITUTION.md` and `CONSTITUTION.md5` define the normative operation contract. The canonical constitution lives in the knowledge store; this copy supports verification.
-- **`gl` skill** — `.cursor/skills/gl/` provides the CLI for searching, querying, and managing knowledge stores.
-- **Bootstrap** — `bootstrap/` documents setup and verification.
+- **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
 
 ## Knowledge stores
 
@@ -20,11 +19,12 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 
 ## Quick start
 
-1. Ensure prerequisites: git, [Deno](https://deno.land), and QMD (`qmd status` or `npm install -g @tobilu/qmd`).
-2. From this repo: `./scripts/gl-maintenance clone` then `./scripts/gl-maintenance index` (or add a pin with `gl pin add` to auto-clone and index)
-3. See `bootstrap/02-verification.md` for verification steps.
+1. Prerequisites: git and [Deno](https://deno.land).
+2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
+   - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
+3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
 
-See `bootstrap/` for detailed setup.
+See `AGENTS.md` for contributor and agent guidance.
 
 ## Tests
 

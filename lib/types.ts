@@ -15,9 +15,7 @@ export interface GlState {
   versionsDir: string;
   stagedRoot: string;
   pinnedPath: string;
-  localConfigPath?: string;
   globalJson: boolean;
-  gpuMode: string | null;
 }
 
 export interface RunResult {

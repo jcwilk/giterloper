@@ -10,7 +10,6 @@ import {
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
-  TEST_SUBTRACT_CONTENT,
   toRemoteUrl,
 } from "./config.ts";
 import { runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
@@ -94,29 +93,6 @@ Deno.test("add queues content in added and advances pin sha", () => {
   }
 });
 
-Deno.test("subtract queues content in subtracts and advances pin sha", () => {
-  const pinName = randomPin("subtract");
-  const branch = `${pinName}-branch`;
-  try {
-    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    runGlJson(["add", "--pin", pinName], { stdin: TEST_ADD_CONTENT });
-    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = runGlJson(["subtract", "--pin", pinName], { stdin: TEST_SUBTRACT_CONTENT }) as {
-      action?: string;
-      file?: string;
-    };
-    assertEquals(result.action, "subtracted");
-    const filePath = path.join(stagedDir(pinName, branch), "subtracts", result.file!);
-    assertEquals(existsSync(filePath), true);
-    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    assertEquals(after!.sha !== before!.sha, true);
-  } finally {
-    ensurePinRemoved(pinName);
-  }
-});
-
 Deno.test("add with --name uses requested file name", () => {
   const pinName = randomPin("add-name");
   const branch = `${pinName}-branch`;
@@ -128,27 +104,6 @@ Deno.test("add with --name uses requested file name", () => {
       stdin: "hello",
     }) as { file?: string };
     assertEquals(result.file, "named-entry.md");
-  } finally {
-    ensurePinRemoved(pinName);
-  }
-});
-
-Deno.test("reconcile processes queued files", () => {
-  const pinName = randomPin("reconcile");
-  const branch = `${pinName}-branch`;
-  try {
-    createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    runGlJson(["add", "--pin", pinName, "--name", "to-reconcile"], {
-      stdin: "# reconcile test content",
-    });
-    const result = runGlJson(["reconcile", "--pin", pinName]) as {
-      action?: string;
-      commits?: number;
-    };
-    assertEquals(result.action, "reconciled");
-    assertEquals((result.commits ?? 0) >= 1, true);
   } finally {
     ensurePinRemoved(pinName);
   }

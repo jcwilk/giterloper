@@ -23,12 +23,6 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 const TEST_PIN_NAME = `test_knowledge_${RUN_ID}`;
 const WORKFLOW_BRANCH = RUN_ID;
 
-function asText(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value == null) return "";
-  return JSON.stringify(value);
-}
-
 function getPin(state: { name?: string }[] | unknown, pinName: string): { name?: string; source?: string; sha?: string } | undefined {
   const arr = Array.isArray(state) ? state : [];
   return arr.find((entry: { name?: string }) => entry.name === pinName);
@@ -177,66 +171,10 @@ Deno.test("gl-knowledge e2e", async (t) => {
     }
   });
 
-  await t.step("search finds added content", () => {
-    const result = runGlJson(["search", "test topic for e2e", "--pin", TEST_PIN_NAME]);
-    const haystack = asText(result).toLowerCase();
-    assertEquals(
-      (Array.isArray(result) ? result.length > 0 : !!result),
-      true,
-      `expected search output to return at least one result, got: ${haystack}`
-    );
-    const arr = Array.isArray(result) ? result : [result];
-    const topicFound = arr.some((entry: unknown) => {
-      const text = asText(entry).toLowerCase();
-      return (
-        text.includes(TEST_TOPIC_TITLE.toLowerCase()) || text.includes(TEST_TOPIC_PATH.toLowerCase())
-      );
-    });
-    assertEquals(topicFound, true, `expected search output to reference the added test topic, got: ${haystack}`);
-  });
-
-  await t.step("query answers from added content", () => {
-    try {
-      const result = runGlJson(["query", "What does the test topic say?", "--pin", TEST_PIN_NAME]);
-      const haystack = asText(result).toLowerCase();
-      assertEquals(
-        haystack.includes(TEST_TOPIC_TITLE.toLowerCase()) || haystack.includes(TEST_TOPIC_BODY.toLowerCase()),
-        true,
-        `expected query output to reference the added topic, got: ${haystack}`
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (
-        msg.includes("Failed to create any rerank context") ||
-        msg.includes("rerank") ||
-        msg.includes("LlamaCpp")
-      ) {
-        console.warn("Query step skipped: LLM rerank not available in this environment");
-        return;
-      }
-      throw e;
-    }
-  });
-
-  await t.step("get retrieves full document", () => {
-    const result = runGlJson(["get", TEST_TOPIC_PATH, "--pin", TEST_PIN_NAME, "--full"]);
-    const haystack = asText(result);
-    assertEquals(
-      haystack.includes("e2e-topic-keyword"),
-      true,
-      `expected get output to include topic body, got: ${haystack}`
-    );
-    assertEquals(
-      haystack.includes(TEST_TOPIC_TITLE),
-      true,
-      `expected get output to include topic title, got: ${haystack}`
-    );
-  });
-
   await t.step("diagnostic reports healthy state (main gl)", () => {
     const result = runGlJson(["diagnostic", "--pin", TEST_PIN_NAME]) as {
       ok?: boolean;
-      checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean; collectionPresent?: boolean; contextPresent?: boolean; vectorsOk?: boolean }[];
+      checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean }[];
     };
     assertEquals(result.ok, true, "diagnostic should report ok=true");
     assertEquals((result.checks?.length ?? 0) > 0, true, "diagnostic should include checks");
@@ -244,15 +182,12 @@ Deno.test("gl-knowledge e2e", async (t) => {
     assertEquals(check.pin, TEST_PIN_NAME, "check should target test pin");
     assertEquals(check.clonePresent, true, "clone should be present");
     assertEquals(check.cloneShaOk, true, "clone should match pinned sha");
-    assertEquals(check.collectionPresent, true, "collection should be present");
-    assertEquals(check.contextPresent, true, "context should be present");
-    assertEquals(check.vectorsOk, true, "vectors should be ready");
   });
 
   await t.step("verify reports healthy state (extended)", () => {
     const result = runGlMaintenanceJson(["verify", "--pin", TEST_PIN_NAME]) as {
       ok?: boolean;
-      checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean; collectionPresent?: boolean; contextPresent?: boolean; vectorsOk?: boolean }[];
+      checks?: { pin?: string; clonePresent?: boolean; cloneShaOk?: boolean }[];
     };
     assertEquals(result.ok, true, "verify should report ok=true");
     assertEquals((result.checks?.length ?? 0) > 0, true, "verify should include checks");
@@ -260,9 +195,6 @@ Deno.test("gl-knowledge e2e", async (t) => {
     assertEquals(check.pin, TEST_PIN_NAME, "check should target test pin");
     assertEquals(check.clonePresent, true, "clone should be present");
     assertEquals(check.cloneShaOk, true, "clone should match pinned sha");
-    assertEquals(check.collectionPresent, true, "collection should be present");
-    assertEquals(check.contextPresent, true, "context should be present");
-    assertEquals(check.vectorsOk, true, "vectors should be ready");
   });
 
   await t.step("stage-cleanup removes staged clone", () => {
@@ -352,7 +284,7 @@ Deno.test("gl-knowledge e2e", async (t) => {
 
   await t.step("status returns pinned state", () => {
     const status = runGlMaintenanceJson(["status"]) as {
-      pins?: { name?: string; cloneExists?: boolean; cloneAtExpectedSha?: boolean; collectionExists?: boolean; contextExists?: boolean }[];
+      pins?: { name?: string; cloneExists?: boolean; cloneAtExpectedSha?: boolean }[];
     };
     assertEquals(Array.isArray(status.pins), true, "status should include pins");
     assertEquals((status.pins?.length ?? 0) > 0, true, "status should include at least one pin");
@@ -360,15 +292,11 @@ Deno.test("gl-knowledge e2e", async (t) => {
       name?: string;
       cloneExists?: boolean;
       cloneAtExpectedSha?: boolean;
-      collectionExists?: boolean;
-      contextExists?: boolean;
     } | undefined;
     assertExists(pin, "status should report test pin");
     assertEquals(pin!.name, TEST_PIN_NAME);
     assertEquals(pin!.cloneExists, true, "test pin clone should exist");
     assertEquals(pin!.cloneAtExpectedSha, true, "test pin clone should match pinned sha");
-    assertEquals(pin!.collectionExists, true, "test pin collection should exist");
-    assertEquals(pin!.contextExists, true, "test pin context should exist");
   });
 
   await t.step("teardown", async () => {
