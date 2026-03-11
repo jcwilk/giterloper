@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
-import { safeName, makeQueueFilename } from "../../lib/reconcile.ts";
+import { safeName, makeQueueFilename } from "../../lib/add-queue.ts";
 
 Deno.test("safeName trims and replaces invalid chars with dashes", () => {
   assertEquals(safeName("  foo bar  "), "foo-bar");

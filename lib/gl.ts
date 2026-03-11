@@ -7,7 +7,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { EXIT, GlError, fail } from "./errors.ts";
-import { makeQueueFilename, safeName } from "./reconcile.ts";
+import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { run } from "./run.ts";
 import { mutatePins, readPins, resolvePin } from "./pinned.ts";
 import { resolveShaOrRef } from "./git.ts";

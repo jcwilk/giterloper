@@ -60,7 +60,7 @@ const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 ## Project Structure
 
-- **`lib/`** — TypeScript source for the gl CLI (paths, reconcile, pinned, git, etc.)
+- **`lib/`** — TypeScript source for the gl CLI (paths, add-queue, pinned, git, etc.)
 - **`.cursor/skills/gl/scripts/gl`** — Executable shell script; run from workspace root
 - **`tests/e2e/`** — E2E tests; use `deno run -A scripts/run-e2e.ts`
 - **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo)

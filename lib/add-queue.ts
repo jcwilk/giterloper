@@ -1,5 +1,6 @@
 /**
- * Utilities for add command: safeName, makeQueueFilename.
+ * Add command queue: safeName, makeQueueFilename.
+ * Used when queueing content into added/ for gl add.
  */
 import { createHash } from "node:crypto";
 
