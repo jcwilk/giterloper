@@ -1,6 +1,6 @@
 ---
 id: git-76vk
-status: open
+status: closed
 deps: [git-dadj, git-6ens]
 links: []
 created: 2026-03-14T19:02:49Z

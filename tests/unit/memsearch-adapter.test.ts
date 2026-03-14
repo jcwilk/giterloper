@@ -11,7 +11,7 @@ import {
   type IndexMetadata,
 } from "../../lib/memsearch-adapter.ts";
 import { ensureDir } from "../../lib/paths.ts";
-import { StaleIndexError } from "../../lib/errors.ts";
+import { GlError, StaleIndexError } from "../../lib/errors.ts";
 
 function makeState(rootDir: string): GlState {
   return {
@@ -130,4 +130,97 @@ Deno.test("search throws StaleIndexError when metadata pin+sha does not match re
   } finally {
     Deno.removeSync(root, { recursive: true });
   }
+});
+
+// --- Per-version isolation tests (git-76vk) ---
+
+Deno.test("search throws StaleIndexError when same pin but metadata sha differs (no cross-sha reuse)", async () => {
+  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const state = makeState(root);
+  const reqSha = "a".repeat(40);
+  const metaSha = "b".repeat(40);
+  const dir = path.join(root, "indexes", "samePin", reqSha);
+  const meta: IndexMetadata = {
+    pinName: "samePin",
+    sha: metaSha,
+    sourcePath: "/x",
+    buildFingerprint: "v1",
+  };
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "metadata.json"), JSON.stringify(meta));
+    writeFileSync(path.join(dir, "milvus.db"), "");
+
+    const { search } = await import("../../lib/memsearch-adapter.ts");
+    const err = (await assertRejects(
+      async () => search(state, "samePin", reqSha, "query"),
+      StaleIndexError
+    )) as StaleIndexError;
+    assertEquals(err.message.includes("index metadata mismatch"), true);
+    assertEquals(err.pinName, "samePin");
+    assertEquals(err.sha, metaSha);
+    assertEquals(err.expectedPinName, "samePin");
+    assertEquals(err.expectedSha, reqSha);
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+Deno.test("search fails when milvus exists but metadata missing (no fallback to other index)", async () => {
+  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const state = makeState(root);
+  const pinName = "p";
+  const sha = "s".repeat(40);
+  const dir = path.join(root, "indexes", pinName, sha);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "milvus.db"), "");
+    // No metadata.json - simulates stale/corrupt state
+
+    const { search } = await import("../../lib/memsearch-adapter.ts");
+    const err = (await assertRejects(
+      async () => search(state, pinName, sha, "query"),
+      GlError
+    )) as GlError;
+    assertEquals(err.message.includes("missing or invalid metadata"), true);
+    assertEquals(err.message.includes("Rebuild required"), true);
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+Deno.test("buildOnDemand fails when pin sha does not match requested sha", async () => {
+  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const state = makeState(root);
+  const reqSha = "a".repeat(40);
+  const pinSha = "b".repeat(40);
+  const { search } = await import("../../lib/memsearch-adapter.ts");
+  const err = (await assertRejects(
+    async () =>
+      search(state, "p", reqSha, "q", 20, {
+        buildOnDemand: true,
+        pin: { name: "p", sha: pinSha, source: "x", branch: "main" },
+      }),
+    GlError
+  )) as GlError;
+  assertEquals(err.message.includes("buildOnDemand requires pin matching"), true);
+  assertEquals(err.message.includes("pin=p"), true);
+  assertEquals(err.message.includes("sha=" + reqSha), true);
+});
+
+Deno.test("buildOnDemand fails when pin name does not match requested pin", async () => {
+  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const state = makeState(root);
+  const sha = "a".repeat(40);
+  const { search } = await import("../../lib/memsearch-adapter.ts");
+  const err = (await assertRejects(
+    async () =>
+      search(state, "reqPin", sha, "q", 20, {
+        buildOnDemand: true,
+        pin: { name: "otherPin", sha, source: "x", branch: "main" },
+      }),
+    GlError
+  )) as GlError;
+  assertEquals(err.message.includes("buildOnDemand requires pin matching"), true);
+  assertEquals(err.message.includes("pin=reqPin"), true);
 });
