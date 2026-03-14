@@ -2,7 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
-import { ensureDir, cloneDir, stagedDir } from "../../lib/paths.ts";
+import { ensureDir, cloneDir, stagedDir, indexDir } from "../../lib/paths.ts";
 
 Deno.test("ensureDir creates directory when missing", () => {
   const dir = path.join(tmpdir(), `paths-test-${Date.now()}`);
@@ -38,4 +38,19 @@ Deno.test("stagedDir returns stagedRoot/pinName/branchName", () => {
     globalJson: false,
   };
   assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/staged/p1/main");
+});
+
+Deno.test("indexDir returns rootDir/indexes/pinName/sha", () => {
+  const state = {
+    projectRoot: "/proj",
+    rootDir: "/proj/.giterloper",
+    versionsDir: "/x",
+    stagedRoot: "/x",
+    pinnedPath: "/x/pinned.yaml",
+    globalJson: false,
+  };
+  assertEquals(
+    indexDir(state, "knowledge", "abcd1234".repeat(5)),
+    "/proj/.giterloper/indexes/knowledge/abcd1234abcd1234abcd1234abcd1234abcd1234"
+  );
 });

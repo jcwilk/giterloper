@@ -22,6 +22,21 @@ export class GlError extends Error {
   }
 }
 
+/** Thrown when index metadata does not match requested pin+sha. Maps to MCP stale_index (409). */
+export class StaleIndexError extends GlError {
+  constructor(
+    message: string,
+    public readonly pinName: string,
+    public readonly sha: string,
+    public readonly expectedPinName?: string,
+    public readonly expectedSha?: string
+  ) {
+    super(message, EXIT.STATE);
+    this.name = "StaleIndexError";
+    Object.setPrototypeOf(this, StaleIndexError.prototype);
+  }
+}
+
 export function fail(message: string, code: number = EXIT.USER): never {
   throw new GlError(message, code);
 }

@@ -19,3 +19,7 @@ export function cloneDir(state: GlState, pin: Pin): string {
 export function stagedDir(state: GlState, pinName: string, branchName: string): string {
   return path.join(state.stagedRoot, pinName, branchName);
 }
+
+export function indexDir(state: GlState, pinName: string, sha: string): string {
+  return path.join(state.rootDir, "indexes", pinName, sha);
+}

@@ -1,5 +1,6 @@
 .giterloper/versions/
 .giterloper/staged/
+.giterloper/indexes/
 .giterloper/locks/
 .giterloper/qmd/
 
