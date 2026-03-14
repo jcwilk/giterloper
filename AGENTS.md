@@ -147,6 +147,21 @@ Unit tests: `deno test -A tests/unit/`
 
 E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; use GITERLOPER_GH_TOKEN (cloud) or `gh auth login` (local).
 
+### MCP server
+
+The MCP server exposes giterloper over HTTP/SSE (Streamable HTTP). No stdio transport. See `docs/MCP_API_CONTRACT.md` for tool names, schemas, and error codes.
+
+**Run:**
+```bash
+deno run -A lib/gl-mcp-server.ts
+# or
+deno task mcp:serve
+```
+
+**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1).
+
+**Endpoints:** `GET /health` — health diagnostics; `GET|POST /mcp` — MCP Streamable HTTP.
+
 ### Typecheck
 
 Run `deno check lib/gl.ts` to verify TypeScript. No build step required—Deno runs TypeScript directly.
