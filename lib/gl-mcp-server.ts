@@ -5,7 +5,7 @@
  */
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -19,6 +19,7 @@ import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { mapErrorToMcp } from "./mcp-error-mapping.ts";
+import { retrieveFileContent } from "./read-tools.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import { run } from "./run.ts";
 import {
@@ -29,8 +30,7 @@ import {
   pushBranchOrFail,
   requirePinBranch,
 } from "./branch.ts";
-import { updatePinSha } from "./pin-lifecycle.ts";
-import { verifyCloneAtSha } from "./pin-lifecycle.ts";
+import { updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 
 const PORT = (() => {
   const p = Deno.env.get("MCP_PORT");
@@ -139,41 +139,22 @@ function createServer(): McpServer {
         if (!filePath && !id) {
           return {
             ok: false,
-            code: "external",
-            message:
-              "At least one of path or id must be provided",
+            code: "invalid_argument",
+            message: "At least one of path or id must be provided",
             details: {},
           };
         }
         if (id && !filePath) {
           return {
             ok: false,
-            code: "external",
-            message:
-              "Retrieval by id not yet supported; use path for file retrieval",
+            code: "invalid_argument",
+            message: "Retrieval by id not yet supported; use path for file retrieval",
             details: {},
           };
         }
         const p = resolvePin(state, pin);
         const effectiveSha = sha ?? p.sha;
-        const clonePath = path.join(
-          state.versionsDir,
-          pin,
-          effectiveSha
-        );
-        if (!existsSync(clonePath) || !verifyCloneAtSha(
-          { ...p, sha: effectiveSha },
-          clonePath
-        )) {
-          throw new Error(
-            `No clone for pin "${pin}" at ${effectiveSha}. Run "gl pin load" or ensure the version is cloned.`
-          );
-        }
-        const fullPath = path.join(clonePath, filePath!);
-        if (!existsSync(fullPath)) {
-          throw new Error(`File not found: ${filePath}`);
-        }
-        const content = readFileSync(fullPath, "utf8");
+        const content = retrieveFileContent(state, p, effectiveSha, filePath!);
         return {
           ok: true,
           pin,

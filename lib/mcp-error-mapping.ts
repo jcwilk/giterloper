@@ -10,6 +10,7 @@ export type McpErrorCode =
   | "mismatched_sha"
   | "branchless_write"
   | "reconciliation_conflict"
+  | "invalid_argument"
   | "external";
 
 export interface McpErrorResult {
@@ -109,6 +110,7 @@ export function mcpCodeToHttpStatus(code: McpErrorCode): number {
     case "reconciliation_conflict":
       return 409;
     case "branchless_write":
+    case "invalid_argument":
       return 400;
     case "external":
     default:

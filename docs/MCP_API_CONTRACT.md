@@ -268,6 +268,7 @@ All error responses MUST use a consistent envelope:
 | `stale_index` | Index metadata does not match requested pin+sha; rebuild or sync required | 409 |
 | `mismatched_sha` | Pin SHA does not match remote branch HEAD; sync with `pin update` | 409 |
 | `branchless_write` | Write operation attempted on pin without `branch` | 400 |
+| `invalid_argument` | Invalid or missing required arguments (e.g. both path and id omitted for retrieve) | 400 |
 | `reconciliation_conflict` | Merge cannot be completed automatically (GitHub merge conflict) | 409 |
 | `external` | Git, GitHub, or I/O failure | 500 |
 

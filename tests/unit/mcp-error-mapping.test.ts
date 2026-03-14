@@ -50,6 +50,7 @@ Deno.test("mcpCodeToHttpStatus returns correct status codes", () => {
   assertEquals(mcpCodeToHttpStatus("stale_index"), 409);
   assertEquals(mcpCodeToHttpStatus("mismatched_sha"), 409);
   assertEquals(mcpCodeToHttpStatus("branchless_write"), 400);
+  assertEquals(mcpCodeToHttpStatus("invalid_argument"), 400);
   assertEquals(mcpCodeToHttpStatus("reconciliation_conflict"), 409);
   assertEquals(mcpCodeToHttpStatus("external"), 500);
 });

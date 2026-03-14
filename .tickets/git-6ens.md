@@ -1,6 +1,6 @@
 ---
 id: git-6ens
-status: open
+status: closed
 deps: [git-mor9, git-dadj]
 links: []
 created: 2026-03-14T19:02:49Z
