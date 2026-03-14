@@ -1,6 +1,6 @@
 ---
 id: git-j6xv
-status: open
+status: closed
 deps: [git-mor9]
 links: []
 created: 2026-03-14T19:02:49Z

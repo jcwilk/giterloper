@@ -31,6 +31,16 @@ Deno.test("mapErrorToMcp maps no pins to missing_pin", () => {
   assertEquals(result.code, "missing_pin");
 });
 
+Deno.test("mapErrorToMcp maps branch stale to mismatched_sha", () => {
+  const err = new GlError(
+    'branch "main" for pin "x" is stale.\n  Local HEAD:  abc\n  Remote HEAD: def',
+    2
+  );
+  const result = mapErrorToMcp(err);
+  assertEquals(result.ok, false);
+  assertEquals(result.code, "mismatched_sha");
+});
+
 Deno.test("mapErrorToMcp maps branchless to branchless_write", () => {
   const err = new GlError('pin "x" has no branch', 1);
   const result = mapErrorToMcp(err);

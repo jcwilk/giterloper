@@ -33,6 +33,22 @@ import {
 } from "./branch.ts";
 import { updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 
+/** Validates insert_pending content. Returns MCP error envelope or null if valid. */
+export function validateInsertContent(
+  content: string | null | undefined
+): { ok: false; code: "invalid_argument"; message: string; details: Record<string, unknown> } | null {
+  const trimmed = (content ?? "").trim();
+  if (!trimmed) {
+    return {
+      ok: false,
+      code: "invalid_argument",
+      message: "content must be non-empty",
+      details: {},
+    };
+  }
+  return null;
+}
+
 const PORT = (() => {
   const p = Deno.env.get("MCP_PORT");
   return p ? parseInt(p, 10) : 3443;
@@ -183,19 +199,22 @@ function createServer(): McpServer {
     },
     async ({ pin, content, name }) =>
       wrapTool(() => {
+        const validationError = validateInsertContent(content);
+        if (validationError) return validationError;
+        const trimmed = (content ?? "").trim();
         const p = resolvePin(state, pin);
         requirePinBranch(p, "insert_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
         const oldSha = p.sha;
         const folder = "knowledge/_pending";
-        const fileName = makeQueueFilename(content, name ?? null);
+        const fileName = makeQueueFilename(trimmed, name ?? null);
         const folderPath = path.join(dir, folder);
         ensureDir(folderPath);
         let outPath = path.join(folderPath, fileName);
         if (existsSync(outPath)) {
           const suffix = createHash("sha256")
-            .update(content)
+            .update(trimmed)
             .digest("hex")
             .slice(0, 8);
           outPath = path.join(
@@ -205,7 +224,7 @@ function createServer(): McpServer {
         }
         writeFileSync(
           outPath,
-          content.endsWith("\n") ? content : `${content}\n`,
+          trimmed.endsWith("\n") ? trimmed : `${trimmed}\n`,
           "utf8"
         );
         commitIfDirty(dir, `gl: insert ${path.basename(outPath)}`);
