@@ -78,7 +78,7 @@ export function runGlJson(
   return runGl(args, { ...opts, parseJson: true }).data;
 }
 
-/** Run gl-maintenance commands (status, verify, clone, index, stage, stage-cleanup, teardown, gpu, plus all main commands). */
+/** Run gl-maintenance commands (status, verify, clone, teardown, stage, stage-cleanup, promote). */
 export function runGlMaintenance(
   args: string[],
   opts: { parseJson?: boolean; cwd?: string } = {}

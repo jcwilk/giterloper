@@ -6,6 +6,7 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 - **Constitution** — `CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
+- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. See `docs/MCP_API_CONTRACT.md` and `AGENTS.md`.
 
 ## Knowledge stores
 

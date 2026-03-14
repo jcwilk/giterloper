@@ -151,6 +151,8 @@ E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; 
 
 The MCP server exposes giterloper over HTTP/SSE (Streamable HTTP). No stdio transport. See `docs/MCP_API_CONTRACT.md` for tool names, schemas, and error codes.
 
+**Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
+
 **Run:**
 ```bash
 deno run -A lib/gl-mcp-server.ts

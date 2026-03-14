@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Runs e2e tests. QMD uses --index per pin+SHA (pinQmd) for isolation.
- * Random pin/branch names (RUN_ID) avoid collisions. pinned.yaml writes are protected by a lock.
+ * Runs e2e tests. Random pin/branch names (RUN_ID) avoid collisions.
+ * pinned.yaml writes are protected by a lock. cleanupLeakedTestPins() removes leaked E2E pins after tests.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -44,6 +44,4 @@ const result = spawnSync(
 );
 
 cleanupLeakedTestPins();
-const glExtended = path.join(root, "scripts", "gl-extended");
-spawnSync(glExtended, ["qmd-orphan-cleanup"], { cwd: root, stdio: "pipe" });
 Deno.exit(result.status ?? 1);

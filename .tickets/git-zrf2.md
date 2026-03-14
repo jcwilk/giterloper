@@ -1,6 +1,6 @@
 ---
 id: git-zrf2
-status: open
+status: closed
 deps: [git-mor9, git-dadj, git-6ens, git-j6xv, git-893e, git-fqhi, git-76vk, git-uw04, git-dsgd]
 links: []
 created: 2026-03-14T19:02:49Z
