@@ -1,6 +1,6 @@
 ---
 id: git-uw04
-status: open
+status: closed
 deps: [git-6ens, git-j6xv, git-893e, git-fqhi, git-76vk, git-dsgd]
 links: []
 created: 2026-03-14T19:02:49Z
