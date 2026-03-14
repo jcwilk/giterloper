@@ -1,6 +1,6 @@
 ---
 id: git-1ua8
-status: open
+status: closed
 deps: [git-cu4d]
 links: []
 created: 2026-03-14T19:02:49Z

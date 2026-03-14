@@ -67,7 +67,7 @@ Implementation tickets should use this ordering where dependencies exist.
 
 2. **MCP API contracts (git-1ua8)**  
    - Depends on this audit (git-cu4d).  
-   - Produce tool-level schema (search, retrieve, insert pending, reconcile, state inspection), state-id semantics, error cases.  
+   - Spec: **docs/MCP_API_CONTRACT.md** — tool-level schema (search, retrieve, insert pending, reconcile, state inspection), state-id semantics, error cases.  
    - Referenced by server and client implementation tickets.
 
 3. **Memsearch adapter with pin+sha isolation (git-dadj)**  
