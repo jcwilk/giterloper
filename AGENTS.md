@@ -2,6 +2,21 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
+## Task Tracking
+
+Use the ticket system for all work.
+
+- `./tk ready` — available tasks (open/in-progress, deps resolved)
+- `./tk start <id>` — begin work on a ticket
+- `./tk close <id>` — close after verification
+- `./tk show <id>` — full ticket details
+
+**Task completion requires commit and push.** A closed ticket with a dirty tree is not done.
+
+**Workflow** (`/work-next`): Run `./tk ready`, pick the top ticket, `./tk start <id>`, read with `./tk show <id>`, then implement, validate, close, commit, and push.
+
+**Cursor skill commands**: `/work-next`, `/work-all`, `/file-tickets`, `/persist`, `/archive-tickets` — see `.cursor/skills/ticket/SKILL.md`.
+
 ## Coding Conventions
 
 See [CONVENTIONS.md](./CONVENTIONS.md) for type-safety, interface/type usage, and strict mode requirements.
