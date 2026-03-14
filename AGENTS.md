@@ -160,7 +160,12 @@ deno task mcp:serve
 
 **Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1).
 
-**Endpoints:** `GET /health` — health diagnostics; `GET|POST /mcp` — MCP Streamable HTTP.
+**Endpoints:** `GET /health` — health diagnostics (unauthenticated); `GET|POST /mcp` — MCP Streamable HTTP (requires auth unless insecure mode).
+
+**Authentication:**
+- By default, MCP requests require `Authorization: Bearer <token>` where the token matches `MCP_TOKEN`.
+- Set `MCP_INSECURE=true` (or `MCP_INSECURE=1`) to skip auth for **local development only**. Do not use in production.
+- Unauthorized requests return 401 with `{ ok: false, code: "unauthorized", message: "Authentication required", details: {} }`.
 
 ### Typecheck
 

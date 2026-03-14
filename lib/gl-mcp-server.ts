@@ -19,6 +19,7 @@ import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { mapErrorToMcp } from "./mcp-error-mapping.ts";
+import { isInsecureMode, mcpAuthMiddleware } from "./mcp-auth.ts";
 import { retrieveFileContent } from "./read-tools.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import { run } from "./run.ts";
@@ -343,6 +344,7 @@ app.use(
     origin: (origin) => origin ?? "*",
     allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
     allowHeaders: [
+      "Authorization",
       "Content-Type",
       "mcp-session-id",
       "Last-Event-ID",
@@ -360,6 +362,7 @@ app.get("/health", (c) =>
   })
 );
 
+app.use("/mcp", mcpAuthMiddleware);
 app.all("/mcp", async (c) => {
   const transport = new WebStandardStreamableHTTPServerTransport();
   const server = createServer();
@@ -368,8 +371,17 @@ app.all("/mcp", async (c) => {
 });
 
 if (import.meta.main) {
+  const insecure = isInsecureMode();
+  const hasToken = !!Deno.env.get("MCP_TOKEN");
   console.log(`Giterloper MCP server on http://${HOST}:${PORT}`);
   console.log(`  Health: http://${HOST}:${PORT}/health`);
   console.log(`  MCP:    http://${HOST}:${PORT}/mcp`);
+  if (insecure) {
+    console.log(`  Auth:   INSECURE (local dev only)`);
+  } else if (hasToken) {
+    console.log(`  Auth:   enabled (Bearer token)`);
+  } else {
+    console.log(`  Auth:   enabled (no MCP_TOKEN set; all MCP requests will be denied)`);
+  }
   Deno.serve({ port: PORT, hostname: HOST }, (req) => app.fetch(req));
 }

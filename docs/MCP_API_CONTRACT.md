@@ -264,6 +264,7 @@ All error responses MUST use a consistent envelope:
 
 | Code | Description | HTTP/Status |
 |------|-------------|-------------|
+| `unauthorized` | Missing or invalid authentication (Bearer token) | 401 |
 | `missing_pin` | Pin name not found in pinned.yaml | 404 |
 | `stale_index` | Index metadata does not match requested pin+sha; rebuild or sync required | 409 |
 | `mismatched_sha` | Pin SHA does not match remote branch HEAD; sync with `pin update` | 409 |

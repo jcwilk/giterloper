@@ -46,6 +46,7 @@ Deno.test("mapErrorToMcp maps merge conflict to reconciliation_conflict", () => 
 });
 
 Deno.test("mcpCodeToHttpStatus returns correct status codes", () => {
+  assertEquals(mcpCodeToHttpStatus("unauthorized"), 401);
   assertEquals(mcpCodeToHttpStatus("missing_pin"), 404);
   assertEquals(mcpCodeToHttpStatus("stale_index"), 409);
   assertEquals(mcpCodeToHttpStatus("mismatched_sha"), 409);

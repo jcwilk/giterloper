@@ -5,6 +5,7 @@
 import { EXIT, GlError, StaleIndexError } from "./errors.ts";
 
 export type McpErrorCode =
+  | "unauthorized"
   | "missing_pin"
   | "stale_index"
   | "mismatched_sha"
@@ -103,6 +104,8 @@ export function mapErrorToMcp(error: unknown): McpErrorResult {
 /** HTTP status for each MCP error code per contract §5.1 */
 export function mcpCodeToHttpStatus(code: McpErrorCode): number {
   switch (code) {
+    case "unauthorized":
+      return 401;
     case "missing_pin":
       return 404;
     case "stale_index":

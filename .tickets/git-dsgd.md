@@ -1,6 +1,6 @@
 ---
 id: git-dsgd
-status: open
+status: closed
 deps: [git-1ua8, git-mor9]
 links: []
 created: 2026-03-14T19:07:25Z
