@@ -1,6 +1,6 @@
 ---
 id: git-cu4d
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-14T19:06:20Z
