@@ -1,6 +1,6 @@
 ---
 id: git-fqhi
-status: open
+status: closed
 deps: [git-6ens, git-j6xv, git-893e]
 links: []
 created: 2026-03-14T19:02:49Z

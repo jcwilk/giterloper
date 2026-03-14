@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "test": "deno test -A tests/",
+    "run": "deno run -A run.ts"
+  },
+  "imports": {
+    "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.27.1"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.unstable", "dom"]
+  }
+}
