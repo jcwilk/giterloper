@@ -120,6 +120,39 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
   }
 });
 
+Deno.test("reconcile processes _pending into topic files and deletes pending", () => {
+  const pinName = randomPin("reconcile");
+  const branch = `${pinName}-branch`;
+  try {
+    const pendingContent = "# Reconcile Test Topic\n\nContent with marker `reconcile-e2e-marker`.";
+    createRemoteBranchFromMain(branch, "knowledge/_pending/reconcile-test.md", pendingContent);
+    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
+    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const result = runGlJson(["reconcile", "--pin", pinName]) as {
+      action?: string;
+      oldSha?: string;
+      newSha?: string;
+      touched?: string[];
+      deleted?: string[];
+    };
+    assertEquals(result.action, "reconciled");
+    assertEquals(result.touched?.includes("knowledge/reconcile-test-topic.md"), true);
+    assertEquals(result.deleted?.includes("knowledge/_pending/reconcile-test.md"), true);
+    const topicPath = path.join(stagedDir(pinName, branch), "knowledge", "reconcile-test-topic.md");
+    assertEquals(existsSync(topicPath), true);
+    const topicBody = readFileSync(topicPath, "utf8");
+    assertEquals(topicBody.includes("reconcile-e2e-marker"), true);
+    assertEquals(topicBody.includes("## Sources"), true);
+    const pendingPath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", "reconcile-test.md");
+    assertEquals(existsSync(pendingPath), false);
+    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    assertEquals(after!.sha !== before!.sha, true);
+  } finally {
+    ensurePinRemoved(pinName);
+  }
+});
+
 Deno.test("insert with --name uses requested file name", () => {
   const pinName = randomPin("insert-name");
   const branch = `${pinName}-branch`;

@@ -39,6 +39,7 @@ import {
   updatePinSha,
   verifyCloneAtSha,
 } from "./pin-lifecycle.ts";
+import { reconcile } from "./reconcile.ts";
 
 function cmdPinList(state: GlState, args: string[]) {
   ensureHelpNotRequested(args, ["Usage: gl pin list [--json]", "Lists all pins."].join("\n"));
@@ -328,6 +329,48 @@ function cmdPinLoad(state: GlState, args: string[]) {
   if (anyFailed) fail("one or more pins failed to load", EXIT.EXTERNAL);
 }
 
+function cmdReconcile(state: GlState, args: string[]) {
+  ensureHelpNotRequested(
+    args,
+    [
+      "Usage: gl reconcile [--pin <name>]",
+      "Process knowledge/_pending into topic files under knowledge/. Deletes pending only after content is represented.",
+    ].join("\n")
+  );
+  let rest = [...args];
+  const pinParsed = parseFlag(rest, "--pin");
+  rest = pinParsed.args;
+  if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
+
+  const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
+  requirePinBranch(pin, "reconcile");
+  const dir = ensureWorkingClone(state, pin, { infoFn: info });
+  assertBranchFresh(state, pin, dir);
+
+  const result = reconcile(dir);
+  if (!result.ok) {
+    fail(result.message, EXIT.STATE);
+  }
+  if (result.touched.length > 0 || result.deleted.length > 0) {
+    pushBranchOrFail(dir, pin, "reconcile");
+    updatePinSha(state, pin.name, result.newSha, { infoFn: info });
+  }
+
+  commandOutput(
+    {
+      action: "reconciled",
+      pin: pin.name,
+      branch: pin.branch,
+      oldSha: result.oldSha,
+      newSha: result.newSha,
+      touched: result.touched,
+      deleted: result.deleted,
+      unresolved: result.unresolved,
+    },
+    state.globalJson
+  );
+}
+
 async function cmdMerge(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
@@ -399,6 +442,7 @@ async function main() {
   }
   if (cmd === "insert") return cmdInsert(state, rest);
   if (cmd === "install-remote") return cmdInstallRemote(state, rest);
+  if (cmd === "reconcile") return cmdReconcile(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);
@@ -414,6 +458,7 @@ export {
   cmdPinLoad,
   cmdInsert,
   cmdInstallRemote,
+  cmdReconcile,
   cmdMerge,
 };
 

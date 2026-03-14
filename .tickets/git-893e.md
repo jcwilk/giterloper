@@ -1,6 +1,6 @@
 ---
 id: git-893e
-status: open
+status: closed
 deps: [git-j6xv, git-6ens]
 links: []
 created: 2026-03-14T19:02:49Z

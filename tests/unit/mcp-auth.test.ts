@@ -22,12 +22,14 @@ Deno.test("isReadTool identifies read tools", () => {
   assertEquals(isReadTool("giterloper_state_inspect"), true);
   assertEquals(isReadTool("giterloper_insert_pending"), false);
   assertEquals(isReadTool("giterloper_reconcile"), false);
+  assertEquals(isReadTool("giterloper_reconcile_pending"), false);
   assertEquals(isReadTool("unknown"), false);
 });
 
 Deno.test("isWriteTool identifies write tools", () => {
   assertEquals(isWriteTool("giterloper_insert_pending"), true);
   assertEquals(isWriteTool("giterloper_reconcile"), true);
+  assertEquals(isWriteTool("giterloper_reconcile_pending"), true);
   assertEquals(isWriteTool("giterloper_search"), false);
   assertEquals(isWriteTool("giterloper_retrieve"), false);
   assertEquals(isWriteTool("unknown"), false);

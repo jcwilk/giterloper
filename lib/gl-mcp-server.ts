@@ -32,6 +32,7 @@ import {
   requirePinBranch,
 } from "./branch.ts";
 import { updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
+import { reconcile } from "./reconcile.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
 export function validateInsertContent(
@@ -239,6 +240,50 @@ function createServer(): McpServer {
           file: path.basename(outPath),
           oldSha,
           newSha,
+        };
+      })
+  );
+
+  server.registerTool(
+    "giterloper_reconcile_pending",
+    {
+      title: "Reconcile pending knowledge",
+      description:
+        "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile.",
+      inputSchema: z.object({
+        pin: z.string().describe("Pin name (required)"),
+      }),
+    },
+    async ({ pin }) =>
+      wrapTool(() => {
+        const p = resolvePin(state, pin);
+        requirePinBranch(p, "reconcile_pending");
+        const dir = ensureWorkingClone(state, p, {});
+        assertBranchFresh(state, p, dir);
+        const oldSha = p.sha;
+        const result = reconcile(dir);
+        if (!result.ok) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: result.message,
+            details: { unresolved: result.unresolved ?? [] },
+          };
+        }
+        if (result.touched.length > 0 || result.deleted.length > 0) {
+          pushBranchOrFail(dir, p, "reconcile");
+          updatePinSha(state, p.name, result.newSha, {});
+        }
+        return {
+          ok: true,
+          action: "reconciled",
+          pin: p.name,
+          branch: p.branch!,
+          oldSha: result.oldSha,
+          newSha: result.newSha,
+          touched: result.touched,
+          deleted: result.deleted,
+          unresolved: result.unresolved,
         };
       })
   );

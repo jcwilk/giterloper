@@ -41,7 +41,7 @@ Every operation is scoped to a **pin** and an **effective SHA**.
 
 ### 3.3 Write operations and SHA reporting
 
-Write operations (insert_pending, reconcile) update the pin's stored SHA. Every write response MUST include:
+Write operations (insert_pending, reconcile, reconcile_pending) update the pin's stored SHA. Every write response MUST include:
 
 | Field | Description |
 |-------|-------------|
@@ -154,7 +154,39 @@ Queue new knowledge into `knowledge/_pending/`. Equivalent to CLI `gl insert`.
 }
 ```
 
-### 4.4 `giterloper_reconcile`
+### 4.4 `giterloper_reconcile_pending`
+
+Process knowledge/_pending into topic files under knowledge/. Groups by topic (first # heading), merges into existing topic files, adds Sources section, deletes pending only after content is represented. Single-pin operation. Equivalent to CLI `gl reconcile`.
+
+**Arguments:**
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "pin": { "type": "string", "description": "Pin name (required)" }
+  },
+  "required": ["pin"]
+}
+```
+
+**Success response shape (oldSha/newSha required):**
+
+```json
+{
+  "ok": true,
+  "action": "reconciled",
+  "pin": "string",
+  "branch": "string",
+  "oldSha": "string",
+  "newSha": "string",
+  "touched": ["knowledge/foo.md", "..."],
+  "deleted": ["knowledge/_pending/bar.md", "..."],
+  "unresolved": []
+}
+```
+
+### 4.5 `giterloper_reconcile`
 
 Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI `gl merge`.
 
@@ -187,7 +219,7 @@ Merge source pin's branch into target pin's branch via GitHub API. Equivalent to
 }
 ```
 
-### 4.5 `giterloper_state_inspect`
+### 4.6 `giterloper_state_inspect`
 
 Inspect pin state: list pins, verify clone health, branch freshness.
 
@@ -299,7 +331,7 @@ All error responses MUST use a consistent envelope:
 
 - **pinned.yaml writes** are protected by a FIFO mutex; concurrent mutators serialize.
 - **Search/retrieve** are read-only; safe to parallelize per pin+sha.
-- **Write operations** (insert_pending, reconcile) MUST acquire appropriate locks; clients SHOULD retry on transient conflicts (`mismatched_sha`, `reconciliation_conflict`).
+- **Write operations** (insert_pending, reconcile, reconcile_pending) MUST acquire appropriate locks; clients SHOULD retry on transient conflicts (`mismatched_sha`, `reconciliation_conflict`).
 - **Stale detection:** If local working clone HEAD ≠ remote branch HEAD, the server returns `mismatched_sha` before attempting write. Client must sync (e.g. via `pin update` or equivalent) and retry.
 
 ---
@@ -311,6 +343,7 @@ All error responses MUST use a consistent envelope:
 | `gl pin list` | `giterloper_state_inspect` (no pin arg) | Full |
 | `gl diagnostic` / `gl verify` | `giterloper_state_inspect` with `verify: true` | Full |
 | `gl insert` | `giterloper_insert_pending` | Full |
+| `gl reconcile` | `giterloper_reconcile_pending` | Full |
 | `gl merge` | `giterloper_reconcile` | Full |
 | (no CLI equivalent) | `giterloper_search` | New |
 | (no CLI equivalent) | `giterloper_retrieve` | New |
