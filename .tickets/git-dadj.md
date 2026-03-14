@@ -1,7 +1,7 @@
 ---
 id: git-dadj
 status: open
-deps: [git-1ua8]
+deps: [git-1ua8, git-cu4d]
 links: []
 created: 2026-03-14T19:02:49Z
 type: feature
@@ -15,9 +15,12 @@ Integrate memsearch as the search/index backend and enforce full isolation per p
 
 ## Design
 
-Implement index manager keyed by full tuple (pinName, sha). Persist index metadata that records pin, sha, source path, and build fingerprint. Queries must fail closed when metadata does not match requested pin+sha. Build-on-demand is allowed but must never fall back to another version's index.
+Implement index manager keyed by full tuple (pinName, sha). Persist index metadata that records pin, sha, source path, and build fingerprint. Queries must fail closed when metadata does not match requested pin+sha. Build-on-demand is allowed but must never fall back to another version's index. Define and document the runtime integration boundary for memsearch from Deno (for example: subprocess CLI adapter or service boundary) so implementation remains deterministic and testable.
 
 ## Acceptance Criteria
 
-- Index namespace is unique per pin+sha.\n- Querying pin+sha A can never read index for pin+sha B.\n- Stale/mismatched metadata causes explicit failure, not fallback.\n- Rebuild behavior for missing index is deterministic and documented.
-
+- Index namespace is unique per pin+sha.
+- Querying pin+sha A can never read index for pin+sha B.
+- Stale/mismatched metadata causes explicit failure, not fallback.
+- Rebuild behavior for missing index is deterministic and documented.
+- The memsearch adapter boundary and runtime assumptions are documented and covered by tests.

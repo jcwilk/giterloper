@@ -19,5 +19,7 @@ Wrap current insert mechanics with MCP-safe schema and validation. Preserve appe
 
 ## Acceptance Criteria
 
-- Client can submit markdown via MCP and file lands in knowledge/_pending.\n- Operation returns updated state identifiers.\n- Branch safety checks are enforced (no write on branchless pin, stale branch detection retained).\n- Tool contract and implementation remain consistent.
-
+- Client can submit markdown via MCP and file lands in knowledge/_pending.
+- Operation returns updated state identifiers.
+- Branch safety checks are enforced (no write on branchless pin, stale branch detection retained).
+- Tool contract and implementation remain consistent.

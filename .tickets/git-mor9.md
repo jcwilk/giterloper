@@ -1,7 +1,7 @@
 ---
 id: git-mor9
 status: open
-deps: [git-1ua8]
+deps: [git-1ua8, git-cu4d]
 links: []
 created: 2026-03-14T19:02:49Z
 type: feature
@@ -19,5 +19,7 @@ Create server entrypoint and routing layer that registers the tool contract from
 
 ## Acceptance Criteria
 
-- Server boots locally and serves MCP over HTTP/SSE.\n- Tool registration follows the contract ticket exactly.\n- No stdio MCP mode is implemented.\n- Existing CLI behavior remains intact.
-
+- Server boots locally and serves MCP over HTTP/SSE.
+- Tool registration follows the contract ticket exactly.
+- No stdio MCP mode is implemented.
+- Existing CLI behavior remains intact.

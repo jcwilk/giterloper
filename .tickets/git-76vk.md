@@ -19,5 +19,7 @@ Construct scenarios with same pin across different SHAs and verify index namespa
 
 ## Acceptance Criteria
 
-- Tests explicitly assert no cross-sha index reuse.\n- Metadata mismatch produces fail-closed behavior.\n- Build-on-demand path is tested and bound to requested pin+sha.\n- Regression tests guard against accidental fallback logic.
-
+- Tests explicitly assert no cross-sha index reuse.
+- Metadata mismatch produces fail-closed behavior.
+- Build-on-demand path is tested and bound to requested pin+sha.
+- Regression tests guard against accidental fallback logic.

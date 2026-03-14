@@ -19,5 +19,7 @@ Tool handlers resolve target state via explicit sha or pin-head resolution then 
 
 ## Acceptance Criteria
 
-- Read tools support explicit pin+sha and pin-head resolution paths.\n- Every successful read response includes effective sha used.\n- Read paths honor stale-index guardrails from index manager.\n- Failure modes align with API contract ticket.
-
+- Read tools support explicit pin+sha and pin-head resolution paths.
+- Every successful read response includes effective sha used.
+- Read paths honor stale-index guardrails from index manager.
+- Failure modes align with API contract ticket.

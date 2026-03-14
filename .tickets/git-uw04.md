@@ -1,7 +1,7 @@
 ---
 id: git-uw04
 status: open
-deps: [git-6ens, git-j6xv, git-893e, git-fqhi, git-76vk]
+deps: [git-6ens, git-j6xv, git-893e, git-fqhi, git-76vk, git-dsgd]
 links: []
 created: 2026-03-14T19:02:49Z
 type: task
@@ -19,5 +19,7 @@ Mirror existing E2E safety practices: random RUN_ID entropy, branch isolation, c
 
 ## Acceptance Criteria
 
-- E2E tests cover read -> intake -> reconcile -> read loop.\n- All E2E tests target giterloper_test_knowledge only.\n- Tests remain parallel-safe and clean up their own branch artifacts.\n- State-id behavior is asserted across transitions.
-
+- E2E tests cover read -> intake -> reconcile -> read loop.
+- All E2E tests target `github.com/jcwilk/giterloper_test_knowledge` only.
+- Tests remain parallel-safe and clean up their own branch artifacts.
+- State-id behavior is asserted across transitions.
