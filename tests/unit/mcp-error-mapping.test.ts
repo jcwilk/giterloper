@@ -41,6 +41,16 @@ Deno.test("mapErrorToMcp maps branch stale to mismatched_sha", () => {
   assertEquals(result.code, "mismatched_sha");
 });
 
+Deno.test("mapErrorToMcp maps could not reach remote to external not mismatched_sha or stale_index", () => {
+  const msg =
+    'could not reach remote to check branch freshness for pin "x" (branch "main"). The remote may be unreachable.';
+  const err = new GlError(msg, 3);
+  const result = mapErrorToMcp(err);
+  assertEquals(result.ok, false);
+  assertEquals(result.code, "external");
+  assertEquals(result.message, msg);
+});
+
 Deno.test("mapErrorToMcp maps branchless to branchless_write", () => {
   const err = new GlError('pin "x" has no branch', 1);
   const result = mapErrorToMcp(err);

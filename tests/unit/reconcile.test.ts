@@ -1,9 +1,11 @@
 import { assertEquals } from "jsr:@std/assert";
 import {
+  comparePendingByAddEpoch,
   extractTopic,
   groupByTopic,
   mergeTopicContent,
   stripBoilerplate,
+  type PendingEntry,
 } from "../../lib/reconcile.ts";
 
 Deno.test("extractTopic uses first # heading", () => {
@@ -57,4 +59,14 @@ Deno.test("mergeTopicContent appends to existing", () => {
   assertEquals(out.includes("existing body"), true);
   assertEquals(out.includes("new content"), true);
   assertEquals(out.includes("---"), true);
+});
+
+Deno.test("comparePendingByAddEpoch orders by addEpoch ascending with addEpoch 0 last", () => {
+  const entries: PendingEntry[] = [
+    { path: "knowledge/_pending/a.md", addEpoch: 100, content: "" },
+    { path: "knowledge/_pending/b.md", addEpoch: 0, content: "" },
+    { path: "knowledge/_pending/c.md", addEpoch: 50, content: "" },
+  ];
+  entries.sort(comparePendingByAddEpoch);
+  assertEquals(entries.map((e) => e.addEpoch), [50, 100, 0]);
 });
