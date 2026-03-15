@@ -7,6 +7,8 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { getRemoteOriginUrl } from "./git.ts";
+import { getFileAddEpochViaApi, parseGithubSource } from "./github.ts";
 import { run, runSoft } from "./run.ts";
 
 const PENDING_DIR = "knowledge/_pending";
@@ -55,21 +57,42 @@ export function stripBoilerplate(text: string): string {
   return text.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-/** Get pending files in commit order (earliest add first). */
-export function getPendingInCommitOrder(repoDir: string): PendingEntry[] {
+/** Get add timestamp for a file: from GitHub API when available, else from git log. */
+async function addEpochForFile(
+  repoDir: string,
+  rel: string,
+  source: string | null,
+  useApi: boolean
+): Promise<number> {
+  if (useApi && source) {
+    const headSha = runSoft("git", ["-C", repoDir, "rev-parse", "HEAD"]);
+    if (headSha.ok && headSha.stdout?.trim()) {
+      const epoch = await getFileAddEpochViaApi(source, rel, headSha.stdout.trim());
+      if (epoch > 0) return epoch;
+    }
+  }
+  const out = runSoft("git", ["-C", repoDir, "log", "-1", "--format=%ct", "--diff-filter=A", "--", rel]);
+  const addEpoch = out.ok && out.stdout ? parseInt(out.stdout.trim(), 10) : 0;
+  return isNaN(addEpoch) ? 0 : addEpoch;
+}
+
+/** Get pending files in commit order (earliest add first). Uses GitHub API for add timestamp when repo is GitHub and token available (works with shallow clones). */
+export async function getPendingInCommitOrder(repoDir: string): Promise<PendingEntry[]> {
   const pendingPath = path.join(repoDir, PENDING_DIR);
   if (!existsSync(pendingPath)) return [];
   const files = readdirSync(pendingPath).filter((f) => f.endsWith(".md"));
   if (files.length === 0) return [];
+
+  const remoteUrl = getRemoteOriginUrl(repoDir);
+  const useApi = !!(remoteUrl && parseGithubSource(remoteUrl));
 
   const entries: PendingEntry[] = [];
   for (const f of files) {
     const rel = `${PENDING_DIR}/${f}`;
     const fullPath = path.join(repoDir, rel);
     if (!existsSync(fullPath)) continue;
-    const out = runSoft("git", ["-C", repoDir, "log", "-1", "--format=%ct", "--diff-filter=A", "--", rel]);
-    const addEpoch = out.ok && out.stdout ? parseInt(out.stdout.trim(), 10) : 0;
-    if (isNaN(addEpoch)) continue;
+    const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi);
+    if (addEpoch === 0) continue;
     const content = readFileSync(fullPath, "utf8");
     entries.push({ path: rel, addEpoch, content });
   }
@@ -92,16 +115,15 @@ export function groupByTopic(entries: PendingEntry[]): Map<string, PendingEntry[
 /** Build merged content for a topic: existing + new entries with Sources. */
 export function mergeTopicContent(
   existingContent: string | null,
-  entries: PendingEntry[],
-  stripFn: (s: string) => string = stripBoilerplate
+  entries: PendingEntry[]
 ): string {
   const parts: string[] = [];
   if (existingContent && existingContent.trim()) {
-    parts.push(stripFn(existingContent));
+    parts.push(stripBoilerplate(existingContent));
   }
   const sources: string[] = [];
   for (const e of entries) {
-    const body = stripFn(e.content);
+    const body = stripBoilerplate(e.content);
     const filename = path.basename(e.path);
     sources.push(`- \`${filename}\``);
     parts.push(body);
@@ -116,9 +138,9 @@ export function mergeTopicContent(
  * Returns oldSha/newSha, touched paths, unresolved (if any), deleted pending paths.
  * No silent data loss: unresolved files stay in _pending.
  */
-export function reconcile(repoDir: string): ReconcileResult | ReconcileError {
+export async function reconcile(repoDir: string): Promise<ReconcileResult | ReconcileError> {
   const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
-  const entries = getPendingInCommitOrder(repoDir);
+  const entries = await getPendingInCommitOrder(repoDir);
   if (entries.length === 0) {
     return { ok: true, oldSha, newSha: oldSha, touched: [], unresolved: [], deleted: [] };
   }

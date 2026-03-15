@@ -1,6 +1,13 @@
 /**
  * Maps giterloper errors to MCP API contract error codes.
  * See docs/MCP_API_CONTRACT.md §5 Error envelope.
+ *
+ * Error code producers:
+ * - Auth middleware (mcp-auth): `unauthorized` (HTTP 401).
+ * - Tool handlers (direct return, no throw): `invalid_argument` (e.g. missing path, empty content).
+ * - mapErrorToMcp (thrown exceptions): `missing_pin`, `stale_index`, `mismatched_sha`,
+ *   `branchless_write`, `reconciliation_conflict`, `external`.
+ * mcpCodeToHttpStatus maps each code to an HTTP status; only 401 is currently set by the server (auth). Tool errors are conveyed in the MCP result body.
  */
 import { EXIT, GlError, StaleIndexError } from "./errors.ts";
 

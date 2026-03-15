@@ -72,12 +72,40 @@ export function resolveBranchSha(source: string, branch: string): string {
 }
 
 export function resolveBranchShaSoft(source: string, branch: string): string | null {
+  const { reachable, remoteSha } = resolveBranchShaReachable(source, branch);
+  return reachable ? remoteSha : null;
+}
+
+/**
+ * Like resolveBranchShaSoft but distinguishes "remote unreachable" from "branch not on remote yet".
+ * Used by assertBranchFresh to fail only when the remote cannot be reached, not when the branch simply does not exist yet.
+ */
+export function resolveBranchShaReachable(
+  source: string,
+  branch: string
+): { reachable: boolean; remoteSha: string | null } {
   const remote = toRemoteUrl(source);
   const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
-  if (!out.ok || !out.stdout) return null;
+  if (!out.ok) return { reachable: false, remoteSha: null };
+  if (!out.stdout) return { reachable: true, remoteSha: null };
   const first = out.stdout.split(/\r?\n/).find(Boolean);
   const sha = first?.split(/\s+/)?.[0];
-  return sha && SHA_FULL.test(sha) ? sha : null;
+  return { reachable: true, remoteSha: sha && SHA_FULL.test(sha) ? sha : null };
+}
+
+/**
+ * Get remote.origin URL from a repo, normalized to https form for github.com.
+ * Returns null if remote.origin is not set.
+ */
+export function getRemoteOriginUrl(repoDir: string): string | null {
+  const out = runSoft("git", ["-C", repoDir, "config", "--get", "remote.origin.url"]);
+  if (!out.ok || !out.stdout?.trim()) return null;
+  let url = out.stdout.trim();
+  if (url.startsWith("git@")) {
+    url = "https://" + url.slice(4).replace(":", "/");
+  }
+  if (url.endsWith(".git")) url = url.slice(0, -4);
+  return url;
 }
 
 export function setCloneIdentity(dir: string): void {

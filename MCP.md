@@ -146,16 +146,13 @@ Purpose:
 Input schema:
 
 - `pin: string` (required)
-- `path?: string`
-- `id?: string` (declared but not supported as sole key; when `path` is present, retrieval is path-based and `id` is ignored)
+- `path: string` (required; relative path within knowledge store, e.g. `knowledge/foo.md`)
 - `sha?: string` (40-char hex when provided)
 
 Validation semantics:
 
-- If both `path` and `id` are missing:
+- If `path` is missing or empty:
   - returns `invalid_argument` envelope
-- If `id` is provided without `path`:
-  - returns `invalid_argument` envelope (`id` retrieval not yet supported)
 
 Success payload:
 
@@ -311,7 +308,7 @@ Canonical error envelope shape:
 Error code sources (not all from the same layer):
 
 - **Auth middleware** (before tool execution): `unauthorized` — returned as HTTP 401 with the envelope above when auth fails.
-- **Tool handlers (direct return)**: `invalid_argument` — returned in tool result content (no throw, so no `isError`) for input or business-rule validation (e.g. empty insert content, missing path/id for retrieve, unresolved reconcile).
+- **Tool handlers (direct return)**: `invalid_argument` — returned in tool result content (no throw, so no `isError`) for input or business-rule validation (e.g. empty insert content, missing path for retrieve, unresolved reconcile).
 - **`mapErrorToMcp()` (thrown exceptions)**: `missing_pin`, `stale_index`, `mismatched_sha`, `branchless_write`, `reconciliation_conflict`, `external`. Implemented in `lib/mcp-error-mapping.ts`; `StaleIndexError` maps to `stale_index` with `details.expectedPinName` and `details.expectedSha`; `GlError` and generic errors are pattern-matched by message text; unknown/unmatched map to `external`.
 
 Note on HTTP status mapping:

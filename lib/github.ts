@@ -61,17 +61,63 @@ export interface MergeResult {
 
 /**
  * Get GitHub API token from GITERLOPER_GH_TOKEN or `gh auth token` (session-based).
+ * Returns null if no token is available (caller can fall back to git log).
  */
-function getGitHubToken(): string {
+export function getGitHubTokenSoft(): string | null {
   const envToken = Deno.env.get("GITERLOPER_GH_TOKEN");
   if (envToken?.trim()) return envToken.trim();
   const gh = runSoft("gh", ["auth", "token"]);
-  if (gh.ok && gh.stdout?.trim()) return gh.stdout.trim();
+  return gh.ok && gh.stdout?.trim() ? gh.stdout.trim() : null;
+}
+
+/**
+ * Get GitHub API token from GITERLOPER_GH_TOKEN or `gh auth token` (session-based).
+ */
+function getGitHubToken(): string {
+  const t = getGitHubTokenSoft();
+  if (t) return t;
   fail(
     "GitHub API requires auth. Set GITERLOPER_GH_TOKEN or run `gh auth login` for session-based auth.",
     EXIT.EXTERNAL
   );
   throw new Error("unreachable");
+}
+
+/**
+ * Get the commit date (epoch seconds) of the oldest commit that touched the given path,
+ * via GitHub API. Used for ordering pending files when local git log is unreliable (e.g. shallow clone).
+ * Returns 0 if the API is unavailable or the path has no commits.
+ */
+export async function getFileAddEpochViaApi(
+  source: string,
+  path: string,
+  sha: string
+): Promise<number> {
+  const parsed = parseGithubSource(source);
+  if (!parsed) return 0;
+  const token = getGitHubTokenSoft();
+  if (!token) return 0;
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    Authorization: `Bearer ${token}`,
+  };
+  let page = 1;
+  const perPage = 100;
+  let lastCommit: { commit?: { committer?: { date?: string } } } | null = null;
+  for (;;) {
+    const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?sha=${encodeURIComponent(sha)}&path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}`;
+    const res = await fetch(url, { headers });
+    if (!res.ok) return 0;
+    const data = (await res.json()) as Array<{ commit?: { committer?: { date?: string } } }>;
+    if (!Array.isArray(data) || data.length === 0) break;
+    lastCommit = data[data.length - 1];
+    if (data.length < perPage) break;
+    page += 1;
+  }
+  if (!lastCommit?.commit?.committer?.date) return 0;
+  const epoch = Math.floor(new Date(lastCommit.commit.committer.date).getTime() / 1000);
+  return isNaN(epoch) ? 0 : epoch;
 }
 
 /**

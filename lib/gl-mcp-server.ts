@@ -137,14 +137,9 @@ function createServer(): McpServer {
         pin: z.string().describe("Pin name (required)"),
         path: z
           .string()
-          .optional()
           .describe(
             "Relative path within knowledge store (e.g. knowledge/foo.md)"
           ),
-        id: z
-          .string()
-          .optional()
-          .describe("Alternative: opaque identifier if indexing supports it"),
         sha: z
           .string()
           .regex(/^[0-9a-f]{40}$/i)
@@ -152,32 +147,24 @@ function createServer(): McpServer {
           .describe("Optional 40-char commit SHA; defaults to pin head"),
       }),
     },
-    async ({ pin, path: filePath, id, sha }) =>
+    async ({ pin, path: filePath, sha }) =>
       wrapTool(() => {
-        if (!filePath && !id) {
+        if (!filePath?.trim()) {
           return {
             ok: false,
             code: "invalid_argument",
-            message: "At least one of path or id must be provided",
-            details: {},
-          };
-        }
-        if (id && !filePath) {
-          return {
-            ok: false,
-            code: "invalid_argument",
-            message: "Retrieval by id not yet supported; use path for file retrieval",
+            message: "path is required",
             details: {},
           };
         }
         const p = resolvePin(state, pin);
         const effectiveSha = sha ?? p.sha;
-        const content = retrieveFileContent(state, p, effectiveSha, filePath!);
+        const content = retrieveFileContent(state, p, effectiveSha, filePath);
         return {
           ok: true,
           pin,
           effectiveSha,
-          path: filePath!,
+          path: filePath,
           content,
         };
       })
@@ -255,13 +242,13 @@ function createServer(): McpServer {
       }),
     },
     async ({ pin }) =>
-      wrapTool(() => {
+      wrapTool(async () => {
         const p = resolvePin(state, pin);
         requirePinBranch(p, "reconcile_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
         const oldSha = p.sha;
-        const result = reconcile(dir);
+        const result = await reconcile(dir);
         if (!result.ok) {
           return {
             ok: false,

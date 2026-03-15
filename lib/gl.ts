@@ -329,7 +329,7 @@ function cmdPinLoad(state: GlState, args: string[]) {
   if (anyFailed) fail("one or more pins failed to load", EXIT.EXTERNAL);
 }
 
-function cmdReconcile(state: GlState, args: string[]) {
+async function cmdReconcile(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
@@ -347,7 +347,7 @@ function cmdReconcile(state: GlState, args: string[]) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
 
-  const result = reconcile(dir);
+  const result = await reconcile(dir);
   if (!result.ok) {
     fail(result.message, EXIT.STATE);
   }
@@ -442,7 +442,7 @@ async function main() {
   }
   if (cmd === "insert") return cmdInsert(state, rest);
   if (cmd === "install-remote") return cmdInstallRemote(state, rest);
-  if (cmd === "reconcile") return cmdReconcile(state, rest);
+  if (cmd === "reconcile") return await cmdReconcile(state, rest);
   if (cmd === "merge") return await cmdMerge(state, rest);
 
   fail(`unknown command "${cmd}". Run "gl --help".`, EXIT.USER);

@@ -1,6 +1,6 @@
 ---
 id: git-0fof
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-15T22:01:39Z

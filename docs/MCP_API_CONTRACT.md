@@ -101,14 +101,11 @@ Retrieve content by path or identifier at a pinned version.
   "properties": {
     "pin": { "type": "string", "description": "Pin name (required)" },
     "path": { "type": "string", "description": "Relative path within knowledge store (e.g. knowledge/foo.md)" },
-    "id": { "type": "string", "description": "Alternative: opaque identifier if indexing supports it" },
     "sha": { "type": "string", "description": "Optional 40-char commit SHA; defaults to pin head" }
   },
-  "required": ["pin"]
+  "required": ["pin", "path"]
 }
 ```
-
-**Note:** At least one of `path` or `id` must be provided. Implementation MUST validate and return a validation error if both are omitted.
 
 **Success response shape:**
 

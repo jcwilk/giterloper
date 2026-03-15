@@ -8,7 +8,7 @@ import path from "node:path";
 import { EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
 import { isBranchNotFoundError } from "./run.ts";
-import { toRemoteUrl, resolveBranchShaSoft, setCloneIdentity } from "./git.ts";
+import { resolveBranchShaReachable, resolveBranchShaSoft, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { ensureDir, stagedDir } from "./paths.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
@@ -99,8 +99,14 @@ export function assertBranchFresh(
 ): void {
   if (!pin.branch) return;
   const localSha = run("git", ["-C", workingDir, "rev-parse", "HEAD"]);
-  const remoteSha = resolveBranchShaSoft(pin.source, pin.branch);
-  if (!remoteSha) return;
+  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch);
+  if (!reachable) {
+    fail(
+      `could not reach remote to check branch freshness for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
+      EXIT.EXTERNAL
+    );
+  }
+  if (!remoteSha) return; // branch not on remote yet (e.g. first push)
   if (localSha.toLowerCase() === remoteSha.toLowerCase()) return;
   fail(
     [
