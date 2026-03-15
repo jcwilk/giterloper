@@ -153,7 +153,7 @@ Queue new knowledge into `knowledge/_pending/`. Equivalent to CLI `gl insert`.
 
 ### 4.4 `giterloper_reconcile_pending`
 
-Process knowledge/_pending into topic files under knowledge/. Groups by topic (first # heading), merges into existing topic files, adds Sources section, deletes pending only after content is represented. Single-pin operation. Equivalent to CLI `gl reconcile`.
+Process knowledge/_pending into topic files under knowledge/. Pending files are processed in commit order (earliest add first); entries with addEpoch 0 (when API and git log both yield 0) are included and ordered last, not skipped. Groups by topic (first # heading), merges into existing topic files, adds Sources section, deletes pending only after content is represented. Single-pin operation. Equivalent to CLI `gl reconcile`.
 
 **Arguments:**
 
@@ -300,7 +300,7 @@ All error responses MUST use a consistent envelope:
 | `branchless_write` | Write operation attempted on pin without `branch` | 400 |
 | `invalid_argument` | Invalid or missing required arguments (e.g. path omitted for retrieve) | 400 |
 | `reconciliation_conflict` | Merge cannot be completed automatically (GitHub merge conflict) | 409 |
-| `external` | Git, GitHub, or I/O failure | 500 |
+| `external` | Git, GitHub, or I/O failure; also when branch freshness cannot be checked (e.g. remote unreachable). | 500 |
 
 ### 5.2 Error code mapping from CLI
 
@@ -312,7 +312,7 @@ All error responses MUST use a consistent envelope:
 | `branch is stale`, `pin SHA does not match remote` | `mismatched_sha` |
 | `pin has no branch` | `branchless_write` |
 | GitHub merge conflict | `reconciliation_conflict` |
-| Clone, push, API failures | `external` |
+| Clone, push, API failures; branch freshness check unreachable (e.g. network failure) | `external` |
 
 ---
 

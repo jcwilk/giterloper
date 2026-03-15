@@ -211,6 +211,7 @@ Behavior details:
 
 - Requires branch pin.
 - Ensures working clone and branch freshness.
+- Pending files are processed in commit order (earliest add first); entries with addEpoch 0 are included and ordered last, not skipped.
 - Calls `reconcile(dir)`.
 - If reconcile reports unresolved issues, returns:
   - `ok: false`
