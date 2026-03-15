@@ -132,7 +132,7 @@ function createServer(): McpServer {
     {
       title: "Retrieve content",
       description:
-        "Retrieve content by path or identifier at a pinned version.",
+        "Retrieve content by path at a pinned version.",
       inputSchema: z.object({
         pin: z.string().describe("Pin name (required)"),
         path: z

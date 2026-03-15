@@ -361,7 +361,6 @@ Current auth behavior does not yet apply distinct read/write policy; this classi
 - No custom SSE endpoint in app code; MCP is handled through SDK streamable HTTP on `/mcp`.
 - No app-defined session lifecycle APIs or persistence.
 - No MCP tool for pin lifecycle management.
-- `retrieve` by `id` is not implemented yet (path retrieval only).
 
 ## Quick local run
 
