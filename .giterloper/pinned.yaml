@@ -1,3 +1,7 @@
+spitfire:
+  repo: github.com/jcwilk/giterloper_knowledge
+  sha: f4083620f0a31f9ae1d913f334d899299200b022
+  branch: spitfire
 knowledge:
   repo: github.com/jcwilk/giterloper_knowledge
   sha: f40e0ab079bfc1a3cc8e70a18241756e555ad7ba
