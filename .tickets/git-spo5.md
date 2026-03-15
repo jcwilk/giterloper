@@ -1,6 +1,6 @@
 ---
 id: git-spo5
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-15T22:01:51Z

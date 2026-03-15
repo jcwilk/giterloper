@@ -1,6 +1,6 @@
 ---
 id: git-mh2m
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-15T22:01:47Z
