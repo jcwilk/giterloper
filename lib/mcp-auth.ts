@@ -4,6 +4,7 @@
  * See docs/MCP_API_CONTRACT.md, AGENTS.md § MCP server.
  */
 import type { Context, Next } from "hono";
+import { mcpCodeToHttpStatus } from "./mcp-error-mapping.ts";
 
 /** Read-only tools (search, retrieve, inspect state). */
 export const MCP_READ_TOOLS = [
@@ -85,5 +86,5 @@ export async function mcpAuthMiddleware(c: Context, next: Next): Promise<Respons
   if (validateAuth(c.req.header("Authorization"))) {
     return next();
   }
-  return c.json(UNAUTHORIZED_ENVELOPE, 401);
+  return c.json(UNAUTHORIZED_ENVELOPE, mcpCodeToHttpStatus("unauthorized"));
 }
