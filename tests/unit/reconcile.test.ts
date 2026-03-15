@@ -61,6 +61,20 @@ Deno.test("mergeTopicContent appends to existing", () => {
   assertEquals(out.includes("---"), true);
 });
 
+Deno.test("mergeTopicContent applies stripBoilerplate to existing content", () => {
+  const out = mergeTopicContent("a\n\n\n\nb", []);
+  assertEquals(out.includes("\n\n\n"), false);
+  assertEquals(out, "a\n\nb");
+});
+
+Deno.test("mergeTopicContent applies stripBoilerplate to entry content", () => {
+  const out = mergeTopicContent(null, [{ path: "p.md", addEpoch: 1, content: "x\n\n\n\ny" }]);
+  assertEquals(out.includes("x\n\n\n\ny"), false);
+  assertEquals(out.includes("x\n\ny"), true);
+  const beforeSources = out.split("## Sources")[0];
+  assertEquals(beforeSources.includes("\n\n\n"), false);
+});
+
 Deno.test("comparePendingByAddEpoch orders by addEpoch ascending with addEpoch 0 last", () => {
   const entries: PendingEntry[] = [
     { path: "knowledge/_pending/a.md", addEpoch: 100, content: "" },
