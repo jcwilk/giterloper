@@ -8,7 +8,7 @@ import path from "node:path";
 import { EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
 import { isBranchNotFoundError } from "./run.ts";
-import { resolveBranchShaReachable, resolveBranchShaSoft, setCloneIdentity, toRemoteUrl } from "./git.ts";
+import { resolveBranchShaReachable, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { ensureDir, stagedDir } from "./paths.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
@@ -21,10 +21,20 @@ export function requirePinBranch(pin: Pin, operation: string): void {
   );
 }
 
+/**
+ * Ensures the pin's SHA matches remote branch HEAD (or branch is not on remote yet).
+ * Fails with EXIT.EXTERNAL when the remote cannot be reached; allows first push when branch is not on remote.
+ */
 export function assertBranchReadyForWrite(state: GlState, pin: Pin): void {
   requirePinBranch(pin, "write operation");
-  const remoteSha = resolveBranchShaSoft(pin.source, pin.branch!);
-  if (remoteSha === null) return;
+  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!);
+  if (!reachable) {
+    fail(
+      `could not reach remote to verify pin vs branch HEAD for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
+      EXIT.EXTERNAL
+    );
+  }
+  if (!remoteSha) return; // branch not on remote yet (e.g. first push)
   if (remoteSha.toLowerCase() === pin.sha.toLowerCase()) return;
   fail(
     [
