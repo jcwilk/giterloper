@@ -105,6 +105,7 @@ export function getRemoteOriginUrl(repoDir: string): string | null {
     url = "https://" + url.slice(4).replace(":", "/");
   }
   if (url.endsWith(".git")) url = url.slice(0, -4);
+  url = url.replace(/\/$/, ""); // so parseGithubSource regex (e.g. $) matches
   return url;
 }
 
