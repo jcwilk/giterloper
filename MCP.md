@@ -1,6 +1,6 @@
 # Giterloper MCP Server (Implemented Behavior)
 
-This document describes how the MCP server in this repository currently works, based on the implementation in `lib/gl-mcp-server.ts` and related modules.
+This document describes how the MCP server in this repository currently works, based on the implementation in `lib/gl-mcp-server.ts` and related modules. The authoritative API contract (tool names, args, response shapes, error envelope, and error codes) is **`docs/MCP_API_CONTRACT.md`**; this file documents current server behavior and how it aligns with that contract.
 
 It is implementation-focused: transport, auth, session behavior, tool schemas, result formats, error envelopes, and state semantics as they exist today.
 
@@ -182,7 +182,7 @@ Validation semantics:
 Behavior details:
 
 - Requires pin with `branch` (branchless write is rejected).
-- Ensures working clone and checks branch freshness before write.
+- Ensures working clone via `ensureWorkingClone` (which runs `assertBranchReadyForWrite`: remote must be reachable, pin SHA must match remote branch HEAD or branch may be absent on remote), then `assertBranchFresh` before write.
 - Chooses filename via `makeQueueFilename`.
 - If filename already exists, appends deterministic short hash suffix based on content.
 - Writes file (ensures trailing newline), commits if dirty, pushes branch, updates pin SHA.
@@ -210,7 +210,7 @@ Input schema:
 Behavior details:
 
 - Requires branch pin.
-- Ensures working clone and branch freshness.
+- Ensures working clone via `ensureWorkingClone` (which runs `assertBranchReadyForWrite`: remote must be reachable, pin SHA must match remote branch HEAD or branch may be absent on remote), then `assertBranchFresh` before mutating.
 - Pending files are processed in commit order (earliest add first); entries with addEpoch 0 are included and ordered last, not skipped.
 - Calls `reconcile(dir)`.
 - If reconcile reports unresolved issues, returns:
@@ -310,7 +310,7 @@ Error code sources (not all from the same layer):
 
 - **Auth middleware** (before tool execution): `unauthorized` — returned as HTTP 401 with the envelope above when auth fails.
 - **Tool handlers (direct return)**: `invalid_argument` — returned in tool result content (no throw, so no `isError`) for input or business-rule validation (e.g. empty insert content, missing path for retrieve, unresolved reconcile).
-- **`mapErrorToMcp()` (thrown exceptions)**: `missing_pin`, `stale_index`, `mismatched_sha`, `branchless_write`, `reconciliation_conflict`, `external`. Implemented in `lib/mcp-error-mapping.ts`; `StaleIndexError` maps to `stale_index` with `details.expectedPinName` and `details.expectedSha`; `GlError` and generic errors are pattern-matched by message text; unknown/unmatched map to `external`.
+- **`mapErrorToMcp()` (thrown exceptions)**: `missing_pin`, `stale_index`, `mismatched_sha`, `branchless_write`, `reconciliation_conflict`, `external`. Implemented in `lib/mcp-error-mapping.ts`; `StaleIndexError` maps to `stale_index` with `details.expectedPinName` and `details.expectedSha`; `GlError` and generic errors are pattern-matched by message text; unknown/unmatched map to `external`. Remote unreachable during the write-path checks (e.g. "could not reach remote to verify pin vs branch HEAD" or "could not reach remote to check branch freshness") is not pattern-matched and thus maps to `external`.
 
 Note on HTTP status mapping:
 
@@ -328,7 +328,7 @@ Read tools that support versioning (`giterloper_search`, `giterloper_retrieve`):
 
 Write tools:
 
-- Operate on branch-backed pin head state. Local-clone writes (`insert_pending`, `reconcile_pending`) enforce working clone and branch freshness; `giterloper_reconcile` performs a remote merge and does not use local clone freshness checks.
+- Operate on branch-backed pin head state. Local-clone writes (`insert_pending`, `reconcile_pending`) enforce working clone and branch freshness; `giterloper_reconcile` performs a remote merge and does not use local clone freshness checks. If the remote cannot be reached during the ready-for-write or freshness checks, the operation fails with code `external`.
 - Success responses include transition identifiers: `oldSha` and `newSha`. For `giterloper_reconcile` these are under `target.oldSha` and `target.newSha`; for the other write tools they are top-level.
 - Server updates pin SHA after successful write/merge. For `giterloper_reconcile_pending`, the pin SHA is updated only when the reconcile actually touched or deleted files.
 
@@ -352,7 +352,7 @@ Current auth behavior does not yet apply distinct read/write policy; this classi
 
 ## Concurrency and consistency behaviors
 
-- Branch freshness is enforced for local-clone write tools (`giterloper_insert_pending`, `giterloper_reconcile_pending`) via `assertBranchFresh` before mutation. It is not applied to `giterloper_reconcile`, which performs a remote merge via the GitHub API.
+- Local-clone write tools (`giterloper_insert_pending`, `giterloper_reconcile_pending`) first call `ensureWorkingClone` (which uses `assertBranchReadyForWrite` to ensure the remote is reachable and pin SHA matches remote branch HEAD or the branch is not on remote yet), then `assertBranchFresh` before mutation. If the remote is unreachable in either step, the tool fails with code `external`. This is not applied to `giterloper_reconcile`, which performs a remote merge via the GitHub API.
 - Pin SHA updates and clone lifecycle are coordinated through existing giterloper internals (`updatePinSha`, clone verification, working clone management).
 - Memsearch calls include pin+sha context and can rebuild on demand; stale index mismatches map to explicit errors.
 
