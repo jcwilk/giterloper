@@ -278,7 +278,8 @@ Success payload (verify mode, `verify=true`):
 - `ok: true`
 - `checks: Array<{ pin, branch, sha, clonePresent, cloneShaOk, workingCloneExists, branchFresh }>`  
   - `branchFresh` is `boolean | null`.
-- When no pins match (e.g. optional `pin` names a missing pin), the response may be `{ ok: true, pins: [] }` with no `checks` array.
+- When `pin` is omitted and there are no pins in the system: returns `{ ok: true, pins: [] }` with no `checks` array.
+- When `pin` is provided but names a non-existent pin: returns an error envelope `{ ok: false, code: "missing_pin", ... }` with `isError: true` (thrown by `resolvePin`).
 
 ## Wire format of tool results
 
