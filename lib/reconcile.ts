@@ -76,7 +76,10 @@ async function addEpochForFile(
   return isNaN(addEpoch) ? 0 : addEpoch;
 }
 
-/** Get pending files in commit order (earliest add first). Uses GitHub API for add timestamp when repo is GitHub and token available (works with shallow clones). */
+/**
+ * Get pending files in commit order (earliest add first). Uses GitHub API for add timestamp when repo is GitHub and token available (works with shallow clones).
+ * Entries with addEpoch 0 (API and git log both yield 0, e.g. shallow clone without API) are included and ordered last.
+ */
 export async function getPendingInCommitOrder(repoDir: string): Promise<PendingEntry[]> {
   const pendingPath = path.join(repoDir, PENDING_DIR);
   if (!existsSync(pendingPath)) return [];
@@ -92,11 +95,13 @@ export async function getPendingInCommitOrder(repoDir: string): Promise<PendingE
     const fullPath = path.join(repoDir, rel);
     if (!existsSync(fullPath)) continue;
     const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi);
-    if (addEpoch === 0) continue;
     const content = readFileSync(fullPath, "utf8");
     entries.push({ path: rel, addEpoch, content });
   }
-  entries.sort((a, b) => a.addEpoch - b.addEpoch);
+  // Treat addEpoch 0 as unknown: sort after any positive epoch.
+  entries.sort((a, b) =>
+    a.addEpoch === 0 ? (b.addEpoch === 0 ? 0 : 1) : b.addEpoch === 0 ? -1 : a.addEpoch - b.addEpoch
+  );
   return entries;
 }
 
