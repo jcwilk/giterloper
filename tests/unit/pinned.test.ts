@@ -1,5 +1,126 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
-import { parsePinned, serializePins } from "../../lib/pinned.ts";
+import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert";
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { tmpdir } from "node:os";
+
+import type { GlState } from "../../lib/types.ts";
+import {
+  parsePinned,
+  readPins,
+  resolvePin,
+  serializePins,
+  validatePinName,
+  mutatePins,
+  RESERVED_PIN_NAME,
+} from "../../lib/pinned.ts";
+import { makeState } from "../../lib/gl-core.ts";
+import { GlError } from "../../lib/errors.ts";
+
+const SAMPLE_PINS_YAML = `foo:
+  repo: github.com/x/repo
+  sha: 0123456789abcdef0123456789abcdef01234567
+  branch: main
+bar: github.com/y/repo@abcdef0123456789abcdef0123456789abcdef01
+`;
+
+Deno.test("validatePinName rejects reserved name default", () => {
+  assertThrows(
+    () => validatePinName("default"),
+    Error,
+    "reserved"
+  );
+  assertThrows(
+    () => validatePinName("  default  "),
+    Error,
+    "default"
+  );
+});
+
+Deno.test("validatePinName allows non-reserved names", () => {
+  validatePinName("foo");
+  validatePinName("bar");
+  validatePinName(null);
+  validatePinName(undefined);
+  validatePinName("");
+});
+
+Deno.test("resolvePin returns session default when pinName omitted", () => {
+  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
+  const state: GlState = {
+    projectRoot: path.dirname(root),
+    rootDir: root,
+    versionsDir: path.join(root, "versions"),
+    stagedRoot: path.join(root, "staged"),
+    pinnedPath: path.join(root, "pinned.yaml"),
+    globalJson: false,
+  };
+  try {
+    const pin = resolvePin(state, null);
+    assertEquals(pin.name, "foo");
+    assertEquals(resolvePin(state, undefined).name, "foo");
+    assertEquals(resolvePin(state, "").name, "foo");
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+Deno.test("resolvePin rejects reserved name default", () => {
+  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
+  const state: GlState = {
+    projectRoot: path.dirname(root),
+    rootDir: root,
+    versionsDir: path.join(root, "versions"),
+    stagedRoot: path.join(root, "staged"),
+    pinnedPath: path.join(root, "pinned.yaml"),
+    globalJson: false,
+  };
+  try {
+    const err = assertThrows(
+      () => resolvePin(state, "default"),
+      GlError
+    ) as GlError;
+    assertEquals(err.message.includes(RESERVED_PIN_NAME), true);
+    assertEquals(err.message.includes("Omit"), true);
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+Deno.test("mutatePins session-scoped skips lock and updates file", () => {
+  const root = path.join(tmpdir(), `pinned-mutate-${Date.now()}`);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
+  const state = makeState("pinned-mutate-session");
+  // Override paths to use our temp root
+  const sessionRoot = path.join(root, "sessions", "pinned-mutate-session");
+  mkdirSync(sessionRoot, { recursive: true });
+  writeFileSync(path.join(sessionRoot, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
+  const sessionState: GlState = {
+    ...makeState("pinned-mutate-session"),
+    rootDir: sessionRoot,
+    versionsDir: path.join(sessionRoot, "versions"),
+    stagedRoot: path.join(sessionRoot, "staged"),
+    pinnedPath: path.join(sessionRoot, "pinned.yaml"),
+    sessionId: "pinned-mutate-session",
+  };
+  try {
+    const pinsBefore = readPins(sessionState);
+    assertEquals(pinsBefore.length, 2);
+    mutatePins(sessionState, (pins) => {
+      const updated = pins.filter((p) => p.name !== "bar");
+      return updated;
+    });
+    const pinsAfter = readPins(sessionState);
+    assertEquals(pinsAfter.length, 1);
+    assertEquals(pinsAfter[0].name, "foo");
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
 
 Deno.test("parsePinned parses nested format", () => {
   const yaml = `foo:

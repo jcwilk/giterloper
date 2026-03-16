@@ -8,7 +8,7 @@ import { EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
 import { toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
-import { mutatePins, readPins } from "./pinned.ts";
+import { mutatePins, readPins, validatePinName } from "./pinned.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
 
@@ -93,6 +93,7 @@ export function updatePinSha(
   newSha: string,
   opts: UpdatePinShaOpts = {}
 ): void {
+  validatePinName(pinName);
   const pins = readPins(state);
   const target = pins.find((p) => p.name === pinName);
   if (!target) fail(`pin "${pinName}" not found`, EXIT.USER);

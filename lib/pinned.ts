@@ -9,6 +9,24 @@ import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
 import { withFifoLock } from "./locking.ts";
 
+/** Reserved pin name; cannot be used as an explicit pin name. Omit pin arg for session default. */
+export const RESERVED_PIN_NAME = "default";
+
+/**
+ * Rejects reserved pin names in user/MCP input. Call for any pin-name-bearing input.
+ * Throws with corrective guidance when name is reserved.
+ */
+export function validatePinName(name: string | null | undefined): void {
+  if (!name || typeof name !== "string") return;
+  const trimmed = name.trim();
+  if (trimmed.toLowerCase() === RESERVED_PIN_NAME) {
+    fail(
+      `"${RESERVED_PIN_NAME}" is a reserved name. Omit the pin argument to use the session default.`,
+      EXIT.USER
+    );
+  }
+}
+
 export function parsePinned(content: string): Pin[] {
   const pins: Pin[] = [];
   let current: Partial<Pin> | null = null;
@@ -78,20 +96,26 @@ export function readPins(state: GlState): Pin[] {
   return parsePinned(content);
 }
 
+function doMutatePins(state: GlState, mutator: (pins: Pin[]) => Pin[]): void {
+  const content = readFileSync(state.pinnedPath, "utf8");
+  const pins = parsePinned(content);
+  const updated = mutator(pins);
+  const temp = `${state.pinnedPath}.tmp`;
+  writeFileSync(temp, serializePins(updated), "utf8");
+  renameSync(temp, state.pinnedPath);
+}
+
+/**
+ * Mutates pinned.yaml. When state is session-scoped (sessionId set), skips FIFO lock
+ * since each session has its own pinned.yaml and no cross-process contention exists.
+ */
 export function mutatePins(state: GlState, mutator: (pins: Pin[]) => Pin[]): void {
+  if (state.sessionId) {
+    doMutatePins(state, mutator);
+    return;
+  }
   const lockDir = path.join(state.rootDir, "locks", "pins");
-  withFifoLock(
-    lockDir,
-    () => {
-      const content = readFileSync(state.pinnedPath, "utf8");
-      const pins = parsePinned(content);
-      const updated = mutator(pins);
-      const temp = `${state.pinnedPath}.tmp`;
-      writeFileSync(temp, serializePins(updated), "utf8");
-      renameSync(temp, state.pinnedPath);
-    },
-    { maxWaitMs: 5000 }
-  );
+  withFifoLock(lockDir, () => doMutatePins(state, mutator), { maxWaitMs: 5000 });
 }
 
 export function writePinsAtomic(state: GlState, pins: Pin[]): void {
@@ -100,10 +124,15 @@ export function writePinsAtomic(state: GlState, pins: Pin[]): void {
   renameSync(temp, state.pinnedPath);
 }
 
+/**
+ * Resolves pin by name or session default. When pinName is omitted/null/undefined,
+ * returns the first pin (session default). Rejects reserved name "default".
+ */
 export function resolvePin(state: GlState, pinName: string | null | undefined): Pin {
+  validatePinName(pinName);
   const pins = readPins(state);
   if (pins.length === 0) fail("no pins configured in .giterloper/pinned.yaml", EXIT.STATE);
-  if (!pinName) return pins[0];
+  if (!pinName || pinName.trim() === "") return pins[0];
   const pin = pins.find((p) => p.name === pinName);
   if (!pin) fail(`pin "${pinName}" not found`, EXIT.USER);
   return pin;
