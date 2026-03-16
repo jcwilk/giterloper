@@ -13,7 +13,7 @@ import * as z from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
-import { makeState } from "./gl-core.ts";
+import { bootstrapSessionFromShared, makeState, validateSessionId } from "./gl-core.ts";
 import { readPins, resolvePin } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
@@ -57,7 +57,6 @@ const PORT = (() => {
 const HOST = Deno.env.get("MCP_HOST") ?? "127.0.0.1";
 
 function createServer(): McpServer {
-  const state = makeState();
   const server = new McpServer({
     name: "giterloper",
     version: "1.0.0",
@@ -87,6 +86,16 @@ function createServer(): McpServer {
     }
   }
 
+  /** Resolves session-scoped state for MCP tool calls. Requires valid sessionId. */
+  function stateForSession(
+    extra: { sessionId?: string } | undefined
+  ): ReturnType<typeof makeState> {
+    const sessionId = validateSessionId(extra?.sessionId);
+    const state = makeState(sessionId);
+    bootstrapSessionFromShared(state);
+    return state;
+  }
+
   server.registerTool(
     "giterloper_search",
     {
@@ -104,8 +113,9 @@ function createServer(): McpServer {
         limit: z.number().int().min(1).max(100).default(20).optional(),
       }),
     },
-    async ({ pin, query, sha, limit }) =>
+    async ({ pin, query, sha, limit }, extra) =>
       wrapTool(() => {
+        const state = stateForSession(extra);
         const p = resolvePin(state, pin);
         const effectiveSha = sha ?? p.sha;
         const pinAtSha = { ...p, sha: effectiveSha };
@@ -147,8 +157,9 @@ function createServer(): McpServer {
           .describe("Optional 40-char commit SHA; defaults to pin head"),
       }),
     },
-    async ({ pin, path: filePath, sha }) =>
+    async ({ pin, path: filePath, sha }, extra) =>
       wrapTool(() => {
+        const state = stateForSession(extra);
         if (!filePath?.trim()) {
           return {
             ok: false,
@@ -185,8 +196,9 @@ function createServer(): McpServer {
           .describe("Optional filename hint; server may generate if omitted"),
       }),
     },
-    async ({ pin, content, name }) =>
+    async ({ pin, content, name }, extra) =>
       wrapTool(() => {
+        const state = stateForSession(extra);
         const validationError = validateInsertContent(content);
         if (validationError) return validationError;
         const trimmed = (content ?? "").trim();
@@ -241,8 +253,9 @@ function createServer(): McpServer {
         pin: z.string().describe("Pin name (required)"),
       }),
     },
-    async ({ pin }) =>
+    async ({ pin }, extra) =>
       wrapTool(async () => {
+        const state = stateForSession(extra);
         const p = resolvePin(state, pin);
         requirePinBranch(p, "reconcile_pending");
         const dir = ensureWorkingClone(state, p, {});
@@ -286,8 +299,9 @@ function createServer(): McpServer {
         targetPin: z.string().describe("Target pin name (required)"),
       }),
     },
-    async ({ sourcePin, targetPin }) =>
+    async ({ sourcePin, targetPin }, extra) =>
       wrapTool(async () => {
+        const state = stateForSession(extra);
         const source = resolvePin(state, sourcePin);
         const target = resolvePin(state, targetPin);
         requirePinBranch(source, "reconcile");
@@ -345,8 +359,9 @@ function createServer(): McpServer {
           .describe("If true, include clone/health checks"),
       }),
     },
-    async ({ pin, verify }) =>
+    async ({ pin, verify }, extra) =>
       wrapTool(() => {
+        const state = stateForSession(extra);
         const pins = pin ? [resolvePin(state, pin)] : readPins(state);
         if (pins.length === 0) {
           return { ok: true, pins: [] };
