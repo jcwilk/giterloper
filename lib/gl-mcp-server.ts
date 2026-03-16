@@ -14,7 +14,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { bootstrapSessionFromShared, makeState, validateSessionId } from "./gl-core.ts";
-import { readPins, resolvePin } from "./pinned.ts";
+import type { GlState } from "./types.ts";
+import { mutatePins, readPins, resolvePin } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
@@ -96,6 +97,17 @@ function createServer(): McpServer {
     return state;
   }
 
+  /** Augments success payload with session/pin metadata when available. */
+  function withMetadata<T extends Record<string, unknown>>(
+    state: GlState,
+    payload: T
+  ): T & { sessionId?: string } {
+    if (state.sessionId) {
+      return { ...payload, sessionId: state.sessionId };
+    }
+    return payload;
+  }
+
   server.registerTool(
     "giterloper_search",
     {
@@ -103,7 +115,7 @@ function createServer(): McpServer {
       description:
         "Search knowledge at a pinned version. Returns paths, titles, snippets, scores.",
       inputSchema: z.object({
-        pin: z.string().describe("Pin name (required)"),
+        pin: z.string().optional().describe("Pin name; omit to use session default"),
         query: z.string().describe("Search query (required)"),
         sha: z
           .string()
@@ -116,16 +128,17 @@ function createServer(): McpServer {
     async ({ pin, query, sha, limit }, extra) =>
       wrapTool(() => {
         const state = stateForSession(extra);
-        const p = resolvePin(state, pin);
+        const p = resolvePin(state, pin ?? undefined);
         const effectiveSha = sha ?? p.sha;
         const pinAtSha = { ...p, sha: effectiveSha };
-        const results = memsearchSearch(state, pin, effectiveSha, query, limit ?? 20, {
+        const results = memsearchSearch(state, p.name, effectiveSha, query, limit ?? 20, {
           buildOnDemand: true,
           pin: pinAtSha,
         });
         return {
           ok: true,
-          pin,
+          ...(state.sessionId && { sessionId: state.sessionId }),
+          pin: p.name,
           effectiveSha,
           results: results.map((r) => ({
             path: r.path,
@@ -144,7 +157,7 @@ function createServer(): McpServer {
       description:
         "Retrieve content by path at a pinned version.",
       inputSchema: z.object({
-        pin: z.string().describe("Pin name (required)"),
+        pin: z.string().optional().describe("Pin name; omit to use session default"),
         path: z
           .string()
           .describe(
@@ -168,12 +181,13 @@ function createServer(): McpServer {
             details: {},
           };
         }
-        const p = resolvePin(state, pin);
+        const p = resolvePin(state, pin ?? undefined);
         const effectiveSha = sha ?? p.sha;
         const content = retrieveFileContent(state, p, effectiveSha, filePath);
         return {
           ok: true,
-          pin,
+          ...(state.sessionId && { sessionId: state.sessionId }),
+          pin: p.name,
           effectiveSha,
           path: filePath,
           content,
@@ -188,7 +202,7 @@ function createServer(): McpServer {
       description:
         "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert.",
       inputSchema: z.object({
-        pin: z.string().describe("Pin name (required)"),
+        pin: z.string().optional().describe("Pin name; omit to use session default"),
         content: z.string().describe("Markdown content to queue (required)"),
         name: z
           .string()
@@ -202,7 +216,7 @@ function createServer(): McpServer {
         const validationError = validateInsertContent(content);
         if (validationError) return validationError;
         const trimmed = (content ?? "").trim();
-        const p = resolvePin(state, pin);
+        const p = resolvePin(state, pin ?? undefined);
         requirePinBranch(p, "insert_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
@@ -233,6 +247,7 @@ function createServer(): McpServer {
         updatePinSha(state, p.name, newSha, {});
         return {
           ok: true,
+          ...(state.sessionId && { sessionId: state.sessionId }),
           action: "inserted",
           pin: p.name,
           branch: p.branch!,
@@ -250,13 +265,13 @@ function createServer(): McpServer {
       description:
         "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile.",
       inputSchema: z.object({
-        pin: z.string().describe("Pin name (required)"),
+        pin: z.string().optional().describe("Pin name; omit to use session default"),
       }),
     },
     async ({ pin }, extra) =>
       wrapTool(async () => {
         const state = stateForSession(extra);
-        const p = resolvePin(state, pin);
+        const p = resolvePin(state, pin ?? undefined);
         requirePinBranch(p, "reconcile_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
@@ -276,6 +291,7 @@ function createServer(): McpServer {
         }
         return {
           ok: true,
+          ...(state.sessionId && { sessionId: state.sessionId }),
           action: "reconciled",
           pin: p.name,
           branch: p.branch!,
@@ -293,17 +309,25 @@ function createServer(): McpServer {
     {
       title: "Reconcile pins",
       description:
-        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge.",
+        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit one side to use session default.",
       inputSchema: z.object({
-        sourcePin: z.string().describe("Source pin name (required)"),
-        targetPin: z.string().describe("Target pin name (required)"),
+        sourcePin: z.string().optional().describe("Source pin; omit to use session default"),
+        targetPin: z.string().optional().describe("Target pin; omit to use session default"),
       }),
     },
     async ({ sourcePin, targetPin }, extra) =>
       wrapTool(async () => {
         const state = stateForSession(extra);
-        const source = resolvePin(state, sourcePin);
-        const target = resolvePin(state, targetPin);
+        if (!sourcePin?.trim() && !targetPin?.trim()) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: "Provide at least one of sourcePin or targetPin",
+            details: {},
+          };
+        }
+        const source = resolvePin(state, sourcePin ?? undefined);
+        const target = resolvePin(state, targetPin ?? undefined);
         requirePinBranch(source, "reconcile");
         requirePinBranch(target, "reconcile");
         if (source.source !== target.source) {
@@ -325,6 +349,7 @@ function createServer(): McpServer {
         updatePinSha(state, target.name, result.sha, {});
         return {
           ok: true,
+          ...(state.sessionId && { sessionId: state.sessionId }),
           action: "merged",
           source: {
             pin: source.name,
@@ -337,6 +362,43 @@ function createServer(): McpServer {
             oldSha,
             newSha: result.sha,
           },
+        };
+      })
+  );
+
+  server.registerTool(
+    "giterloper_pin_set",
+    {
+      title: "Set session default pin",
+      description:
+        "Reorder session pinned.yaml so the given pin is first (session default). Requires session. Omit pin to view current default.",
+      inputSchema: z.object({
+        pin: z.string().optional().describe("Pin name to set as default; omit to view current default"),
+      }),
+    },
+    async ({ pin }, extra) =>
+      wrapTool(() => {
+        const state = stateForSession(extra);
+        const p = resolvePin(state, pin ?? undefined);
+        const pins = readPins(state);
+        if (pins.length <= 1 || pins[0].name === p.name) {
+          return {
+            ok: true,
+            ...(state.sessionId && { sessionId: state.sessionId }),
+            action: "pin_set",
+            defaultPin: p.name,
+            message: pins.length <= 1 ? "Only one pin; already default" : "Already session default",
+          };
+        }
+        mutatePins(state, (list) => {
+          const rest = list.filter((x) => x.name !== p.name);
+          return [p, ...rest];
+        });
+        return {
+          ok: true,
+          ...(state.sessionId && { sessionId: state.sessionId }),
+          action: "pin_set",
+          defaultPin: p.name,
         };
       })
   );
@@ -364,11 +426,16 @@ function createServer(): McpServer {
         const state = stateForSession(extra);
         const pins = pin ? [resolvePin(state, pin)] : readPins(state);
         if (pins.length === 0) {
-          return { ok: true, pins: [] };
+          return {
+            ok: true,
+            ...(state.sessionId && { sessionId: state.sessionId }),
+            pins: [] as { name: string; source: string; sha: string; branch: string | null }[],
+          };
         }
         if (!verify) {
           return {
             ok: true,
+            ...(state.sessionId && { sessionId: state.sessionId }),
             pins: pins.map((p) => ({
               name: p.name,
               source: p.source,
@@ -395,7 +462,11 @@ function createServer(): McpServer {
             branchFresh: freshness.fresh,
           };
         });
-        return { ok: true, checks };
+        return {
+          ok: true,
+          ...(state.sessionId && { sessionId: state.sessionId }),
+          checks,
+        };
       })
   );
 

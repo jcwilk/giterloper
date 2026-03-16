@@ -18,6 +18,7 @@ export const MCP_WRITE_TOOLS = [
   "giterloper_insert_pending",
   "giterloper_reconcile",
   "giterloper_reconcile_pending",
+  "giterloper_pin_set",
 ] as const;
 
 export type McpReadTool = (typeof MCP_READ_TOOLS)[number];

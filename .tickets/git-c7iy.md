@@ -1,6 +1,6 @@
 ---
 id: git-c7iy
-status: open
+status: closed
 deps: [git-5l01]
 links: []
 created: 2026-03-16T00:22:11Z

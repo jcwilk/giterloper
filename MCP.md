@@ -102,7 +102,7 @@ The MCP server identity passed to SDK:
 - `name: "giterloper"`
 - `version: "1.0.0"`
 
-Capabilities are represented by registered tools (6 tools total).
+Capabilities are represented by registered tools (7 tools total).
 
 ## Tool surface (fully implemented)
 
@@ -116,7 +116,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `query: string` (required)
 - `sha?: string` (must match `/^[0-9a-f]{40}$/i` when provided)
 - `limit?: integer` (`1..100`, default `20`)
@@ -124,9 +124,12 @@ Input schema:
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `pin: string`
 - `effectiveSha: string`
 - `results: Array<{ path, title, snippet, score }>`
+
+Validation: Explicit pin name `"default"` is rejected with `invalid_argument`; omit pin to use session default.
 
 Implementation notes:
 
@@ -141,7 +144,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `path: string` (required; relative path within knowledge store, e.g. `knowledge/foo.md`)
 - `sha?: string` (40-char hex when provided)
 
@@ -149,10 +152,12 @@ Validation semantics:
 
 - If `path` is missing or empty:
   - returns `invalid_argument` envelope
+- Explicit pin name `"default"` is rejected with `invalid_argument`; omit pin to use session default.
 
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `pin: string`
 - `effectiveSha: string`
 - `path: string`
@@ -166,7 +171,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `content: string` (required)
 - `name?: string` (optional filename hint)
 
@@ -201,7 +206,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 
 Behavior details:
 
@@ -234,8 +239,10 @@ Purpose:
 
 Input schema:
 
-- `sourcePin: string` (required)
-- `targetPin: string` (required)
+- `sourcePin?: string` (optional; omit for session default)
+- `targetPin?: string` (optional; omit for session default)
+
+Reconcile side-defaulting: provide at least one of sourcePin or targetPin; the omitted side defaults to the session default pin.
 
 Behavior details:
 

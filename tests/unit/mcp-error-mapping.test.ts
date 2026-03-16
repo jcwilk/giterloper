@@ -65,6 +65,17 @@ Deno.test("mapErrorToMcp maps merge conflict to reconciliation_conflict", () => 
   assertEquals(result.code, "reconciliation_conflict");
 });
 
+Deno.test("mapErrorToMcp maps reserved pin name to invalid_argument", () => {
+  const err = new GlError(
+    '"default" is a reserved name. Omit the pin argument to use the session default.',
+    1
+  );
+  const result = mapErrorToMcp(err);
+  assertEquals(result.ok, false);
+  assertEquals(result.code, "invalid_argument");
+  assertEquals(result.message.includes("reserved"), true);
+});
+
 Deno.test("mcpCodeToHttpStatus returns correct status codes", () => {
   assertEquals(mcpCodeToHttpStatus("unauthorized"), 401);
   assertEquals(mcpCodeToHttpStatus("missing_pin"), 404);

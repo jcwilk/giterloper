@@ -30,6 +30,7 @@ export interface McpErrorResult {
 
 const PIN_NOT_FOUND = /pin "([^"]+)" not found/i;
 const NO_PINS = /no pins configured/i;
+const RESERVED_PIN = /reserved name|"default".*omit|omit.*pin argument/i;
 const HAS_NO_BRANCH = /has no branch|branchless/i;
 const STALE = /stale|pin SHA does not match remote/i;
 const MERGE_CONFLICT = /merge conflict|cannot be merged automatically/i;
@@ -55,6 +56,9 @@ export function mapErrorToMcp(error: unknown): McpErrorResult {
   }
 
   if (error instanceof GlError) {
+    if (RESERVED_PIN.test(msg)) {
+      return { ok: false, code: "invalid_argument", message: msg, details: {} };
+    }
     if (PIN_NOT_FOUND.test(msg) || NO_PINS.test(msg)) {
       return { ok: false, code: "missing_pin", message: msg, details: {} };
     }
@@ -79,6 +83,9 @@ export function mapErrorToMcp(error: unknown): McpErrorResult {
     return { ok: false, code: "external", message: msg, details: {} };
   }
 
+  if (RESERVED_PIN.test(msg)) {
+    return { ok: false, code: "invalid_argument", message: msg, details: {} };
+  }
   if (PIN_NOT_FOUND.test(msg) || NO_PINS.test(msg)) {
     return { ok: false, code: "missing_pin", message: msg, details: {} };
   }
