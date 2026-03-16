@@ -17,6 +17,16 @@ Use the ticket system for all work.
 
 **Cursor skill commands**: `/work-next`, `/work-all`, `/file-tickets`, `/persist`, `/archive-tickets` — see `.cursor/skills/ticket/SKILL.md`.
 
+## Run environment: native for dev/test, Docker for prod
+
+**Development and tests** use **native Deno** (and git, Python, memsearch) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead.
+
+- **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
+- **MCP server:** `deno task mcp:serve` or `deno run -A lib/gl-mcp-server.ts` from workspace root.
+- **Tests:** `deno test -A tests/unit/`, `deno run -A scripts/run-e2e.ts`; typecheck: `deno check lib/gl.ts`.
+
+**Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
+
 ## Coding Conventions
 
 See [CONVENTIONS.md](./CONVENTIONS.md) for type-safety, interface/type usage, and strict mode requirements.
@@ -139,6 +149,8 @@ deno run -A lib/gl-maintenance.ts <command>
 
 ### Running tests
 
+Use **native Deno** (see "Run environment" above). No Docker required.
+
 ```bash
 deno run -A scripts/run-e2e.ts
 ```
@@ -153,12 +165,13 @@ The MCP server exposes giterloper over HTTP/SSE (Streamable HTTP). No stdio tran
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
 
-**Run:**
+**Run (native; default for dev):**
 ```bash
 deno run -A lib/gl-mcp-server.ts
 # or
 deno task mcp:serve
 ```
+For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
 **Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1).
 

@@ -27,9 +27,11 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 
 See `AGENTS.md` for contributor and agent guidance.
 
-## Docker
+**Run environment:** Development and tests use **native Deno** (and git) on the host for fast feedback. **Docker** is for production (Fly.io) and optional local run when you want to match the container environment.
 
-Run the MCP server in Docker with local `.giterloper` mounted: `./scripts/run-docker.sh --build`. See `docs/FLY_IO_DEPLOYMENT.md` for Fly.io deploy and local run details.
+## Docker (production and optional local run)
+
+Production deploys use the Docker image on Fly.io. To run the MCP server in Docker locally (e.g. to match production): `./scripts/run-docker.sh --build`. See `docs/FLY_IO_DEPLOYMENT.md` for Fly.io deploy and local Docker details.
 
 ## Tests
 

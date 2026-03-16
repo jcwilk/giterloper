@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Run the giterloper MCP server in Docker with local .giterloper mounted at /data.
+# Optional: run the giterloper MCP server in Docker with local .giterloper mounted at /data.
+# Use when you want parity with production (Fly.io). Dev and tests normally use native Deno.
 # Matches Fly.io environment (CWD = /data, .giterloper on volume). From repo root:
 #   ./scripts/run-docker.sh
 # Optional: pass env (e.g. MCP_TOKEN) or --build to rebuild the image.

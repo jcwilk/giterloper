@@ -13,8 +13,9 @@ It is implementation-focused: transport, auth, session behavior, tool schemas, r
 ## Runtime and endpoints
 
 - Entry point: `lib/gl-mcp-server.ts`
-- Task: `deno task mcp:serve`
+- Task: `deno task mcp:serve` (native; default for development)
 - Default bind: `127.0.0.1:3443` (configurable)
+- Production and optional local Docker run: see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)
 
 Environment variables:
 

@@ -2,7 +2,7 @@
 
 Consolidated from repo analysis and deployment discussion. Target: single-user hobby, &lt;$20/month.
 
-**Chosen platform:** Fly.io. See [FLY_IO_DEPLOYMENT.md](./FLY_IO_DEPLOYMENT.md) for step-by-step deployment. Run model: Docker (image with Deno, git, Python, memsearch; persistent volume for `.giterloper/`). Approximate cost: ~$6–9/month (small Machine + 20 GB volume).
+**Chosen platform:** Fly.io. See [FLY_IO_DEPLOYMENT.md](./FLY_IO_DEPLOYMENT.md) for step-by-step deployment. Run model: **production** uses Docker (image with Deno, git, Python, memsearch; persistent volume for `.giterloper/`). Development and tests use native Deno on the host (see README.md and AGENTS.md). Approximate cost: ~$6–9/month (small Machine + 20 GB volume).
 
 ---
 

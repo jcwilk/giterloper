@@ -1,4 +1,6 @@
-# Giterloper MCP server: Deno, git, Python, memsearch. For Fly.io (volume at /data) or local run.
+# Giterloper MCP server: Deno, git, Python, memsearch.
+# For production (Fly.io, volume at /data) and optional local Docker run.
+# Dev and tests: use native Deno; see README.md and AGENTS.md.
 # See docs/FLY_IO_DEPLOYMENT.md and scripts/run-docker.sh.
 FROM debian:bookworm-slim
 
