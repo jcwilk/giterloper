@@ -14,7 +14,7 @@ import { consumeBooleanFlag, parseFlag, printMaintenanceHelp } from "./cli.ts";
 import { ensureHelpNotRequested, commandOutput, info } from "./cli.ts";
 import { makeState } from "./gl-core.ts";
 import type { GlState } from "./gl-core.ts";
-import { ensureGiterloperRoot, mutatePins, readPins, resolvePin } from "./pinned.ts";
+import { ensureGiterloperRoot, mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
 import { cloneDir, stagedDir } from "./paths.ts";
 import { run } from "./run.ts";
 import {
@@ -131,6 +131,7 @@ function cmdTeardown(state: GlState, args: string[]) {
   ensureHelpNotRequested(args, ["Usage: gl teardown <name>", "Tears down pin and clone."].join("\n"));
   if (args.length !== 1) fail("usage: gl teardown <name>", EXIT.USER);
   const name = args[0];
+  validatePinName(name);
   const pins = readPins(state);
   const target = pins.find((p) => p.name === name);
   if (!target) fail(`pin "${name}" not found`, EXIT.USER);

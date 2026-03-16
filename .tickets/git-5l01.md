@@ -1,6 +1,6 @@
 ---
 id: git-5l01
-status: open
+status: closed
 deps: [git-jk2d]
 links: []
 created: 2026-03-16T00:22:08Z

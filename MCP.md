@@ -22,6 +22,7 @@ Environment variables:
 - `MCP_PORT` (default `3443`)
 - `MCP_TOKEN` (Bearer token expected when secure mode is enabled)
 - `MCP_INSECURE` (`true` or `1` disables auth checks; local dev only)
+- `MCP_SESSION_TTL_MS` (stale session scavenge TTL in ms; default 86400000 = 24h; 0 disables)
 
 HTTP routes:
 
@@ -82,22 +83,18 @@ Unauthorized response:
 
 ## Session management (as implemented)
 
-This repo does not implement custom session state logic. Specifically:
+The server uses the SDK transport in **stateful mode** with `sessionIdGenerator`:
 
-- No explicit create/resume/destroy session code exists in application logic.
-- No in-app map keyed by `mcp-session-id`.
-- No session timeout/TTL/garbage-collection policy in app code.
-- No per-session authorization or role model.
+- **Initialize** returns an `mcp-session-id` response header; clients MUST include this header on all subsequent requests.
+- **Tool calls without a valid session** (missing or invalid `mcp-session-id`) fail with HTTP 400 or 404 and actionable guidance (e.g. "Mcp-Session-Id header is required" or "Session not found").
+- **Session reuse** via `mcp-session-id` header is supported; the transport maintains in-memory session state.
 
-Instead:
-
-- CORS explicitly allows and exposes MCP session/protocol headers (`mcp-session-id`, `mcp-protocol-version`); protocol session handling is delegated to the SDK transport.
-- Application code does not implement session mechanics and forwards MCP handling to the SDK transport.
+A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. Session-local disk state (`.giterloper/sessions/<sessionId>/`) is managed by `lib/mcp-session-store.ts` with explicit cleanup via `giterloper_session_end` or `DELETE /mcp` (with `mcp-session-id` header), and stale-session scavenging by `MCP_SESSION_TTL_MS`. Per-session authorization is not implemented.
 
 Operational implication:
 
-- Any operation that needs continuity relies on persisted git/pin state and repository data, not process-memory session objects.
-- Tool calls are effectively stateless at app layer beyond underlying filesystem/git state.
+- Clients must call `initialize` first, capture the `mcp-session-id` from the response, and send it on all subsequent tool/list/other requests.
+- Any operation that needs continuity relies on the protocol session plus persisted git/pin state and repository data.
 
 ## Server identity and capabilities
 
@@ -106,7 +103,7 @@ The MCP server identity passed to SDK:
 - `name: "giterloper"`
 - `version: "1.0.0"`
 
-Capabilities are represented by registered tools (6 tools total).
+Capabilities are represented by registered tools (8 tools total).
 
 ## Tool surface (fully implemented)
 
@@ -120,7 +117,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `query: string` (required)
 - `sha?: string` (must match `/^[0-9a-f]{40}$/i` when provided)
 - `limit?: integer` (`1..100`, default `20`)
@@ -128,9 +125,12 @@ Input schema:
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `pin: string`
 - `effectiveSha: string`
 - `results: Array<{ path, title, snippet, score }>`
+
+Validation: Explicit pin name `"default"` is rejected with `invalid_argument`; omit pin to use session default.
 
 Implementation notes:
 
@@ -145,7 +145,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `path: string` (required; relative path within knowledge store, e.g. `knowledge/foo.md`)
 - `sha?: string` (40-char hex when provided)
 
@@ -153,10 +153,12 @@ Validation semantics:
 
 - If `path` is missing or empty:
   - returns `invalid_argument` envelope
+- Explicit pin name `"default"` is rejected with `invalid_argument`; omit pin to use session default.
 
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `pin: string`
 - `effectiveSha: string`
 - `path: string`
@@ -170,7 +172,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 - `content: string` (required)
 - `name?: string` (optional filename hint)
 
@@ -205,7 +207,7 @@ Purpose:
 
 Input schema:
 
-- `pin: string` (required)
+- `pin?: string` (optional; omit to use session default)
 
 Behavior details:
 
@@ -238,8 +240,10 @@ Purpose:
 
 Input schema:
 
-- `sourcePin: string` (required)
-- `targetPin: string` (required)
+- `sourcePin?: string` (optional; omit for session default)
+- `targetPin?: string` (optional; omit for session default)
+
+Reconcile side-defaulting: provide at least one of sourcePin or targetPin; the omitted side defaults to the session default pin.
 
 Behavior details:
 
@@ -278,6 +282,24 @@ Success payload (verify mode, `verify=true`):
   - `branchFresh` is `boolean | null`.
 - When `pin` is omitted and there are no pins in the system: returns `{ ok: true, pins: [] }` with no `checks` array.
 - When `pin` is provided but names a non-existent pin: returns an error envelope `{ ok: false, code: "missing_pin", ... }` with `isError: true` (thrown by `resolvePin`).
+
+### 7) `giterloper_session_end`
+
+Purpose:
+
+- Explicitly end the current MCP session and remove session-local state. Use when done with the session to free disk space.
+
+Input schema:
+
+- (no arguments)
+
+Success payload:
+
+- `ok: true`
+- `sessionId: string`
+- `action: "session_ended"`
+
+Behavior: Removes `.giterloper/sessions/<sessionId>/` best-effort. Does not invalidate the protocol session; clients should stop using the session after calling this.
 
 ## Wire format of tool results
 
@@ -360,7 +382,6 @@ Current auth behavior does not yet apply distinct read/write policy; this classi
 
 - No stdio MCP transport.
 - No custom SSE endpoint in app code; MCP is handled through SDK streamable HTTP on `/mcp`.
-- No app-defined session lifecycle APIs or persistence.
 - No MCP tool for pin lifecycle management.
 
 ## Quick local run

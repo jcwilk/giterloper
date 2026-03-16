@@ -1,5 +1,6 @@
 .giterloper/versions/
 .giterloper/staged/
+.giterloper/sessions/
 .giterloper/indexes/
 .giterloper/locks/
 

@@ -9,7 +9,7 @@ import path from "node:path";
 import { EXIT, GlError, fail } from "./errors.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { run } from "./run.ts";
-import { mutatePins, readPins, resolvePin } from "./pinned.ts";
+import { mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
 import { resolveShaOrRef } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { makeState } from "./gl-core.ts";
@@ -75,6 +75,7 @@ async function cmdPinAdd(state: GlState, args: string[]) {
   ensureHelpNotRequested(args, helpText);
   if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]", EXIT.USER);
   const name = args[0];
+  validatePinName(name);
   const source = args[1];
   let rest = args.slice(2);
   const refParsed = parseFlag(rest, "--ref");
@@ -122,6 +123,7 @@ function cmdPinRemove(state: GlState, args: string[]) {
   );
   if (args.length !== 1) fail("usage: gl pin remove <name>", EXIT.USER);
   const name = args[0];
+  validatePinName(name);
   const pins = readPins(state);
   const target = pins.find((p) => p.name === name);
   if (!target) fail(`pin "${name}" not found`, EXIT.USER);
@@ -141,6 +143,7 @@ async function cmdPinUpdate(state: GlState, args: string[]) {
   );
   if (args.length < 1) fail("usage: gl pin update <name> [--ref <ref>]", EXIT.USER);
   const name = args[0];
+  validatePinName(name);
   let rest = args.slice(1);
   const refParsed = parseFlag(rest, "--ref");
   rest = refParsed.args;

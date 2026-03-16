@@ -1,6 +1,6 @@
 ---
 id: git-jk2d
-status: open
+status: closed
 deps: [git-9bqz]
 links: []
 created: 2026-03-16T00:22:05Z

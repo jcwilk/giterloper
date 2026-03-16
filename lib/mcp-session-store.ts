@@ -1,0 +1,127 @@
+/**
+ * MCP session store and cleanup. Manages session-local state under .giterloper/sessions/<sessionId>/.
+ * Provides explicit cleanup via giterloper_session_end and DELETE /mcp, plus stale-session
+ * scavenging by last-activity TTL. Decoupled from tool handlers.
+ *
+ * See ticket git-zdbt.
+ */
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import path from "node:path";
+
+const PROJECT_ROOT = path.resolve(Deno.cwd());
+const SESSIONS_ROOT = path.join(PROJECT_ROOT, ".giterloper", "sessions");
+const LAST_ACTIVITY_FILENAME = ".last_activity";
+const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
+
+/** Returns the directory path for a session. Does not validate sessionId. */
+export function sessionDir(sessionId: string): string {
+  return path.join(SESSIONS_ROOT, sessionId);
+}
+
+/**
+ * Validates sessionId for use in paths. Returns false if invalid (does not throw).
+ * Use for cleanup paths that may receive unchecked input (e.g. headers).
+ */
+export function isSafeSessionId(sessionId: string | null | undefined): sessionId is string {
+  if (!sessionId || typeof sessionId !== "string") return false;
+  const trimmed = sessionId.trim();
+  return trimmed.length > 0 && SESSION_ID_REGEX.test(trimmed);
+}
+
+/**
+ * Removes session-local state (`.giterloper/sessions/<sessionId>/`) best-effort.
+ * Validates sessionId for path safety; skips removal if invalid.
+ * Does not throw.
+ */
+export function removeSessionData(sessionId: string | null | undefined): void {
+  if (!isSafeSessionId(sessionId)) return;
+  const dir = sessionDir(sessionId);
+  if (!existsSync(dir)) return;
+  try {
+    rmSync(dir, { recursive: true });
+  } catch {
+    // Best-effort; ignore failures
+  }
+}
+
+/**
+ * Records last activity for a session. Writes a timestamp file used by scavenge.
+ * Call after validating sessionId (e.g. in stateForSession).
+ */
+export function touchSession(sessionId: string): void {
+  const dir = sessionDir(sessionId);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const stamp = Date.now().toString();
+  try {
+    writeFileSync(path.join(dir, LAST_ACTIVITY_FILENAME), stamp, "utf8");
+  } catch {
+    // Best-effort
+  }
+}
+
+/**
+ * Removes sessions whose last activity is older than ttlMs.
+ * Returns the number of sessions removed.
+ */
+export function scavengeStaleSessions(ttlMs: number): number {
+  if (ttlMs <= 0) return 0;
+  if (!existsSync(SESSIONS_ROOT)) return 0;
+  const now = Date.now();
+  const cutoff = now - ttlMs;
+  let removed = 0;
+  try {
+    const entries = readdirSync(SESSIONS_ROOT);
+    for (const name of entries) {
+      if (!isSafeSessionId(name)) continue;
+      const dir = path.join(SESSIONS_ROOT, name);
+      const stampPath = path.join(dir, LAST_ACTIVITY_FILENAME);
+      let lastActivity = 0;
+      if (existsSync(stampPath)) {
+        try {
+          const content = readFileSync(stampPath, "utf8");
+          const parsed = parseInt(content, 10);
+          if (!Number.isNaN(parsed)) lastActivity = parsed;
+        } catch {
+          // Use mtime as fallback
+          try {
+            lastActivity = statSync(dir).mtimeMs;
+          } catch {
+            continue;
+          }
+        }
+      } else {
+        // No stamp; use dir mtime
+        try {
+          lastActivity = statSync(dir).mtimeMs;
+        } catch {
+          continue;
+        }
+      }
+      if (lastActivity < cutoff) {
+        try {
+          rmSync(dir, { recursive: true });
+          removed++;
+        } catch {
+          // Best-effort
+        }
+      }
+    }
+  } catch {
+    // Best-effort
+  }
+  return removed;
+}
+
+/** Default TTL for stale session scavenging: 24 hours. */
+export const DEFAULT_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Returns configured TTL in ms from MCP_SESSION_TTL_MS.
+ * Returns 0 if not set or invalid (disables scavenging).
+ */
+export function getSessionTtlMs(): number {
+  const s = Deno.env.get("MCP_SESSION_TTL_MS");
+  if (!s) return DEFAULT_SESSION_TTL_MS;
+  const n = parseInt(s, 10);
+  return Number.isNaN(n) || n < 0 ? 0 : n;
+}
