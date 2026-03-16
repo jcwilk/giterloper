@@ -1,6 +1,6 @@
 # Giterloper MCP Server (Implemented Behavior)
 
-This document describes how the MCP server in this repository currently works, based on the implementation in `lib/gl-mcp-server.ts` and related modules. The authoritative API contract (tool names, args, response shapes, error envelope, and error codes) is **`docs/MCP_API_CONTRACT.md`**; this file documents current server behavior and how it aligns with that contract.
+This document describes how the MCP server in this repository currently works, based on the implementation in `lib/gl-mcp-server.ts` and related modules. It is the authoritative description of the API contract (tool names, args, response shapes, error envelope, and error codes) and current server behavior.
 
 It is implementation-focused: transport, auth, session behavior, tool schemas, result formats, error envelopes, and state semantics as they exist today.
 
@@ -22,7 +22,7 @@ Environment variables:
 - `MCP_PORT` (default `3443`)
 - `MCP_TOKEN` (Bearer token expected when secure mode is enabled)
 - `MCP_INSECURE` (`true` or `1` disables auth checks; local dev only)
-- `MCP_SESSION_TTL_MS` (stale session scavenge TTL in ms; default 86400000 = 24h; 0 disables)
+- `MCP_SESSION_TTL_MS` (stale session scavenge TTL in ms; default 86400000 = 24h; 0 disables). When TTL > 0, scavenging runs periodically at an interval of `min(TTL/4, 15 * 60 * 1000)` ms.
 
 HTTP routes:
 
@@ -32,25 +32,27 @@ HTTP routes:
 - `ALL /mcp` (`GET`, `POST`, `DELETE`, `OPTIONS` via Hono routing + CORS)
   - Protected by auth middleware
   - Handled by MCP SDK transport
+  - **DELETE /mcp:** Client should send `mcp-session-id` header. The server removes that session's disk state (`.giterloper/sessions/<sessionId>/`) then forwards the request to the transport. Same effect as calling the `giterloper_session_end` tool; does not invalidate the in-memory protocol session in the SDK.
 
 ## Transport and protocol usage
 
 The server uses:
 
-- `McpServer` from `@modelcontextprotocol/sdk`
+- `McpServer` from `@modelcontextprotocol/sdk/server/mcp.js`
 - `WebStandardStreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js`
 
 Important implementation detail:
 
-- For each incoming `/mcp` request, the app creates a fresh transport and a fresh `McpServer` instance, then calls `server.connect(transport)` and `transport.handleRequest(req)`.
-- Tool registrations are recreated per request by `createServer()`.
+- A **single long-lived** transport and `McpServer` instance serve all `/mcp` requests. The transport is created with `sessionIdGenerator: () => randomUUID()` so that `initialize` returns an `mcp-session-id` and the SDK maintains in-memory session state.
+- Each request is handled by `mcpTransport.handleRequest(c.req.raw)`; tool registrations live on the shared server from `createServer()`.
 
 What this means in practice:
 
-- The app itself does not maintain a custom session registry/map.
-- Session protocol mechanics (including MCP session headers) are delegated to the SDK transport.
-- There is no custom session persistence layer in this repository.
-- Durable state is in giterloper storage (`.giterloper/` clones, staged dirs, pinned config), not in an in-memory MCP session object.
+- Session protocol mechanics (including MCP session headers and session lookup) are delegated to the SDK transport.
+- **Per-call state:** Every tool resolves `GlState` via `stateForSession(extra)` using `extra.sessionId` from the SDK. A valid `sessionId` is required; missing or invalid `sessionId` leads to failure (e.g. 400/404 before the tool runs, or STATE-style error in validation). Session ids are validated with `validateSessionId`: non-empty, allowed characters `a-z`, `A-Z`, `0-9`, `_`, `-`, max length 128 (path safety).
+- **Session path layout:** When `sessionId` is set, mutable paths root under `.giterloper/sessions/<sessionId>/` (e.g. `pinned.yaml`, `versions/`, `staged/`, indexes). This comes from `makeState(sessionId)` in `lib/gl-core.ts`.
+- **Bootstrap from shared:** When a session directory exists but is empty, the server copies shared `pinned.yaml` and existing version clones from `.giterloper/versions/` into the session's `versions/` so search/retrieve work without re-cloning. Done in `bootstrapSessionFromShared(state)` before each tool's state use.
+- Durable shared state remains in giterloper storage (`.giterloper/pinned.yaml`, shared clones when not session-scoped).
 
 CORS configuration for MCP clients:
 
@@ -86,15 +88,21 @@ Unauthorized response:
 The server uses the SDK transport in **stateful mode** with `sessionIdGenerator`:
 
 - **Initialize** returns an `mcp-session-id` response header; clients MUST include this header on all subsequent requests.
-- **Tool calls without a valid session** (missing or invalid `mcp-session-id`) fail with HTTP 400 or 404 and actionable guidance (e.g. "Mcp-Session-Id header is required" or "Session not found").
+- **Tool calls without a valid session** (missing or invalid `mcp-session-id`) fail with HTTP **400** when the session header is missing or not initialized (e.g. "Mcp-Session-Id header is required") and **404** when the provided session id is unknown or invalid (e.g. "Session not found").
 - **Session reuse** via `mcp-session-id` header is supported; the transport maintains in-memory session state.
 
-A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. Session-local disk state (`.giterloper/sessions/<sessionId>/`) is managed by `lib/mcp-session-store.ts` with explicit cleanup via `giterloper_session_end` or `DELETE /mcp` (with `mcp-session-id` header), and stale-session scavenging by `MCP_SESSION_TTL_MS`. Per-session authorization is not implemented.
+A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. Session-local disk state (`.giterloper/sessions/<sessionId>/`) is managed by `lib/mcp-session-store.ts` with explicit cleanup via `giterloper_session_end` or `DELETE /mcp` (with `mcp-session-id` header). Both remove only session disk state; they do not invalidate the in-memory protocol session in the SDK. Stale-session scavenging is **inactivity-based**: when `MCP_SESSION_TTL_MS` > 0, sessions whose last activity is older than the TTL are removed. Last activity is updated on each tool call (via `touchSession` in `stateForSession`). Scavenging runs at an interval derived from the TTL (see "Runtime and endpoints" for the formula). Per-session authorization is not implemented.
 
 Operational implication:
 
 - Clients must call `initialize` first, capture the `mcp-session-id` from the response, and send it on all subsequent tool/list/other requests.
 - Any operation that needs continuity relies on the protocol session plus persisted git/pin state and repository data.
+
+## Pin parameters and session default
+
+- **Default pin:** When a tool's `pin` (or `sourcePin`/`targetPin`) is omitted, the effective pin is the **first entry** in the effective pinned list (session-scoped `.giterloper/sessions/<sessionId>/pinned.yaml` or shared `.giterloper/pinned.yaml`). This is implemented by `resolvePin(state, undefined)` in `lib/pinned.ts`.
+- **Reserved name "default":** The pin name `"default"` is reserved system-wide (CLI and MCP). Any tool that accepts a pin argument (e.g. `pin`, `sourcePin`, `targetPin`) rejects the explicit value `"default"` with `invalid_argument`; clients must omit the argument to use the session default. See "Error envelopes and mapping" for `RESERVED_PIN` pattern in `mapErrorToMcp`.
+- **Session-scoped writes:** When state is session-scoped (`sessionId` set), `mutatePins` writes directly to the session's `pinned.yaml` and **skips the shared FIFO lock** (`.giterloper/locks/pins`); there is no cross-process contention for session-local pin mutations.
 
 ## Server identity and capabilities
 
@@ -192,6 +200,7 @@ Behavior details:
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `action: "inserted"`
 - `pin: string`
 - `branch: string`
@@ -225,6 +234,7 @@ Behavior details:
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `action: "reconciled"`
 - `pin`, `branch`
 - `oldSha`, `newSha`
@@ -255,11 +265,32 @@ Behavior details:
 Success payload:
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `action: "merged"`
 - `source: { pin, branch, sha }`
 - `target: { pin, branch, oldSha, newSha }`
 
-### 6) `giterloper_state_inspect`
+### 6) `giterloper_pin_set`
+
+Purpose:
+
+- Set session default pin by reordering the session's pinned.yaml so the given pin is first. Requires a session. Omit `pin` to view current default without changing it.
+
+Input schema:
+
+- `pin?: string` (optional; pin name to set as default; omit to view current default)
+
+Success payload:
+
+- `ok: true`
+- `sessionId?: string` (when session-scoped)
+- `action: "pin_set"`
+- `defaultPin: string`
+- `message?: string` (when no change: "Only one pin; already default" or "Already session default")
+
+Behavior: If there is only one pin or the named pin is already first, returns success with a `message` and no reorder. Otherwise mutates session pinned.yaml to put the pin first.
+
+### 7) `giterloper_state_inspect`
 
 Purpose:
 
@@ -273,17 +304,19 @@ Input schema:
 Success payload (list mode, `verify=false`):
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `pins: Array<{ name, source, sha, branch | null }>`
 
 Success payload (verify mode, `verify=true`):
 
 - `ok: true`
+- `sessionId?: string` (when session-scoped)
 - `checks: Array<{ pin, branch, sha, clonePresent, cloneShaOk, workingCloneExists, branchFresh }>`  
   - `branchFresh` is `boolean | null`.
-- When `pin` is omitted and there are no pins in the system: returns `{ ok: true, pins: [] }` with no `checks` array.
+- When `pin` is omitted and there are no pins in the system: returns `{ ok: true, pins: [] }` (and optional `sessionId`) with no `checks` array.
 - When `pin` is provided but names a non-existent pin: returns an error envelope `{ ok: false, code: "missing_pin", ... }` with `isError: true` (thrown by `resolvePin`).
 
-### 7) `giterloper_session_end`
+### 8) `giterloper_session_end`
 
 Purpose:
 
@@ -345,7 +378,7 @@ Note on HTTP status mapping:
 Read tools that support versioning (`giterloper_search`, `giterloper_retrieve`):
 
 - `sha` is optional.
-- Effective SHA is: the provided `sha` argument, or else the pin head SHA from `.giterloper/pinned.yaml`.
+- Effective SHA is: the provided `sha` argument, or else the pin head SHA from the effective pinned config (shared `.giterloper/pinned.yaml` or session-scoped `.giterloper/sessions/<sessionId>/pinned.yaml`).
 - Success responses include `effectiveSha`. (`giterloper_state_inspect` does not take or return `sha`/`effectiveSha`.)
 
 Write tools:
@@ -369,6 +402,7 @@ Write tools:
 - `giterloper_insert_pending`
 - `giterloper_reconcile`
 - `giterloper_reconcile_pending`
+- `giterloper_pin_set`
 
 Current auth behavior does not yet apply distinct read/write policy; this classification is available for policy extension.
 
