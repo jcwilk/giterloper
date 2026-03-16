@@ -1,0 +1,32 @@
+# Fly.io app for giterloper MCP server. See docs/FLY_IO_DEPLOYMENT.md.
+# Create app first: fly launch --no-deploy (or use this app name).
+app = "giterloper"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MCP_HOST = "0.0.0.0"
+  MCP_PORT = "8080"
+
+[mounts]
+  source = "giterloper_data"
+  destination = "/data"
+  initial_size = "20gb"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
