@@ -1,6 +1,6 @@
 ---
 id: git-jrf9
-status: open
+status: closed
 deps: [git-lwa5]
 links: []
 created: 2026-03-16T10:37:31Z
