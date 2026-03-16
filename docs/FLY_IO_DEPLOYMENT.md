@@ -190,3 +190,22 @@ fly deploy
 fly scale count 1
 fly volumes list && fly machine list
 ```
+
+---
+
+## 7. Local Docker run
+
+To run the same image locally with your `.giterloper` directory persisted on the host:
+
+1. From the repo root, build and run:
+   ```bash
+   ./scripts/run-docker.sh --build
+   ```
+   Or run without rebuilding: `./scripts/run-docker.sh`.
+
+2. The script mounts `$(pwd)/.giterloper` at `/data/.giterloper`, maps port 3443, and sets `MCP_HOST=0.0.0.0` and `MCP_PORT=3443`. To pass secrets (e.g. for GitHub or MCP auth), add `-e` before the image name:
+   ```bash
+   ./scripts/run-docker.sh -e MCP_TOKEN=your-token -e GITERLOPER_GH_TOKEN=your-gh-token
+   ```
+
+3. Health: `curl http://localhost:3443/health`. MCP endpoint: `http://localhost:3443/mcp` (Bearer token required unless `MCP_INSECURE=true`).

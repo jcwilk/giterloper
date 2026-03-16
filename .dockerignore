@@ -1,0 +1,14 @@
+# Avoid copying repo metadata and local state into the image
+.git
+.giterloper
+.cursor
+.tickets
+*.md
+!docs/FLY_IO_DEPLOYMENT.md
+reference_client
+tests
+.env
+.env.*
+fly.toml
+Dockerfile
+.dockerignore

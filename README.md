@@ -27,6 +27,10 @@ Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/version
 
 See `AGENTS.md` for contributor and agent guidance.
 
+## Docker
+
+Run the MCP server in Docker with local `.giterloper` mounted: `./scripts/run-docker.sh --build`. See `docs/FLY_IO_DEPLOYMENT.md` for Fly.io deploy and local run details.
+
 ## Tests
 
 E2E tests use random pin/branch names per run:
