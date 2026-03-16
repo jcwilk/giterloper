@@ -1,6 +1,6 @@
 ---
 id: git-zdbt
-status: open
+status: closed
 deps: [git-c7iy]
 links: []
 created: 2026-03-16T00:22:15Z

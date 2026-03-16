@@ -1,6 +1,6 @@
 ---
 id: git-2r5p
-status: open
+status: closed
 deps: [git-zdbt]
 links: []
 created: 2026-03-16T00:22:19Z

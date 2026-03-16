@@ -22,6 +22,7 @@ Environment variables:
 - `MCP_PORT` (default `3443`)
 - `MCP_TOKEN` (Bearer token expected when secure mode is enabled)
 - `MCP_INSECURE` (`true` or `1` disables auth checks; local dev only)
+- `MCP_SESSION_TTL_MS` (stale session scavenge TTL in ms; default 86400000 = 24h; 0 disables)
 
 HTTP routes:
 
@@ -88,7 +89,7 @@ The server uses the SDK transport in **stateful mode** with `sessionIdGenerator`
 - **Tool calls without a valid session** (missing or invalid `mcp-session-id`) fail with HTTP 400 or 404 and actionable guidance (e.g. "Mcp-Session-Id header is required" or "Session not found").
 - **Session reuse** via `mcp-session-id` header is supported; the transport maintains in-memory session state.
 
-A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. The app does not implement a custom session registry or TTL/garbage-collection. Per-session authorization is not implemented.
+A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. Session-local disk state (`.giterloper/sessions/<sessionId>/`) is managed by `lib/mcp-session-store.ts` with explicit cleanup via `giterloper_session_end` or `DELETE /mcp` (with `mcp-session-id` header), and stale-session scavenging by `MCP_SESSION_TTL_MS`. Per-session authorization is not implemented.
 
 Operational implication:
 
@@ -102,7 +103,7 @@ The MCP server identity passed to SDK:
 - `name: "giterloper"`
 - `version: "1.0.0"`
 
-Capabilities are represented by registered tools (7 tools total).
+Capabilities are represented by registered tools (8 tools total).
 
 ## Tool surface (fully implemented)
 
@@ -282,6 +283,24 @@ Success payload (verify mode, `verify=true`):
 - When `pin` is omitted and there are no pins in the system: returns `{ ok: true, pins: [] }` with no `checks` array.
 - When `pin` is provided but names a non-existent pin: returns an error envelope `{ ok: false, code: "missing_pin", ... }` with `isError: true` (thrown by `resolvePin`).
 
+### 7) `giterloper_session_end`
+
+Purpose:
+
+- Explicitly end the current MCP session and remove session-local state. Use when done with the session to free disk space.
+
+Input schema:
+
+- (no arguments)
+
+Success payload:
+
+- `ok: true`
+- `sessionId: string`
+- `action: "session_ended"`
+
+Behavior: Removes `.giterloper/sessions/<sessionId>/` best-effort. Does not invalidate the protocol session; clients should stop using the session after calling this.
+
 ## Wire format of tool results
 
 Tool handlers are wrapped by `wrapTool`:
@@ -363,7 +382,6 @@ Current auth behavior does not yet apply distinct read/write policy; this classi
 
 - No stdio MCP transport.
 - No custom SSE endpoint in app code; MCP is handled through SDK streamable HTTP on `/mcp`.
-- No app-defined session lifecycle APIs or persistence.
 - No MCP tool for pin lifecycle management.
 
 ## Quick local run

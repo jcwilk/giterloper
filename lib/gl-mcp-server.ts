@@ -34,6 +34,12 @@ import {
 } from "./branch.ts";
 import { updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 import { reconcile } from "./reconcile.ts";
+import {
+  getSessionTtlMs,
+  removeSessionData,
+  scavengeStaleSessions,
+  touchSession,
+} from "./mcp-session-store.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
 export function validateInsertContent(
@@ -94,6 +100,7 @@ function createServer(): McpServer {
     const sessionId = validateSessionId(extra?.sessionId);
     const state = makeState(sessionId);
     bootstrapSessionFromShared(state);
+    touchSession(sessionId);
     return state;
   }
 
@@ -470,6 +477,26 @@ function createServer(): McpServer {
       })
   );
 
+  server.registerTool(
+    "giterloper_session_end",
+    {
+      title: "End session",
+      description:
+        "Explicitly end the current MCP session and remove session-local state. Use when done with the session to free disk space.",
+      inputSchema: z.object({}),
+    },
+    async (_, extra) =>
+      wrapTool(() => {
+        const sessionId = validateSessionId(extra?.sessionId);
+        removeSessionData(sessionId);
+        return {
+          ok: true,
+          sessionId,
+          action: "session_ended",
+        };
+      })
+  );
+
   return server;
 }
 
@@ -509,15 +536,68 @@ await mcpServer.connect(mcpTransport);
 
 app.use("/mcp", mcpAuthMiddleware);
 app.all("/mcp", async (c) => {
+  if (c.req.method === "DELETE") {
+    const sessionId = c.req.header("mcp-session-id");
+    removeSessionData(sessionId);
+  }
   return mcpTransport.handleRequest(c.req.raw);
 });
 
 /** Exported for session lifecycle tests. */
 export { app as mcpApp };
 
+/**
+ * Creates a fresh MCP app with its own transport and server. Use in tests that need
+ * an independent initialize (the shared mcpApp rejects a second initialize).
+ */
+export async function createMcpAppForTest(): Promise<typeof app> {
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+  const server = createServer();
+  await server.connect(transport);
+  const testApp = new Hono();
+  testApp.use(
+    "*",
+    cors({
+      origin: (origin) => origin ?? "*",
+      allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
+      allowHeaders: [
+        "Authorization",
+        "Content-Type",
+        "mcp-session-id",
+        "Last-Event-ID",
+        "mcp-protocol-version",
+      ],
+      exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
+    })
+  );
+  testApp.get("/health", (c) =>
+    c.json({
+      status: "ok",
+      service: "giterloper-mcp",
+      version: "1.0.0",
+    })
+  );
+  testApp.use("/mcp", mcpAuthMiddleware);
+  testApp.all("/mcp", async (c) => {
+    if (c.req.method === "DELETE") {
+      const sessionId = c.req.header("mcp-session-id");
+      removeSessionData(sessionId);
+    }
+    return transport.handleRequest(c.req.raw);
+  });
+  return testApp;
+}
+
 if (import.meta.main) {
   const insecure = isInsecureMode();
   const hasToken = !!Deno.env.get("MCP_TOKEN");
+  const ttlMs = getSessionTtlMs();
+  if (ttlMs > 0) {
+    const intervalMs = Math.min(ttlMs / 4, 15 * 60 * 1000);
+    setInterval(() => scavengeStaleSessions(ttlMs), intervalMs);
+  }
   console.log(`Giterloper MCP server on http://${HOST}:${PORT}`);
   console.log(`  Health: http://${HOST}:${PORT}/health`);
   console.log(`  MCP:    http://${HOST}:${PORT}/mcp`);
