@@ -1,6 +1,6 @@
 ---
 id: git-9bqz
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-16T00:22:02Z

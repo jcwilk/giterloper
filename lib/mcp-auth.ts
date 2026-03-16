@@ -86,5 +86,6 @@ export async function mcpAuthMiddleware(c: Context, next: Next): Promise<Respons
   if (validateAuth(c.req.header("Authorization"))) {
     return next();
   }
-  return c.json(UNAUTHORIZED_ENVELOPE, mcpCodeToHttpStatus("unauthorized"));
+  const status = mcpCodeToHttpStatus("unauthorized");
+  return c.json(UNAUTHORIZED_ENVELOPE, status as 401);
 }

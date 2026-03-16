@@ -3,7 +3,7 @@
  * Giterloper MCP server over HTTP/SSE (Streamable HTTP).
  * No stdio transport. See docs/MCP_API_CONTRACT.md.
  */
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { existsSync, writeFileSync } from "node:fs";
 
@@ -413,13 +413,21 @@ app.get("/health", (c) =>
   })
 );
 
+/** Single long-lived transport and server for session lifecycle. Stateful mode ensures
+ * initialize returns mcp-session-id, tool calls without valid session fail, resume via header works. */
+const mcpTransport = new WebStandardStreamableHTTPServerTransport({
+  sessionIdGenerator: () => randomUUID(),
+});
+const mcpServer = createServer();
+await mcpServer.connect(mcpTransport);
+
 app.use("/mcp", mcpAuthMiddleware);
 app.all("/mcp", async (c) => {
-  const transport = new WebStandardStreamableHTTPServerTransport();
-  const server = createServer();
-  await server.connect(transport);
-  return transport.handleRequest(c.req.raw);
+  return mcpTransport.handleRequest(c.req.raw);
 });
+
+/** Exported for session lifecycle tests. */
+export { app as mcpApp };
 
 if (import.meta.main) {
   const insecure = isInsecureMode();

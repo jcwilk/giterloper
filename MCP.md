@@ -82,22 +82,18 @@ Unauthorized response:
 
 ## Session management (as implemented)
 
-This repo does not implement custom session state logic. Specifically:
+The server uses the SDK transport in **stateful mode** with `sessionIdGenerator`:
 
-- No explicit create/resume/destroy session code exists in application logic.
-- No in-app map keyed by `mcp-session-id`.
-- No session timeout/TTL/garbage-collection policy in app code.
-- No per-session authorization or role model.
+- **Initialize** returns an `mcp-session-id` response header; clients MUST include this header on all subsequent requests.
+- **Tool calls without a valid session** (missing or invalid `mcp-session-id`) fail with HTTP 400 or 404 and actionable guidance (e.g. "Mcp-Session-Id header is required" or "Session not found").
+- **Session reuse** via `mcp-session-id` header is supported; the transport maintains in-memory session state.
 
-Instead:
-
-- CORS explicitly allows and exposes MCP session/protocol headers (`mcp-session-id`, `mcp-protocol-version`); protocol session handling is delegated to the SDK transport.
-- Application code does not implement session mechanics and forwards MCP handling to the SDK transport.
+A single long-lived transport and server instance serve all requests; session state is maintained in-memory by the SDK transport. The app does not implement a custom session registry or TTL/garbage-collection. Per-session authorization is not implemented.
 
 Operational implication:
 
-- Any operation that needs continuity relies on persisted git/pin state and repository data, not process-memory session objects.
-- Tool calls are effectively stateless at app layer beyond underlying filesystem/git state.
+- Clients must call `initialize` first, capture the `mcp-session-id` from the response, and send it on all subsequent tool/list/other requests.
+- Any operation that needs continuity relies on the protocol session plus persisted git/pin state and repository data.
 
 ## Server identity and capabilities
 
