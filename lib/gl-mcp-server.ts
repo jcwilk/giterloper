@@ -63,11 +63,26 @@ const PORT = (() => {
 })();
 const HOST = Deno.env.get("MCP_HOST") ?? "127.0.0.1";
 
-function createServer(): McpServer {
+export interface CreateServerOptions {
+  /** Resolve session id from transport context. Default: validateSessionId(extra?.sessionId). */
+  getSessionId?: (extra: { sessionId?: string } | undefined) => string;
+}
+
+/**
+ * Creates the shared MCP server (tool registration, session resolution). Use from HTTP or stdio entrypoints.
+ * Options.getSessionId allows transport-specific session identity (e.g. stdio: process-scoped id).
+ */
+export function createServer(options?: CreateServerOptions): McpServer {
   const server = new McpServer({
     name: "giterloper",
     version: "1.0.0",
   });
+
+  function resolveSessionId(extra: { sessionId?: string } | undefined): string {
+    return options?.getSessionId
+      ? options.getSessionId(extra)
+      : validateSessionId(extra?.sessionId);
+  }
 
   async function wrapTool<T>(
     fn: () => T | Promise<T>
@@ -97,7 +112,7 @@ function createServer(): McpServer {
   function stateForSession(
     extra: { sessionId?: string } | undefined
   ): ReturnType<typeof makeState> {
-    const sessionId = validateSessionId(extra?.sessionId);
+    const sessionId = resolveSessionId(extra);
     const state = makeState(sessionId);
     bootstrapSessionFromShared(state);
     touchSession(sessionId);
@@ -487,7 +502,7 @@ function createServer(): McpServer {
     },
     async (_, extra) =>
       wrapTool(() => {
-        const sessionId = validateSessionId(extra?.sessionId);
+        const sessionId = resolveSessionId(extra);
         removeSessionData(sessionId);
         return {
           ok: true,
@@ -500,64 +515,18 @@ function createServer(): McpServer {
   return server;
 }
 
-const app = new Hono();
-
-app.use(
-  "*",
-  cors({
-    origin: (origin) => origin ?? "*",
-    allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowHeaders: [
-      "Authorization",
-      "Content-Type",
-      "mcp-session-id",
-      "Last-Event-ID",
-      "mcp-protocol-version",
-    ],
-    exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
-  })
-);
-
-app.get("/health", (c) =>
-  c.json({
-    status: "ok",
-    service: "giterloper-mcp",
-    version: "1.0.0",
-  })
-);
-
-/** Single long-lived transport and server for session lifecycle. Stateful mode ensures
- * initialize returns mcp-session-id, tool calls without valid session fail, resume via header works. */
-const mcpTransport = new WebStandardStreamableHTTPServerTransport({
-  sessionIdGenerator: () => randomUUID(),
-});
-const mcpServer = createServer();
-await mcpServer.connect(mcpTransport);
-
-app.use("/mcp", mcpAuthMiddleware);
-app.all("/mcp", async (c) => {
-  if (c.req.method === "DELETE") {
-    const sessionId = c.req.header("mcp-session-id");
-    removeSessionData(sessionId);
-  }
-  return mcpTransport.handleRequest(c.req.raw);
-});
-
-/** Exported for session lifecycle tests. */
-export { app as mcpApp };
+/** HTTP transport type for app wiring: handleRequest and optional DELETE session cleanup. */
+interface HttpMcpTransport {
+  handleRequest(req: Request): Promise<Response>;
+}
 
 /**
- * Creates a fresh MCP app with its own transport and server. Use in tests that need
- * an independent initialize (the shared mcpApp rejects a second initialize).
+ * Builds the Hono app for MCP over HTTP/SSE: CORS, /health, /mcp with auth.
+ * Caller creates transport and server, connects them, then passes transport here.
  */
-export async function createMcpAppForTest(): Promise<typeof app> {
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: () => randomUUID(),
-  });
-  const server = createServer();
-  await server.connect(transport);
-  const testApp = new Hono();
-  testApp.use(
+export function createHttpMcpApp(transport: HttpMcpTransport): Hono {
+  const app = new Hono();
+  app.use(
     "*",
     cors({
       origin: (origin) => origin ?? "*",
@@ -572,22 +541,46 @@ export async function createMcpAppForTest(): Promise<typeof app> {
       exposeHeaders: ["mcp-session-id", "mcp-protocol-version"],
     })
   );
-  testApp.get("/health", (c) =>
+  app.get("/health", (c) =>
     c.json({
       status: "ok",
       service: "giterloper-mcp",
       version: "1.0.0",
     })
   );
-  testApp.use("/mcp", mcpAuthMiddleware);
-  testApp.all("/mcp", async (c) => {
+  app.use("/mcp", mcpAuthMiddleware);
+  app.all("/mcp", async (c) => {
     if (c.req.method === "DELETE") {
       const sessionId = c.req.header("mcp-session-id");
       removeSessionData(sessionId);
     }
     return transport.handleRequest(c.req.raw);
   });
-  return testApp;
+  return app;
+}
+
+/** Single long-lived transport and server for session lifecycle. */
+const mcpTransport = new WebStandardStreamableHTTPServerTransport({
+  sessionIdGenerator: () => randomUUID(),
+});
+const mcpServer = createServer();
+await mcpServer.connect(mcpTransport);
+const app = createHttpMcpApp(mcpTransport);
+
+/** Exported for session lifecycle tests. */
+export { app as mcpApp };
+
+/**
+ * Creates a fresh MCP app with its own transport and server. Use in tests that need
+ * an independent initialize (the shared mcpApp rejects a second initialize).
+ */
+export async function createMcpAppForTest(): Promise<ReturnType<typeof createHttpMcpApp>> {
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+  const server = createServer();
+  await server.connect(transport);
+  return createHttpMcpApp(transport);
 }
 
 if (import.meta.main) {

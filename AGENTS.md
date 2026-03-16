@@ -161,7 +161,7 @@ E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; 
 
 ### MCP server
 
-The MCP server exposes giterloper over HTTP/SSE (Streamable HTTP). No stdio transport. See `docs/MCP_API_CONTRACT.md` for tool names, schemas, and error codes.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
 
@@ -171,6 +171,7 @@ deno run -A lib/gl-mcp-server.ts
 # or
 deno task mcp:serve
 ```
+For stdio (one session per process): `deno task mcp:serve-stdio` or `deno run -A lib/gl-mcp-server-stdio.ts`.
 For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
 **Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1).

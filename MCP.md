@@ -6,16 +6,41 @@ It is implementation-focused: transport, auth, session behavior, tool schemas, r
 
 ## Scope and non-goals
 
-- The server exposes giterloper knowledge operations over MCP Streamable HTTP.
+- The server exposes giterloper knowledge operations over MCP via **HTTP/SSE** (Streamable HTTP) or **stdio**.
 - No web-research functionality is implemented; it exposes only giterloper MCP tools. It reads and mutates giterloper knowledge stores, including ingesting new client-provided content via `giterloper_insert_pending`.
 - It does not expose pin lifecycle commands (`pin add`, `pin update`, `pin remove`) via MCP.
 
+## Dual-transport parity
+
+One implementation of all MCP behavior (tools, session semantics, error mapping) is shared; only the transport and session-id source differ.
+
+**Must stay identical across transports:**
+
+- Tool names, input/output schemas, and result/error shapes.
+- Session semantics: per-session state under `.giterloper/sessions/<sessionId>/`, bootstrap from shared, `giterloper_session_end` behavior.
+- Error envelope and codes (see "Error envelopes and mapping" below).
+
+**Transport-specific by design:**
+
+- **HTTP:** Session id from SDK `sessionIdGenerator`; returned in `mcp-session-id` header; auth via `MCP_TOKEN`; `GET /health`, CORS.
+- **Stdio:** Single process-scoped session id (injected via `createServer({ getSessionId })`); no auth; no `/health`; all logging to stderr. See [docs/STDIO_TRANSPORT_SPIKE.md](./docs/STDIO_TRANSPORT_SPIKE.md).
+
+When adding or changing tools or session behavior, update the shared core only; both transports stay in parity.
+
 ## Runtime and endpoints
+
+**HTTP (default):**
 
 - Entry point: `lib/gl-mcp-server.ts`
 - Task: `deno task mcp:serve` (native; default for development)
 - Default bind: `127.0.0.1:3443` (configurable)
 - Production and optional local Docker run: see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)
+
+**Stdio:**
+
+- Entry point: `lib/gl-mcp-server-stdio.ts`
+- Task: `deno task mcp:serve-stdio`
+- One session per process; session id fixed at startup. Use for local subprocess clients (e.g. IDE integrations).
 
 Environment variables:
 

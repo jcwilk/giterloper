@@ -1,6 +1,6 @@
 ---
 id: git-vraz
-status: open
+status: closed
 deps: [git-l2sv, git-cfer]
 links: []
 created: 2026-03-16T20:41:56Z

@@ -2,7 +2,8 @@
   "tasks": {
     "test:unit": "deno test -A tests/unit/",
     "test:e2e": "deno run -A scripts/run-e2e.ts",
-    "mcp:serve": "deno run -A lib/gl-mcp-server.ts"
+    "mcp:serve": "deno run -A lib/gl-mcp-server.ts",
+    "mcp:serve-stdio": "deno run -A lib/gl-mcp-server-stdio.ts"
   },
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.27.1",

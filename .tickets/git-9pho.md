@@ -1,6 +1,6 @@
 ---
 id: git-9pho
-status: open
+status: closed
 deps: [git-vraz, git-4nsv]
 links: []
 created: 2026-03-16T20:41:56Z

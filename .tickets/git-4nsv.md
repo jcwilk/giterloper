@@ -1,6 +1,6 @@
 ---
 id: git-4nsv
-status: open
+status: closed
 deps: [git-cfer, git-vraz]
 links: []
 created: 2026-03-16T20:41:56Z
