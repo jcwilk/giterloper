@@ -12,6 +12,7 @@ import {
   validatePinName,
   mutatePins,
   RESERVED_PIN_NAME,
+  SESSION_PIN_NAME,
 } from "../../lib/pinned.ts";
 import { makeState } from "../../lib/gl-core.ts";
 import { GlError } from "../../lib/errors.ts";
@@ -34,6 +35,12 @@ Deno.test("validatePinName rejects reserved name default", () => {
     Error,
     "default"
   );
+});
+
+/** docs/PIN_SETTING_PARAM_BEHAVIOR.md § Pin Name: "_session" always fails. */
+Deno.test("validatePinName rejects _session", () => {
+  assertThrows(() => validatePinName("_session"), Error, "reserved");
+  assertThrows(() => validatePinName("  _session  "), Error, SESSION_PIN_NAME);
 });
 
 Deno.test("validatePinName allows non-reserved names", () => {

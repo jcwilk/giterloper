@@ -13,9 +13,9 @@ import * as z from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
-import { bootstrapSessionFromShared, makeState, validateSessionId } from "./gl-core.ts";
+import { autoInitSessionPin, ensureSessionDir, makeState, validateSessionId } from "./gl-core.ts";
 import type { GlState, Pin } from "./types.ts";
-import { mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
+import { mutatePins, readPins, resolvePin, SESSION_PIN_NAME, validatePinName } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
@@ -116,7 +116,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
   ): ReturnType<typeof makeState> {
     const sessionId = resolveSessionId(extra);
     const state = makeState(sessionId);
-    bootstrapSessionFromShared(state);
+    ensureSessionDir(state);
+    autoInitSessionPin(state);
     touchSession(sessionId);
     return state;
   }
@@ -342,16 +343,25 @@ export function createServer(options?: CreateServerOptions): McpServer {
     async ({ sourcePin, targetPin }, extra) =>
       wrapTool(async () => {
         const state = stateForSession(extra);
+        // Per docs/PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception: both omitted → merge into itself.
         if (!sourcePin?.trim() && !targetPin?.trim()) {
           return {
             ok: false,
             code: "invalid_argument",
-            message: "Provide at least one of sourcePin or targetPin",
+            message: "Cannot merge a pin into itself. Omit at most one of sourcePin or targetPin (whichever resolves to the session pin).",
             details: {},
           };
         }
         const source = resolvePin(state, sourcePin ?? undefined);
         const target = resolvePin(state, targetPin ?? undefined);
+        if (source.name === target.name) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: "Cannot merge a pin into itself.",
+            details: {},
+          };
+        }
         requirePinBranch(source, "merge");
         requirePinBranch(target, "merge");
         if (source.source !== target.source) {
@@ -393,11 +403,11 @@ export function createServer(options?: CreateServerOptions): McpServer {
   server.registerTool(
     "giterloper_pin_set",
     {
-      title: "Configure pins and session default",
+      title: "Configure pins",
       description:
-        "View or configure pins. No pin name = view/configure the session default (first pin). Pin name = upsert that named pin without changing the default. Branch-only (no pin) = update the default pin's branch at its current SHA. Branch + pin name = create/update a snapshot pin at the default's current SHA; default is unaffected. Assigning a branch pushes it to remote immediately (or fails with branch_sha_mismatch if remote differs). Tools that omit the pin parameter resolve through the session default.",
+        "Configure pins per docs/PIN_SETTING_PARAM_BEHAVIOR.md. Omit pin = operate on session pin (name _session). Pin name = add or change that named pin. Must specify at least one of branch or ref. ref may be a SHA or branch/tag; resolved to SHA from remote. Pins store name, sha, optionally branch.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name to upsert; omit to view or configure session default"),
+        pin: z.string().optional().describe("Pin name; omit for session pin (_session)"),
         source: z
           .string()
           .optional()
@@ -405,11 +415,11 @@ export function createServer(options?: CreateServerOptions): McpServer {
         ref: z
           .string()
           .optional()
-          .describe("Ref or SHA when creating (defaults to HEAD or branch)"),
+          .describe("SHA or ref (branch/tag); resolved from remote, stored as SHA"),
         branch: z
           .string()
           .optional()
-          .describe("Branch for write ops; with pin name creates snapshot; without pin updates default's branch"),
+          .describe("Branch for write ops; with ref creates branched pin"),
       }),
     },
     async ({ pin, source, ref, branch }, extra) =>
@@ -417,7 +427,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const state = stateForSession(extra);
         const pins = readPins(state);
 
-        // Omit pin: view current default OR update default's branch (branch-only path)
+        // Omit pin: operate on session pin. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md §4: neither branch nor sha → FAIL.
         if (!pin || pin.trim() === "") {
           if (pins.length === 0) {
             return {
@@ -428,12 +438,21 @@ export function createServer(options?: CreateServerOptions): McpServer {
             };
           }
           const branchProvided = branch !== undefined && branch?.trim() !== "";
+          const shaProvided = ref !== undefined && ref?.trim() !== "";
+          if (!branchProvided && !shaProvided) {
+            return {
+              ok: false,
+              code: "invalid_argument",
+              message: "Specify at least one of branch or ref.",
+              details: {},
+            };
+          }
+          const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME) ?? pins[0];
           if (branchProvided) {
-            const defaultPin = pins[0];
-            const updated: Pin = { ...defaultPin, branch: branch!.trim() || undefined };
+            const updated: Pin = { ...sessionPin, branch: branch!.trim() || undefined };
             eagerPushBranchOrFail(state, updated);
             mutatePins(state, (list) =>
-              list.map((p, i) => (i === 0 ? updated : p))
+              list.map((p) => (p.name === SESSION_PIN_NAME ? updated : p))
             );
             return withMetadata(state, {
               ok: true,
@@ -444,26 +463,57 @@ export function createServer(options?: CreateServerOptions): McpServer {
                 sha: updated.sha,
                 branch: updated.branch ?? null,
               },
-              message: "Updated default pin branch",
+              message: "Updated session pin branch",
             });
           }
-          return {
+          // ref only, no branch: update session pin to resolved ref SHA, branchlessly. Per doc §2.
+          const effectiveSource = source?.trim() || sessionPin.source;
+          if (!effectiveSource) {
+            return {
+              ok: false,
+              code: "invalid_argument",
+              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+              details: {},
+            };
+          }
+          const resolvedSha = await resolveShaOrRef(effectiveSource, ref!.trim());
+          const updated: Pin = { ...sessionPin, sha: resolvedSha, branch: undefined };
+          teardownPinData(state, sessionPin);
+          clonePin(state, updated);
+          mutatePins(state, (list) =>
+            list.map((p) => (p.name === SESSION_PIN_NAME ? updated : p))
+          );
+          return withMetadata(state, {
             ok: true,
-            ...(state.sessionId && { sessionId: state.sessionId }),
             action: "pin_set",
-            defaultPin: pins[0].name,
-            message: "Current session default",
-          };
+            pin: {
+              name: updated.name,
+              source: updated.source,
+              sha: updated.sha,
+              branch: null,
+            },
+            message: "Updated session pin to ref (branchless)",
+          });
         }
 
         validatePinName(pin);
         const trimmedName = pin.trim();
         const existing = pins.find((p) => p.name === trimmedName);
-        const defaultPin = pins[0];
+        const defaultPin = pins.find((p) => p.name === SESSION_PIN_NAME) ?? pins[0];
         const branchProvided = branch !== undefined && branch?.trim() !== "";
+        const shaProvided = ref !== undefined && ref?.trim() !== "";
 
-        // Snapshot path: branch + pin name — create/update named pin at default's SHA with given branch.
-        // Default pin is unaffected. Source inherited from default unless explicitly overridden.
+        // Per docs/PIN_SETTING_PARAM_BEHAVIOR.md §4: neither branch nor ref for named pin → FAIL.
+        if (!branchProvided && !shaProvided) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: "Specify at least one of branch or ref when adding or changing a named pin.",
+            details: {},
+          };
+        }
+
+        // Branch + pin: create/update named pin. Per doc §1 (ref not specified) use session SHA; per doc §3 (ref specified) use resolved ref SHA.
         if (branchProvided) {
           const effectiveSource = source?.trim() || defaultPin?.source;
           if (!effectiveSource) {
@@ -474,7 +524,9 @@ export function createServer(options?: CreateServerOptions): McpServer {
               details: {},
             };
           }
-          const effectiveSha = defaultPin.sha;
+          const effectiveSha = shaProvided
+            ? await resolveShaOrRef(effectiveSource, ref!.trim())
+            : defaultPin.sha;
           const branchVal = branch!.trim() || undefined;
           const snapshotPin: Pin = {
             name: trimmedName,

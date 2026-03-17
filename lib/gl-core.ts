@@ -2,47 +2,54 @@
  * Core shared state for gl CLI. Used by gl.ts and gl-maintenance.ts.
  * MCP server uses makeState(sessionId) for session-scoped mutable paths.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { EXIT, fail } from "./errors.ts";
-import { parsePinned } from "./pinned.ts";
-import { run } from "./run.ts";
+import { readPins, SESSION_PIN_NAME, writePinsAtomic } from "./pinned.ts";
+import { clonePin } from "./pin-lifecycle.ts";
+import { resolveSha } from "./git.ts";
 import type { GlState } from "./types.ts";
+import type { Pin } from "./types.ts";
 
 export type { GlState };
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
 
-/** Shared .giterloper root (non-session). */
-const SHARED_ROOT = path.join(PROJECT_ROOT, ".giterloper");
-const SHARED_PINNED = path.join(SHARED_ROOT, "pinned.yaml");
-const SHARED_VERSIONS = path.join(SHARED_ROOT, "versions");
+/** Env var for session auto-init: repo source (e.g. github.com/owner/repo). When set, new sessions start with _session pin at main. */
+export const KNOWLEDGE_STORE_REMOTE = "KNOWLEDGE_STORE_REMOTE";
 
 /**
- * Bootstraps session-local state from shared .giterloper when session dir is empty.
- * Ensures session root exists, copies shared pinned.yaml if missing, and copies existing
- * version clones so MCP tools can resolve pins. Called by MCP stateForSession.
+ * Ensures session root exists. Called by MCP stateForSession.
  */
-export function bootstrapSessionFromShared(state: GlState): void {
+export function ensureSessionDir(state: GlState): void {
   if (!state.sessionId) return;
   if (!existsSync(state.rootDir)) {
     mkdirSync(state.rootDir, { recursive: true });
   }
-  if (!existsSync(state.pinnedPath) && existsSync(SHARED_PINNED)) {
-    const content = readFileSync(SHARED_PINNED, "utf8");
-    writeFileSync(state.pinnedPath, content, "utf8");
-    // Bootstrap version clones so retrieve/search work without cloning
-    const pins = parsePinned(content);
-    for (const pin of pins) {
-      const sharedClone = path.join(SHARED_VERSIONS, pin.name, pin.sha);
-      const sessionClone = path.join(state.versionsDir, pin.name, pin.sha);
-      if (existsSync(sharedClone) && !existsSync(sessionClone)) {
-        mkdirSync(path.dirname(sessionClone), { recursive: true });
-        run("cp", ["-r", sharedClone, sessionClone]);
-      }
-    }
-  }
+}
+
+/**
+ * Lazily creates _session pin when KNOWLEDGE_STORE_REMOTE is set and no _session pin exists.
+ * Session pin starts at main branch with remote main's SHA. No shared pinned.yaml.
+ */
+export function autoInitSessionPin(state: GlState): void {
+  if (!state.sessionId) return;
+  const pins = readPins(state);
+  if (pins.some((p) => p.name === SESSION_PIN_NAME)) return;
+
+  const source = Deno.env.get(KNOWLEDGE_STORE_REMOTE)?.trim();
+  if (!source) return;
+
+  const sha = resolveSha(source, "main");
+  const sessionPin: Pin = {
+    name: SESSION_PIN_NAME,
+    source,
+    sha,
+    branch: "main",
+  };
+  clonePin(state, sessionPin);
+  writePinsAtomic(state, [sessionPin]);
 }
 
 /** Safe filename chars; prevents path escape. Used for sessionId validation. */
