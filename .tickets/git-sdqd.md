@@ -15,5 +15,8 @@ Rename MCP tool giterloper_reconcile to giterloper_merge so merge behavior is ex
 
 ## Acceptance Criteria
 
-MCP exposes giterloper_merge with the current merge behavior and argument contract.\nReferences in descriptors, docs, and examples use giterloper_merge.\nA compatibility/deprecation path is defined for existing callers of giterloper_reconcile, or a migration note is provided.\nNo ambiguity remains between merge and pending-reconcile tool names.
+- MCP exposes `giterloper_merge` with the current merge behavior and argument contract.
+- References in descriptors, docs, and examples use `giterloper_merge`.
+- A compatibility/deprecation path is defined for existing callers of `giterloper_reconcile`, or a migration note is provided.
+- No ambiguity remains between merge and pending-reconcile tool names.
 

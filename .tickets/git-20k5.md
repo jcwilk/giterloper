@@ -15,5 +15,9 @@ Update MCP pin_set behavior so it represents the one session default pin named '
 
 ## Acceptance Criteria
 
-There is exactly one session default pin in a session, exposed as 'default'.\nCalling giterloper_pin_set with an existing pin name sets/keeps that pin as default.\nCalling giterloper_pin_set with a non-existent name creates that pin in session state and sets it as default.\nTools that omit the pin parameter resolve through the session default pin semantics.\nTool docs and error messages reflect create-or-select behavior.
+- There is exactly one session default pin in a session, exposed as `default`.
+- Calling `giterloper_pin_set` with an existing pin name sets or keeps that pin as default.
+- Calling `giterloper_pin_set` with a non-existent name creates that pin in session state and sets it as default.
+- Tools that omit the `pin` parameter resolve through the session default pin semantics.
+- Tool docs and error messages reflect create-or-select behavior.
 
