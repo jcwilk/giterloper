@@ -393,15 +393,15 @@ export function createServer(options?: CreateServerOptions): McpServer {
   server.registerTool(
     "giterloper_pin_set",
     {
-      title: "Set session default pin",
+      title: "Configure pins and session default",
       description:
-        "Create-or-select the session default pin. With an existing pin name, sets or keeps it as default. With a non-existent name, creates that pin (requires source; optionally ref and branch) and sets it as default. Omit pin to view current default. Tools that omit the pin parameter resolve through this session default.",
+        "View or configure pins. No pin name = view/configure the session default (first pin). Pin name = upsert that named pin without changing the default. Branch-only (no pin) = update the default pin's branch at its current SHA. Branch + pin name = create/update a snapshot pin at the default's current SHA; default is unaffected. Assigning a branch pushes it to remote immediately (or fails with branch_sha_mismatch if remote differs). Tools that omit the pin parameter resolve through the session default.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name to set as default; omit to view current default"),
+        pin: z.string().optional().describe("Pin name to upsert; omit to view or configure session default"),
         source: z
           .string()
           .optional()
-          .describe("Repo source (required when creating a new pin; e.g. github.com/owner/repo)"),
+          .describe("Repo source (required when creating the first pin; e.g. github.com/owner/repo)"),
         ref: z
           .string()
           .optional()
@@ -409,7 +409,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         branch: z
           .string()
           .optional()
-          .describe("Branch when creating (for write ops)"),
+          .describe("Branch for write ops; with pin name creates snapshot; without pin updates default's branch"),
       }),
     },
     async ({ pin, source, ref, branch }, extra) =>

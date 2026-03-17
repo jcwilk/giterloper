@@ -49,7 +49,7 @@ const client = await createClient({
   token: Deno.env.get("MCP_TOKEN"),
 });
 
-// Read
+// Read (omit pin to use session default)
 const pins = await stateInspect(client);
 const results = await search(client, { pin: "my_pin", query: "topic", limit: 10 });
 const doc = await retrieve(client, { pin: "my_pin", path: "knowledge/foo.md" });
@@ -83,6 +83,7 @@ deno test -A reference_client/tests/
 | Tool | Purpose |
 |------|---------|
 | `giterloper_state_inspect` | List pins, verify clone health |
+| `giterloper_pin_set` | Configure pins and session default; no pin = view/configure default; pin name = upsert named pin (default unchanged); branch-only = update default's branch; branch + pin = create snapshot |
 | `giterloper_search` | Search knowledge at pinned version |
 | `giterloper_retrieve` | Retrieve content by path |
 | `giterloper_insert_pending` | Queue knowledge into `knowledge/_pending/` |

@@ -103,6 +103,15 @@ name:
 
 Branchless pins are read-only.
 
+### MCP pin_set semantics
+
+`giterloper_pin_set` configures pins without always changing the session default. Behavior:
+
+- **No pin name** — View or configure the session default (first pin). With `branch` only, updates the default pin's branch at its current SHA.
+- **Pin name** — Upsert that named pin; the session default is unchanged. Existing pin: merge provided fields in place. New pin: inherit source/sha from default when not provided.
+- **Branch + pin name** — Create or update a snapshot pin at the default's current SHA; default is unaffected.
+- Assigning a branch to a pin eagerly pushes it to the remote (or fails with `branch_sha_mismatch` if remote SHA differs).
+
 ## Cursor Cloud specific instructions
 
 ### Prerequisites
@@ -161,7 +170,7 @@ E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; 
 
 ### MCP server
 
-The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. Tools that omit the `pin` parameter resolve through the session default (first pin). Use `giterloper_pin_set` to view or configure the default, or to upsert named pins without changing which pin is default. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
 
