@@ -10,9 +10,6 @@ import type { Pin } from "./types.ts";
 import { withFifoLock } from "./locking.ts";
 import { ensureDir } from "./paths.ts";
 
-/** Reserved pin name; cannot be used as an explicit pin name. Omit pin arg for session default. */
-export const RESERVED_PIN_NAME = "default";
-
 /** Session pin key; passing this explicitly always fails. Omit pin to refer to session pin. */
 export const SESSION_PIN_NAME = "_session";
 
@@ -23,16 +20,9 @@ export const SESSION_PIN_NAME = "_session";
 export function validatePinName(name: string | null | undefined): void {
   if (!name || typeof name !== "string") return;
   const trimmed = name.trim();
-  const lower = trimmed.toLowerCase();
-  if (lower === SESSION_PIN_NAME) {
+  if (trimmed === SESSION_PIN_NAME) {
     fail(
       `"${SESSION_PIN_NAME}" is a reserved name. Omit the pin argument to use the session pin.`,
-      EXIT.USER
-    );
-  }
-  if (lower === RESERVED_PIN_NAME) {
-    fail(
-      `"${RESERVED_PIN_NAME}" is a reserved name. Omit the pin argument to use the session default.`,
       EXIT.USER
     );
   }
@@ -102,20 +92,18 @@ export function serializePins(pins: Pin[]): string {
 }
 
 export function readPins(state: GlState): Pin[] {
-  if (state.sessionId && !existsSync(state.pinnedPath)) {
-    return [];
-  }
+  if (!existsSync(state.pinnedPath)) return [];
   ensureGiterloperRoot(state);
   const content = readFileSync(state.pinnedPath, "utf8");
   return parsePinned(content);
 }
 
 function doMutatePins(state: GlState, mutator: (pins: Pin[]) => Pin[]): void {
-  const pins = state.sessionId && !existsSync(state.pinnedPath)
-    ? []
-    : parsePinned(readFileSync(state.pinnedPath, "utf8"));
+  const pins = existsSync(state.pinnedPath)
+    ? parsePinned(readFileSync(state.pinnedPath, "utf8"))
+    : [];
   const updated = mutator(pins);
-  if (state.sessionId && !existsSync(state.pinnedPath)) {
+  if (!existsSync(path.dirname(state.pinnedPath))) {
     ensureDir(path.dirname(state.pinnedPath));
   }
   const temp = `${state.pinnedPath}.tmp`;
@@ -144,16 +132,21 @@ export function writePinsAtomic(state: GlState, pins: Pin[]): void {
 
 /**
  * Resolves pin by name or session pin. When pinName is omitted/null/undefined,
- * returns the session pin (pin named _session, or pins[0] for backwards compat).
+ * finds the pin named _session. Fails with clear error when no _session exists.
  * Per docs/PIN_SETTING_PARAM_BEHAVIOR.md: session pin's name is always _session.
  */
 export function resolvePin(state: GlState, pinName: string | null | undefined): Pin {
   validatePinName(pinName);
   const pins = readPins(state);
-  if (pins.length === 0) fail("no pins configured in .giterloper/pinned.yaml", EXIT.STATE);
   if (!pinName || pinName.trim() === "") {
     const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME);
-    return sessionPin ?? pins[0];
+    if (!sessionPin) {
+      fail(
+        `No session pin (${SESSION_PIN_NAME}) configured. Set KNOWLEDGE_STORE_REMOTE for MCP sessions or add a pin named ${SESSION_PIN_NAME} via "gl pin add".`,
+        EXIT.STATE
+      );
+    }
+    return sessionPin;
   }
   const pin = pins.find((p) => p.name === pinName);
   if (!pin) fail(`pin "${pinName}" not found`, EXIT.USER);
@@ -162,12 +155,6 @@ export function resolvePin(state: GlState, pinName: string | null | undefined): 
 
 export function ensureGiterloperRoot(state: GlState): void {
   if (!existsSync(state.rootDir)) {
-    fail(`missing ${state.rootDir}. Ensure .giterloper/ and pinned.yaml exist.`, EXIT.STATE);
-  }
-  if (!existsSync(state.pinnedPath)) {
-    fail(
-      `missing ${state.pinnedPath}. Add pins via "gl pin add" (auto-clones) or run "gl-maintenance clone".`,
-      EXIT.STATE
-    );
+    fail(`missing ${state.rootDir}. Ensure .giterloper/ exists.`, EXIT.STATE);
   }
 }
