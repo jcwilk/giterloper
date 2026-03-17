@@ -416,7 +416,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const state = stateForSession(extra);
         const pins = readPins(state);
 
-        // Omit pin: view current default
+        // Omit pin: view current default OR update default's branch (branch-only path)
         if (!pin || pin.trim() === "") {
           if (pins.length === 0) {
             return {
@@ -425,6 +425,25 @@ export function createServer(options?: CreateServerOptions): McpServer {
               message: "No pins configured. Use pin_set with pin and source to create the first pin.",
               details: {},
             };
+          }
+          const branchProvided = branch !== undefined && branch?.trim() !== "";
+          if (branchProvided) {
+            const defaultPin = pins[0];
+            const updated: Pin = { ...defaultPin, branch: branch!.trim() || undefined };
+            mutatePins(state, (list) =>
+              list.map((p, i) => (i === 0 ? updated : p))
+            );
+            return withMetadata(state, {
+              ok: true,
+              action: "pin_set",
+              pin: {
+                name: updated.name,
+                source: updated.source,
+                sha: updated.sha,
+                branch: updated.branch ?? null,
+              },
+              message: "Updated default pin branch",
+            });
           }
           return {
             ok: true,
