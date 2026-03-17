@@ -1,6 +1,6 @@
 ---
 id: git-y28q
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T02:12:50Z
