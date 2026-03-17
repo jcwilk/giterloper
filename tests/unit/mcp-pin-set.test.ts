@@ -43,11 +43,17 @@ async function parseMcpResponse(res: Response): Promise<unknown> {
 
 async function parseToolResult(res: Response): Promise<unknown> {
   const body = (await parseMcpResponse(res)) as {
-    result?: { content?: Array<{ text?: string }> };
+    result?: { content?: Array<{ text?: string }>; isError?: boolean };
+    error?: { code?: number; message?: string };
   };
+  if (body.error) return { ok: false, code: "invalid_argument", message: body.error.message };
   const text = body.result?.content?.[0]?.text;
   if (typeof text !== "string") return null;
-  return JSON.parse(text);
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { ok: false, message: text };
+  }
 }
 
 async function setupSession(
@@ -108,6 +114,48 @@ Deno.test("pin_set inputSchema includes branch and ref parameters", async () => 
       props.ref !== undefined && typeof (props.ref as { type?: string })?.type === "string",
       true,
       `pin_set must have ref param (${PIN_SETTING_DOC}); got: ${JSON.stringify(props)}`
+    );
+  } finally {
+    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
+    else Deno.env.delete("MCP_INSECURE");
+    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
+    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
+  }
+});
+
+/**
+ * pin_set rejects unknown arguments (per git-8vrv: enforce argument validation).
+ */
+Deno.test("pin_set rejects unknown arguments", async () => {
+  const origInsecure = Deno.env.get("MCP_INSECURE");
+  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
+  try {
+    Deno.env.set("MCP_INSECURE", "true");
+    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
+    const app = await createMcpAppForTest();
+    const { req } = await setupSession(app);
+
+    const res = await req({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "giterloper_pin_set",
+        arguments: { branch: "main", unknownField: "x", pinName: "foo" },
+      },
+    });
+    assertEquals(res.status, 200);
+    const result = (await parseToolResult(res)) as { ok?: boolean; code?: string; message?: string };
+    assertEquals(result.ok, false, "pin_set with unknown args must fail (schema .strict() or handler rejection)");
+    const msg = result.message ?? "";
+    assertEquals(
+      msg.includes("Unknown arguments") ||
+        msg.includes("unknownField") ||
+        msg.includes("pinName") ||
+        msg.toLowerCase().includes("unrecognized") ||
+        msg.includes("additionalProperties"),
+      true,
+      `Expected rejection message for unknown args; got: ${msg.slice(0, 100)}`
     );
   } finally {
     if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);

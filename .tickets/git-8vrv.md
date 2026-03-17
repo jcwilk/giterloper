@@ -1,6 +1,6 @@
 ---
 id: git-8vrv
-status: open
+status: closed
 deps: [git-izvk]
 links: []
 created: 2026-03-17T08:31:19Z

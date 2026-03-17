@@ -140,7 +140,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
       description:
         "Search knowledge at a pinned version. Returns paths, titles, snippets, scores.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name; omit to use session default"),
+        pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         query: z.string().describe("Search query (required)"),
         sha: z
           .string()
@@ -182,7 +182,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
       description:
         "Retrieve content by path at a pinned version.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name; omit to use session default"),
+        pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         path: z
           .string()
           .describe(
@@ -227,7 +227,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
       description:
         "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name; omit to use session default"),
+        pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         content: z.string().describe("Markdown content to queue (required)"),
         name: z
           .string()
@@ -290,7 +290,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
       description:
         "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile.",
       inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name; omit to use session default"),
+        pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
       }),
     },
     async ({ pin }, extra) =>
@@ -334,10 +334,10 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Merge pins",
       description:
-        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit one side to use session default.",
+        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit one side to use session pin (_session).",
       inputSchema: z.object({
-        sourcePin: z.string().optional().describe("Source pin; omit to use session default"),
-        targetPin: z.string().optional().describe("Target pin; omit to use session default"),
+        sourcePin: z.string().optional().describe("Source pin; omit to use session pin (_session)"),
+        targetPin: z.string().optional().describe("Target pin; omit to use session pin (_session)"),
       }),
     },
     async ({ sourcePin, targetPin }, extra) =>
@@ -400,30 +400,49 @@ export function createServer(options?: CreateServerOptions): McpServer {
       })
   );
 
+  const PIN_SET_ALLOWED = new Set(["pin", "source", "ref", "branch"]);
   server.registerTool(
     "giterloper_pin_set",
     {
       title: "Configure pins",
       description:
         "Configure pins per docs/PIN_SETTING_PARAM_BEHAVIOR.md. Omit pin = operate on session pin (name _session). Pin name = add or change that named pin. Must specify at least one of branch or ref. ref may be a SHA or branch/tag; resolved to SHA from remote. Pins store name, sha, optionally branch.",
-      inputSchema: z.object({
-        pin: z.string().optional().describe("Pin name; omit for session pin (_session)"),
-        source: z
-          .string()
-          .optional()
-          .describe("Repo source (required when creating the first pin; e.g. github.com/owner/repo)"),
-        ref: z
-          .string()
-          .optional()
-          .describe("SHA or ref (branch/tag); resolved from remote, stored as SHA"),
-        branch: z
-          .string()
-          .optional()
-          .describe("Branch for write ops; with ref creates branched pin"),
-      }),
+      inputSchema: z
+        .object({
+          pin: z.string().optional().describe("Pin name; omit for session pin (_session)"),
+          source: z
+            .string()
+            .optional()
+            .describe("Repo source (required when creating the first pin; e.g. github.com/owner/repo)"),
+          ref: z
+            .string()
+            .optional()
+            .describe("SHA or ref (branch/tag); resolved from remote, stored as SHA"),
+          branch: z
+            .string()
+            .optional()
+            .describe("Branch for write ops; with ref creates branched pin"),
+        })
+        .strict(),
     },
-    async ({ pin, source, ref, branch }, extra) =>
+    async (args, extra) =>
       wrapTool(async () => {
+        const raw = (args ?? {}) as Record<string, unknown>;
+        const unknown = Object.keys(raw).filter((k) => !PIN_SET_ALLOWED.has(k));
+        if (unknown.length > 0) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: `Unknown arguments: ${unknown.join(", ")}. Allowed: pin, source, ref, branch.`,
+            details: {},
+          };
+        }
+        const str = (v: unknown): string | undefined =>
+          v === undefined || v === null ? undefined : typeof v === "string" ? v : undefined;
+        const pin = str(raw.pin);
+        const source = str(raw.source);
+        const ref = str(raw.ref);
+        const branch = str(raw.branch);
         const state = stateForSession(extra);
         const pins = readPins(state);
 
@@ -672,12 +691,12 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Inspect pin state",
       description:
-        "List pins or verify clone health and branch freshness.",
+        "List pins or verify clone health and branch freshness. Session pin is named _session and appears first when listing all.",
       inputSchema: z.object({
         pin: z
           .string()
           .optional()
-          .describe("Optional pin name; omit to list all pins"),
+          .describe("Pin name; omit to list all pins (session pin _session first)"),
         verify: z
           .boolean()
           .default(false)

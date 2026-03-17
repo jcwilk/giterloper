@@ -1,6 +1,6 @@
 ---
 id: git-6elj
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T08:31:09Z
