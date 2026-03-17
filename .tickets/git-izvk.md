@@ -1,6 +1,6 @@
 ---
 id: git-izvk
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T08:31:16Z
