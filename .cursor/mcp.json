@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "giterloper": {
+      "command": "deno",
+      "args": [
+        "run",
+        "-A",
+        "/home/user/workspace/giterloper/lib/gl-mcp-server-stdio.ts"
+      ]
+    }
+  }
+}
