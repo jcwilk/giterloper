@@ -200,8 +200,8 @@ export async function reconcilePending(
   };
 }
 
-/** Call giterloper_reconcile and return parsed result. */
-export async function reconcile(
+/** Call giterloper_merge and return parsed result. */
+export async function merge(
   client: Client,
   args: { sourcePin: string; targetPin: string }
 ): Promise<{
@@ -211,7 +211,7 @@ export async function reconcile(
   target: { pin: string; branch: string; oldSha: string; newSha: string };
 }> {
   const result = await client.callTool({
-    name: "giterloper_reconcile",
+    name: "giterloper_merge",
     arguments: args as Record<string, unknown>,
   });
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);

@@ -41,7 +41,7 @@ import {
   stateInspect,
   insertPending,
   reconcilePending,
-  reconcile,
+  merge,
 } from "./client.ts";
 
 const client = await createClient({
@@ -59,7 +59,7 @@ await insertPending(client, { pin: "my_pin", content: "# New topic\n\nContent." 
 await reconcilePending(client, { pin: "my_pin" });
 
 // Merge
-await reconcile(client, { sourcePin: "feature", targetPin: "main" });
+await merge(client, { sourcePin: "feature", targetPin: "main" });
 
 await client.close();
 ```
@@ -87,6 +87,8 @@ deno test -A reference_client/tests/
 | `giterloper_retrieve` | Retrieve content by path |
 | `giterloper_insert_pending` | Queue knowledge into `knowledge/_pending/` |
 | `giterloper_reconcile_pending` | Process pending into topic files |
-| `giterloper_reconcile` | Merge source pin's branch into target via GitHub API |
+| `giterloper_merge` | Merge source pin's branch into target via GitHub API |
+
+**Migration:** `giterloper_reconcile` was renamed to `giterloper_merge` to avoid confusion with `giterloper_reconcile_pending`. Update callers to use `giterloper_merge`.
 
 See `docs/MCP_API_CONTRACT.md` in the giterloper repo for full schemas.

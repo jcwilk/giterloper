@@ -328,9 +328,9 @@ export function createServer(options?: CreateServerOptions): McpServer {
   );
 
   server.registerTool(
-    "giterloper_reconcile",
+    "giterloper_merge",
     {
-      title: "Reconcile pins",
+      title: "Merge pins",
       description:
         "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit one side to use session default.",
       inputSchema: z.object({
@@ -351,8 +351,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
         }
         const source = resolvePin(state, sourcePin ?? undefined);
         const target = resolvePin(state, targetPin ?? undefined);
-        requirePinBranch(source, "reconcile");
-        requirePinBranch(target, "reconcile");
+        requirePinBranch(source, "merge");
+        requirePinBranch(target, "merge");
         if (source.source !== target.source) {
           throw new Error(
             `merge requires same repo: source "${source.name}" and target "${target.name}" point to different sources`

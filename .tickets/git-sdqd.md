@@ -1,6 +1,6 @@
 ---
 id: git-sdqd
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T02:13:01Z

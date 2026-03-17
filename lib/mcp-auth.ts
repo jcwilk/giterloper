@@ -13,10 +13,10 @@ export const MCP_READ_TOOLS = [
   "giterloper_state_inspect",
 ] as const;
 
-/** Write/reconcile tools. */
+/** Write tools (insert, reconcile_pending, merge). */
 export const MCP_WRITE_TOOLS = [
   "giterloper_insert_pending",
-  "giterloper_reconcile",
+  "giterloper_merge",
   "giterloper_reconcile_pending",
   "giterloper_pin_set",
 ] as const;

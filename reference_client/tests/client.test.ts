@@ -18,7 +18,7 @@ import {
 import {
   createClient,
   insertPending,
-  reconcile,
+  merge,
   reconcilePending,
   retrieve,
   search,
@@ -171,7 +171,7 @@ Deno.test("insert_pending and reconcile_pending flow", async () => {
   }
 });
 
-Deno.test("reconcile merges source into target", async () => {
+Deno.test("merge merges source into target", async () => {
   const sourcePin = randomPin("merge-src");
   const targetPin = randomPin("merge-tgt");
   const sourceBranch = `${sourcePin}-branch`;
@@ -192,7 +192,7 @@ Deno.test("reconcile merges source into target", async () => {
       url: `http://127.0.0.1:${TEST_PORT}/mcp`,
     });
     try {
-      const result = await reconcile(client, {
+      const result = await merge(client, {
         sourcePin,
         targetPin,
       });
