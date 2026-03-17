@@ -6,7 +6,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
 import { EXIT, fail } from "./errors.ts";
-import { readPins, SESSION_PIN_NAME, writePinsAtomic } from "./pinned.ts";
+import { mutatePins, readPins, SESSION_PIN_NAME } from "./pinned.ts";
 import { clonePin } from "./pin-lifecycle.ts";
 import { resolveSha } from "./git.ts";
 import type { GlState } from "./types.ts";
@@ -41,7 +41,7 @@ export function autoInitSessionPin(state: GlState): void {
   const source = Deno.env.get(KNOWLEDGE_STORE_REMOTE)?.trim();
   if (!source) return;
 
-  const sha = resolveSha(source, "main");
+  const sha = resolveSha(source, "HEAD");
   const sessionPin: Pin = {
     name: SESSION_PIN_NAME,
     source,
@@ -49,7 +49,7 @@ export function autoInitSessionPin(state: GlState): void {
     branch: "main",
   };
   clonePin(state, sessionPin);
-  writePinsAtomic(state, [sessionPin]);
+  mutatePins(state, (list) => [sessionPin, ...list]);
 }
 
 /** Safe filename chars; prevents path escape. Used for sessionId validation. */

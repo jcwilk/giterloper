@@ -84,7 +84,7 @@ Deno.test("mapErrorToMcp maps merge conflict to reconciliation_conflict", () => 
 
 Deno.test("mapErrorToMcp maps reserved pin name to invalid_argument", () => {
   const err = new GlError(
-    '"default" is a reserved name. Omit the pin argument to use the session default.',
+    '"_session" is a reserved name. Omit the pin argument to use the session pin.',
     1
   );
   const result = mapErrorToMcp(err);

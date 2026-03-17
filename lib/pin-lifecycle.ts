@@ -96,7 +96,7 @@ export function updatePinSha(
   validatePinName(pinName);
   const pins = readPins(state);
   const target = pins.find((p) => p.name === pinName);
-  if (!target) fail(`pin "${pinName}" not found`, EXIT.USER);
+  if (!target) fail(`pin "${pinName}" not found (session pin is _session)`, EXIT.USER);
   const oldPin = { ...target };
   const newPin = { ...target, sha: newSha };
 

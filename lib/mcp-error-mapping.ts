@@ -31,7 +31,7 @@ export interface McpErrorResult {
 
 const PIN_NOT_FOUND = /pin "([^"]+)" not found/i;
 const NO_PINS = /no pins configured/i;
-const RESERVED_PIN = /reserved name|"default".*omit|omit.*pin argument/i;
+const RESERVED_PIN = /reserved name|"_session".*omit|omit.*pin argument/i;
 const HAS_NO_BRANCH = /has no branch|branchless/i;
 const STALE = /stale|pin SHA does not match remote/i;
 const MERGE_CONFLICT = /merge conflict|cannot be merged automatically/i;

@@ -1,6 +1,6 @@
 ---
 id: git-69p7
-status: open
+status: closed
 deps: [git-w1te, git-ghgt]
 links: []
 created: 2026-03-17T06:11:58Z

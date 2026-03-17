@@ -202,7 +202,7 @@ Deno.test("pin_set with pin _session fails", async () => {
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §4: Neither branch nor ref specified — FAIL.
+ * PIN_SETTING_PARAM_BEHAVIOR.md: No pin + no modifiers = view session pin. Named pin + no branch/ref = FAIL.
  */
 Deno.test("pin_set with no branch and no ref fails", async () => {
   const origInsecure = Deno.env.get("MCP_INSECURE");
@@ -213,7 +213,7 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
     const app = await createMcpAppForTest();
     const { req } = await setupSession(app);
 
-    // No pin, no branch, no sha — operating on session pin with nothing to configure
+    // No pin, no branch, no sha — view session pin (succeeds when _session exists)
     const res1 = await req({
       jsonrpc: "2.0",
       id: 2,
@@ -221,16 +221,12 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
       params: { name: "giterloper_pin_set", arguments: {} },
     });
     assertEquals(res1.status, 200);
-    const result1 = (await parseToolResult(res1)) as { ok?: boolean; code?: string; message?: string };
-    assertEquals(result1.ok, false, "pin_set with no branch/ref must fail (session pin)");
-    assertEquals(result1.code, "invalid_argument");
-    assertEquals(
-      (result1.message ?? "").toLowerCase().includes("branch") ||
-        (result1.message ?? "").toLowerCase().includes("ref") ||
-        (result1.message ?? "").toLowerCase().includes("specify"),
-      true,
-      `Expected error directing caller to specify branch or ref (${PIN_SETTING_DOC})`
-    );
+    const result1 = (await parseToolResult(res1)) as {
+      ok?: boolean;
+      sessionPin?: { name: string; source: string; sha: string; branch: string | null };
+    };
+    assertEquals(result1.ok, true, "pin_set with no modifiers views session pin");
+    assertEquals(result1.sessionPin?.name, "_session");
 
     // Pin name but no branch, no sha — operating on named pin with nothing to configure
     const res2 = await req({
@@ -325,14 +321,14 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     const setResult = (await parseToolResult(setRes)) as {
       ok?: boolean;
       action?: string;
-      pin?: { name: string; source: string; sha: string; branch: string | null };
+      sessionPin?: { name: string; source: string; sha: string; branch: string | null };
       message?: string;
     };
     assertEquals(setResult.ok, true);
     assertEquals(setResult.action, "pin_set");
-    assertEquals(setResult.pin?.name, sessionPin.name);
-    assertEquals(setResult.pin?.branch, branchName);
-    assertEquals(setResult.pin?.sha, originalSha, "SHA must remain unchanged");
+    assertEquals(setResult.sessionPin?.name, "_session");
+    assertEquals(setResult.sessionPin?.branch, branchName);
+    assertEquals(setResult.sessionPin?.sha, originalSha, "SHA must remain unchanged");
 
     const inspect2Res = await req({
       jsonrpc: "2.0",

@@ -9,7 +9,7 @@ import path from "node:path";
 import { EXIT, GlError, fail } from "./errors.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { run } from "./run.ts";
-import { mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
+import { mutatePins, readPins, resolvePin, SESSION_PIN_NAME, validatePinName } from "./pinned.ts";
 import { resolveShaOrRef } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { makeState } from "./gl-core.ts";
@@ -53,9 +53,10 @@ function cmdPinList(state: GlState, args: string[]) {
     state.globalJson
       ? pins
       : pins
-          .map((pin, idx) => {
+          .map((pin) => {
             const branchInfo = pin.branch ? ` [${pin.branch}]` : "";
-            return `${idx === 0 ? "*" : " "} ${pin.name}: ${pin.source}@${pin.sha}${branchInfo}`;
+            const marker = pin.name === SESSION_PIN_NAME ? "*" : " ";
+            return `${marker} ${pin.name}: ${pin.source}@${pin.sha}${branchInfo}`;
           })
           .join("\n"),
     state.globalJson
@@ -188,7 +189,7 @@ function cmdVerify(state: GlState, args: string[], cmdName: string = "verify") {
   rest = pinParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pins = pinParsed.found ? [resolvePin(state, pinParsed.value)] : readPins(state);
-  if (pins.length === 0) fail("no pins configured", EXIT.STATE);
+  if (pins.length === 0) fail("no pins configured (session pin is _session; set KNOWLEDGE_STORE_REMOTE for MCP)", EXIT.STATE);
   const results: Array<{
     pin: string;
     branch: string | null;
@@ -318,7 +319,7 @@ function cmdPinLoad(state: GlState, args: string[]) {
   rest = pinParsed.args;
   if (rest.length > 0) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pins = pinParsed.found ? [resolvePin(state, pinParsed.value)] : readPins(state);
-  if (pins.length === 0) fail("no pins configured", EXIT.STATE);
+  if (pins.length === 0) fail("no pins configured (session pin is _session; set KNOWLEDGE_STORE_REMOTE for MCP)", EXIT.STATE);
 
   const results: Array<{ pin: string; status: "already_loaded" | "loaded" | "failed"; error?: string }> = [];
   for (const pin of pins) {

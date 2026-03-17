@@ -142,7 +142,7 @@ export function resolvePin(state: GlState, pinName: string | null | undefined): 
     const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME);
     if (!sessionPin) {
       fail(
-        `No session pin (${SESSION_PIN_NAME}) configured. Set KNOWLEDGE_STORE_REMOTE for MCP sessions or add a pin named ${SESSION_PIN_NAME} via "gl pin add".`,
+        `No session pin (${SESSION_PIN_NAME}) configured. For MCP: set KNOWLEDGE_STORE_REMOTE for auto-init. For CLI: ensure .giterloper/pinned.yaml contains a pin named ${SESSION_PIN_NAME} (gl pin add rejects _session).`,
         EXIT.STATE
       );
     }

@@ -1,6 +1,6 @@
 ---
 id: git-ghgt
-status: open
+status: closed
 deps: [git-w1te, git-k1gj]
 links: []
 created: 2026-03-17T06:11:50Z

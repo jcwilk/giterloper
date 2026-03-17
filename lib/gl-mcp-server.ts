@@ -41,7 +41,7 @@ import {
   scavengeStaleSessions,
   touchSession,
 } from "./mcp-session-store.ts";
-import { resolveShaOrRef } from "./git.ts";
+import { resolveSha, resolveShaOrRef } from "./git.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
 export function validateInsertContent(
@@ -446,27 +446,72 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const state = stateForSession(extra);
         const pins = readPins(state);
 
-        // Omit pin: operate on session pin. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md §4: neither branch nor sha → FAIL.
+        // Omit pin: operate on session pin. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md.
         if (!pin || pin.trim() === "") {
-          if (pins.length === 0) {
-            return {
-              ok: false,
-              code: "invalid_argument",
-              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
-              details: {},
-            };
-          }
           const branchProvided = branch !== undefined && branch?.trim() !== "";
           const shaProvided = ref !== undefined && ref?.trim() !== "";
+          let sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME);
+
+          // No modifiers: view session pin.
           if (!branchProvided && !shaProvided) {
+            if (!sessionPin) {
+              return {
+                ok: false,
+                code: "invalid_argument",
+                message: "No session pin (_session) configured. Set KNOWLEDGE_STORE_REMOTE or use pin_set with source and branch/ref to create it.",
+                details: {},
+              };
+            }
+            return withMetadata(state, {
+              ok: true,
+              action: "pin_set",
+              sessionPin: {
+                name: sessionPin.name,
+                source: sessionPin.source,
+                sha: sessionPin.sha,
+                branch: sessionPin.branch ?? null,
+              },
+              message: "Session pin",
+            });
+          }
+
+          // Need session pin or source to create.
+          if (!sessionPin && !source?.trim()) {
             return {
               ok: false,
               code: "invalid_argument",
-              message: "Specify at least one of branch or ref.",
+              message: "No session pin (_session) configured. Use pin_set with source and branch or ref to create it.",
               details: {},
             };
           }
-          const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME) ?? pins[0];
+          if (!sessionPin) {
+            const effectiveSource = source!.trim();
+            const effectiveSha = shaProvided
+              ? await resolveShaOrRef(effectiveSource, ref!.trim())
+              : resolveSha(effectiveSource, "HEAD");
+            const branchVal = branchProvided ? branch!.trim() || undefined : undefined;
+            sessionPin = {
+              name: SESSION_PIN_NAME,
+              source: effectiveSource,
+              sha: effectiveSha,
+              branch: branchVal,
+            };
+            clonePin(state, sessionPin);
+            if (branchVal) eagerPushBranchOrFail(state, sessionPin);
+            mutatePins(state, (list) => [sessionPin!, ...list]);
+            return withMetadata(state, {
+              ok: true,
+              action: "pin_set",
+              sessionPin: {
+                name: sessionPin.name,
+                source: sessionPin.source,
+                sha: sessionPin.sha,
+                branch: sessionPin.branch ?? null,
+              },
+              created: true,
+              message: "Created session pin",
+            });
+          }
           if (branchProvided) {
             const updated: Pin = { ...sessionPin, branch: branch!.trim() || undefined };
             eagerPushBranchOrFail(state, updated);
@@ -476,7 +521,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
             return withMetadata(state, {
               ok: true,
               action: "pin_set",
-              pin: {
+              sessionPin: {
                 name: updated.name,
                 source: updated.source,
                 sha: updated.sha,
@@ -505,7 +550,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           return withMetadata(state, {
             ok: true,
             action: "pin_set",
-            pin: {
+            sessionPin: {
               name: updated.name,
               source: updated.source,
               sha: updated.sha,
@@ -518,7 +563,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         validatePinName(pin);
         const trimmedName = pin.trim();
         const existing = pins.find((p) => p.name === trimmedName);
-        const defaultPin = pins.find((p) => p.name === SESSION_PIN_NAME) ?? pins[0];
+        const sessionPinForInheritance = pins.find((p) => p.name === SESSION_PIN_NAME);
         const branchProvided = branch !== undefined && branch?.trim() !== "";
         const shaProvided = ref !== undefined && ref?.trim() !== "";
 
@@ -532,20 +577,28 @@ export function createServer(options?: CreateServerOptions): McpServer {
           };
         }
 
-        // Branch + pin: create/update named pin. Per doc §1 (ref not specified) use session SHA; per doc §3 (ref specified) use resolved ref SHA.
+        // Branch + pin: create/update named pin. Per doc §1 (ref not specified) use session pin SHA; per doc §3 (ref specified) use resolved ref SHA.
         if (branchProvided) {
-          const effectiveSource = source?.trim() || defaultPin?.source;
+          const effectiveSource = source?.trim() || sessionPinForInheritance?.source;
           if (!effectiveSource) {
             return {
               ok: false,
               code: "invalid_argument",
-              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+              message: "No session pin (_session) configured. Create it first or provide source.",
+              details: {},
+            };
+          }
+          if (!shaProvided && !sessionPinForInheritance) {
+            return {
+              ok: false,
+              code: "invalid_argument",
+              message: "No session pin (_session) configured. Specify ref or create session pin first to inherit SHA.",
               details: {},
             };
           }
           const effectiveSha = shaProvided
             ? await resolveShaOrRef(effectiveSource, ref!.trim())
-            : defaultPin.sha;
+            : sessionPinForInheritance!.sha;
           const branchVal = branch!.trim() || undefined;
           const snapshotPin: Pin = {
             name: trimmedName,
@@ -645,21 +698,21 @@ export function createServer(options?: CreateServerOptions): McpServer {
           };
         }
 
-        // Non-existent pin (no branch): create using default's source/sha when not provided, add at end
-        const effectiveSource = source?.trim() || defaultPin?.source;
+        // Non-existent pin (no branch): create using session pin's source/sha when not provided, add at end
+        const effectiveSource = source?.trim() || sessionPinForInheritance?.source;
         if (!effectiveSource) {
           return {
             ok: false,
             code: "invalid_argument",
-            message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+            message: "No session pin (_session) configured. Create it first or provide source.",
             details: {},
           };
         }
         const refInput = ref?.trim() || "HEAD";
         const effectiveSha =
-          !defaultPin || source?.trim() || ref?.trim()
+          !sessionPinForInheritance || source?.trim() || ref?.trim()
             ? await resolveShaOrRef(effectiveSource, refInput)
-            : defaultPin.sha;
+            : sessionPinForInheritance.sha;
         const newPin = {
           name: trimmedName,
           source: effectiveSource,

@@ -1,6 +1,6 @@
 ---
 id: git-5a2z
-status: open
+status: closed
 deps: [git-w1te]
 links: []
 created: 2026-03-17T06:12:14Z
