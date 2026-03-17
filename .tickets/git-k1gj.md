@@ -1,6 +1,6 @@
 ---
 id: git-k1gj
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T06:11:43Z
