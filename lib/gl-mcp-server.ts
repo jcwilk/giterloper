@@ -15,7 +15,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 
 import { bootstrapSessionFromShared, makeState, validateSessionId } from "./gl-core.ts";
 import type { GlState } from "./types.ts";
-import { mutatePins, readPins, resolvePin } from "./pinned.ts";
+import { mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
@@ -32,7 +32,7 @@ import {
   pushBranchOrFail,
   requirePinBranch,
 } from "./branch.ts";
-import { updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
+import { clonePin, updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 import { reconcile } from "./reconcile.ts";
 import {
   getSessionTtlMs,
@@ -40,6 +40,7 @@ import {
   scavengeStaleSessions,
   touchSession,
 } from "./mcp-session-store.ts";
+import { resolveShaOrRef } from "./git.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
 export function validateInsertContent(
@@ -393,34 +394,102 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Set session default pin",
       description:
-        "Reorder session pinned.yaml so the given pin is first (session default). Requires session. Omit pin to view current default.",
+        "Create-or-select the session default pin. With an existing pin name, sets or keeps it as default. With a non-existent name, creates that pin (requires source; optionally ref and branch) and sets it as default. Omit pin to view current default. Tools that omit the pin parameter resolve through this session default.",
       inputSchema: z.object({
         pin: z.string().optional().describe("Pin name to set as default; omit to view current default"),
+        source: z
+          .string()
+          .optional()
+          .describe("Repo source (required when creating a new pin; e.g. github.com/owner/repo)"),
+        ref: z
+          .string()
+          .optional()
+          .describe("Ref or SHA when creating (defaults to HEAD or branch)"),
+        branch: z
+          .string()
+          .optional()
+          .describe("Branch when creating (for write ops)"),
       }),
     },
-    async ({ pin }, extra) =>
-      wrapTool(() => {
+    async ({ pin, source, ref, branch }, extra) =>
+      wrapTool(async () => {
         const state = stateForSession(extra);
-        const p = resolvePin(state, pin ?? undefined);
         const pins = readPins(state);
-        if (pins.length <= 1 || pins[0].name === p.name) {
+
+        // Omit pin: view current default
+        if (!pin || pin.trim() === "") {
+          if (pins.length === 0) {
+            return {
+              ok: false,
+              code: "invalid_argument",
+              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+              details: {},
+            };
+          }
           return {
             ok: true,
             ...(state.sessionId && { sessionId: state.sessionId }),
             action: "pin_set",
-            defaultPin: p.name,
-            message: pins.length <= 1 ? "Only one pin; already default" : "Already session default",
+            defaultPin: pins[0].name,
+            message: "Current session default",
           };
         }
+
+        validatePinName(pin);
+        const trimmedName = pin.trim();
+        const existing = pins.find((p) => p.name === trimmedName);
+
+        // Existing pin: set as default (reorder)
+        if (existing) {
+          if (pins.length <= 1 || pins[0].name === trimmedName) {
+            return {
+              ok: true,
+              ...(state.sessionId && { sessionId: state.sessionId }),
+              action: "pin_set",
+              defaultPin: trimmedName,
+              message: pins.length <= 1 ? "Only one pin; already default" : "Already session default",
+            };
+          }
+          mutatePins(state, (list) => {
+            const rest = list.filter((x) => x.name !== trimmedName);
+            return [existing, ...rest];
+          });
+          return {
+            ok: true,
+            ...(state.sessionId && { sessionId: state.sessionId }),
+            action: "pin_set",
+            defaultPin: trimmedName,
+          };
+        }
+
+        // Non-existent pin: create and set as default (requires source)
+        if (!source || !source.trim()) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: `Pin "${trimmedName}" not found. To create it, provide source (and optionally ref, branch).`,
+            details: {},
+          };
+        }
+        const refInput = ref?.trim() || branch?.trim() || "HEAD";
+        const sha = await resolveShaOrRef(source.trim(), refInput);
+        const newPin = {
+          name: trimmedName,
+          source: source.trim(),
+          sha,
+          branch: branch?.trim() || undefined,
+        };
+        clonePin(state, newPin);
         mutatePins(state, (list) => {
-          const rest = list.filter((x) => x.name !== p.name);
-          return [p, ...rest];
+          const rest = list.filter((x) => x.name !== trimmedName);
+          return [newPin, ...rest];
         });
         return {
           ok: true,
           ...(state.sessionId && { sessionId: state.sessionId }),
           action: "pin_set",
-          defaultPin: p.name,
+          defaultPin: trimmedName,
+          created: true,
         };
       })
   );
