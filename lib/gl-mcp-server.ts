@@ -458,20 +458,82 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const trimmedName = pin.trim();
         const existing = pins.find((p) => p.name === trimmedName);
         const defaultPin = pins[0];
+        const branchProvided = branch !== undefined && branch?.trim() !== "";
 
-        // Existing pin: merge provided fields in place, never reorder or change default
+        // Snapshot path: branch + pin name — create/update named pin at default's SHA with given branch.
+        // Default pin is unaffected. Source inherited from default unless explicitly overridden.
+        if (branchProvided) {
+          const effectiveSource = source?.trim() || defaultPin?.source;
+          if (!effectiveSource) {
+            return {
+              ok: false,
+              code: "invalid_argument",
+              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+              details: {},
+            };
+          }
+          const effectiveSha = defaultPin.sha;
+          const branchVal = branch!.trim() || undefined;
+          const snapshotPin: Pin = {
+            name: trimmedName,
+            source: effectiveSource,
+            sha: effectiveSha,
+            branch: branchVal,
+          };
+          if (existing) {
+            const shaChanged = snapshotPin.sha !== existing.sha;
+            const sourceChanged = snapshotPin.source !== existing.source;
+            if (shaChanged || sourceChanged) {
+              teardownPinData(state, existing);
+              clonePin(state, snapshotPin);
+            }
+            mutatePins(state, (list) =>
+              list.map((p) => (p.name === trimmedName ? snapshotPin : p))
+            );
+            return {
+              ok: true,
+              ...(state.sessionId && { sessionId: state.sessionId }),
+              action: "pin_set",
+              pin: {
+                name: snapshotPin.name,
+                source: snapshotPin.source,
+                sha: snapshotPin.sha,
+                branch: snapshotPin.branch ?? null,
+              },
+              message: "Updated snapshot pin",
+            };
+          }
+          clonePin(state, snapshotPin);
+          mutatePins(state, (list) => {
+            if (list.some((p) => p.name === trimmedName)) return list;
+            return [...list, snapshotPin];
+          });
+          return {
+            ok: true,
+            ...(state.sessionId && { sessionId: state.sessionId }),
+            action: "pin_set",
+            pin: {
+              name: snapshotPin.name,
+              source: snapshotPin.source,
+              sha: snapshotPin.sha,
+              branch: snapshotPin.branch ?? null,
+            },
+            created: true,
+            message: "Created snapshot pin",
+          };
+        }
+
+        // Existing pin (no branch): merge provided fields in place, never reorder or change default
         if (existing) {
           const merged: Pin = { ...existing };
           const sourceProvided = source !== undefined && source?.trim() !== "";
           const refProvided = ref !== undefined && ref?.trim() !== "";
-          const branchProvided = branch !== undefined && branch?.trim() !== "";
 
           if (sourceProvided) merged.source = source!.trim();
-          if (branchProvided) merged.branch = branch!.trim() || undefined;
 
           if (refProvided || sourceProvided) {
             const src = merged.source;
-            const refInput = refProvided ? ref!.trim() : (branchProvided ? branch!.trim() : "HEAD");
+            const refInput = refProvided ? ref!.trim() : "HEAD";
             merged.sha = await resolveShaOrRef(src, refInput);
           }
 
@@ -498,7 +560,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           };
         }
 
-        // Non-existent pin: create using default's source/sha when not provided, add at end
+        // Non-existent pin (no branch): create using default's source/sha when not provided, add at end
         const effectiveSource = source?.trim() || defaultPin?.source;
         if (!effectiveSource) {
           return {

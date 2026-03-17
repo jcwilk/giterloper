@@ -1,7 +1,7 @@
 /**
- * Unit tests for giterloper_pin_set branch-only path.
- * See ticket git-7n1b: when called with only a branch (no pin name),
- * updates the default pin's branch, keeping its SHA.
+ * Unit tests for giterloper_pin_set.
+ * - git-7n1b: branch-only path — updates default pin's branch, keeping its SHA.
+ * - git-p6n8: branch + pin name — creates snapshot pin at default's SHA with given branch.
  */
 import { assertEquals } from "jsr:@std/assert";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
@@ -154,6 +154,124 @@ Deno.test("pin_set branch-only updates default pin branch, keeps SHA", async () 
     };
     const updatedPin = view2Result.pins?.find((p) => p.name === defaultPinName);
     assertEquals(updatedPin?.branch, branchName);
+  } finally {
+    if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
+    else Deno.env.delete("MCP_INSECURE");
+  }
+});
+
+Deno.test("pin_set branch+pin creates snapshot pin at default SHA, default unaffected", async () => {
+  const orig = Deno.env.get("MCP_INSECURE");
+  try {
+    Deno.env.set("MCP_INSECURE", "true");
+    const app = await createMcpAppForTest();
+    const req = (body: object, headers: Record<string, string> = {}) =>
+      mcpRequest(body, headers, app);
+
+    const initRes = await req({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "test", version: "1.0.0" },
+      },
+    });
+    assertEquals(initRes.status, 200);
+    const sessionId = initRes.headers.get("mcp-session-id");
+    assertEquals(sessionId !== null && sessionId.length > 0, true);
+    const headers = { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" };
+
+    const viewRes = await req(
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: { name: "giterloper_pin_set", arguments: {} },
+      },
+      headers
+    );
+    assertEquals(viewRes.status, 200);
+    const viewResult = (await parseToolResult(viewRes)) as {
+      ok?: boolean;
+      defaultPin?: string;
+    };
+    if (!viewResult?.ok || !viewResult.defaultPin) {
+      throw new Error(
+        `Need at least one pin for test. View result: ${JSON.stringify(viewResult)}`
+      );
+    }
+    const defaultPinName = viewResult.defaultPin;
+
+    const inspectRes = await req(
+      {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: { name: "giterloper_state_inspect", arguments: {} },
+      },
+      headers
+    );
+    const inspectResult = (await parseToolResult(inspectRes)) as {
+      ok?: boolean;
+      pins?: Array<{ name: string; sha: string; branch: string | null }>;
+    };
+    const defaultPinInfo = inspectResult.pins?.find((p) => p.name === defaultPinName);
+    assertEquals(defaultPinInfo !== undefined, true);
+    const defaultSha = defaultPinInfo!.sha;
+    const defaultBranch = defaultPinInfo!.branch;
+
+    const snapshotName = `snapshot_test_${Date.now()}`;
+    const snapshotBranch = `snapshot_branch_${Date.now()}`;
+
+    const setRes = await req(
+      {
+        jsonrpc: "2.0",
+        id: 4,
+        method: "tools/call",
+        params: {
+          name: "giterloper_pin_set",
+          arguments: { pin: snapshotName, branch: snapshotBranch },
+        },
+      },
+      headers
+    );
+    assertEquals(setRes.status, 200);
+    const setResult = (await parseToolResult(setRes)) as {
+      ok?: boolean;
+      action?: string;
+      created?: boolean;
+      pin?: { name: string; source: string; sha: string; branch: string | null };
+      message?: string;
+    };
+    assertEquals(setResult.ok, true);
+    assertEquals(setResult.action, "pin_set");
+    assertEquals(setResult.pin?.name, snapshotName);
+    assertEquals(setResult.pin?.sha, defaultSha, "Snapshot must use default's SHA");
+    assertEquals(setResult.pin?.branch, snapshotBranch);
+    assertEquals(setResult.created, true, "New snapshot pin should be created");
+
+    const inspect2Res = await req(
+      {
+        jsonrpc: "2.0",
+        id: 5,
+        method: "tools/call",
+        params: { name: "giterloper_state_inspect", arguments: {} },
+      },
+      headers
+    );
+    const inspect2Result = (await parseToolResult(inspect2Res)) as {
+      pins?: Array<{ name: string; sha: string; branch: string | null }>;
+    };
+    const defaultStillFirst = inspect2Result.pins?.[0]?.name === defaultPinName;
+    assertEquals(defaultStillFirst, true, "Default pin must remain first (unchanged)");
+    const defaultAfter = inspect2Result.pins?.find((p) => p.name === defaultPinName);
+    assertEquals(defaultAfter?.sha, defaultSha, "Default pin SHA unchanged");
+    assertEquals(defaultAfter?.branch, defaultBranch, "Default pin branch unchanged");
+    const snapshotPin = inspect2Result.pins?.find((p) => p.name === snapshotName);
+    assertEquals(snapshotPin?.sha, defaultSha);
+    assertEquals(snapshotPin?.branch, snapshotBranch);
   } finally {
     if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
     else Deno.env.delete("MCP_INSECURE");
