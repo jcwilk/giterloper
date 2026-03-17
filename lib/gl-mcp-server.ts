@@ -14,7 +14,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { bootstrapSessionFromShared, makeState, validateSessionId } from "./gl-core.ts";
-import type { GlState } from "./types.ts";
+import type { GlState, Pin } from "./types.ts";
 import { mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
@@ -32,7 +32,7 @@ import {
   pushBranchOrFail,
   requirePinBranch,
 } from "./branch.ts";
-import { clonePin, updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
+import { clonePin, teardownPinData, updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 import { reconcile } from "./reconcile.ts";
 import {
   getSessionTtlMs,
@@ -438,57 +438,83 @@ export function createServer(options?: CreateServerOptions): McpServer {
         validatePinName(pin);
         const trimmedName = pin.trim();
         const existing = pins.find((p) => p.name === trimmedName);
+        const defaultPin = pins[0];
 
-        // Existing pin: set as default (reorder)
+        // Existing pin: merge provided fields in place, never reorder or change default
         if (existing) {
-          if (pins.length <= 1 || pins[0].name === trimmedName) {
-            return {
-              ok: true,
-              ...(state.sessionId && { sessionId: state.sessionId }),
-              action: "pin_set",
-              defaultPin: trimmedName,
-              message: pins.length <= 1 ? "Only one pin; already default" : "Already session default",
-            };
+          const merged: Pin = { ...existing };
+          const sourceProvided = source !== undefined && source?.trim() !== "";
+          const refProvided = ref !== undefined && ref?.trim() !== "";
+          const branchProvided = branch !== undefined && branch?.trim() !== "";
+
+          if (sourceProvided) merged.source = source!.trim();
+          if (branchProvided) merged.branch = branch!.trim() || undefined;
+
+          if (refProvided || sourceProvided) {
+            const src = merged.source;
+            const refInput = refProvided ? ref!.trim() : (branchProvided ? branch!.trim() : "HEAD");
+            merged.sha = await resolveShaOrRef(src, refInput);
           }
-          mutatePins(state, (list) => {
-            const rest = list.filter((x) => x.name !== trimmedName);
-            return [existing, ...rest];
-          });
+
+          const shaChanged = merged.sha !== existing.sha;
+          const sourceChanged = merged.source !== existing.source;
+          if (shaChanged || sourceChanged) {
+            teardownPinData(state, existing);
+            clonePin(state, merged);
+          }
+
+          mutatePins(state, (list) =>
+            list.map((p) => (p.name === trimmedName ? merged : p))
+          );
           return {
             ok: true,
             ...(state.sessionId && { sessionId: state.sessionId }),
             action: "pin_set",
-            defaultPin: trimmedName,
+            pin: {
+              name: merged.name,
+              source: merged.source,
+              sha: merged.sha,
+              branch: merged.branch ?? null,
+            },
           };
         }
 
-        // Non-existent pin: create and set as default (requires source)
-        if (!source || !source.trim()) {
+        // Non-existent pin: create using default's source/sha when not provided, add at end
+        const effectiveSource = source?.trim() || defaultPin?.source;
+        if (!effectiveSource) {
           return {
             ok: false,
             code: "invalid_argument",
-            message: `Pin "${trimmedName}" not found. To create it, provide source (and optionally ref, branch).`,
+            message: "No pins configured. Use pin_set with pin and source to create the first pin.",
             details: {},
           };
         }
-        const refInput = ref?.trim() || branch?.trim() || "HEAD";
-        const sha = await resolveShaOrRef(source.trim(), refInput);
+        const refInput = ref?.trim() || "HEAD";
+        const effectiveSha =
+          !defaultPin || source?.trim() || ref?.trim()
+            ? await resolveShaOrRef(effectiveSource, refInput)
+            : defaultPin.sha;
         const newPin = {
           name: trimmedName,
-          source: source.trim(),
-          sha,
+          source: effectiveSource,
+          sha: effectiveSha,
           branch: branch?.trim() || undefined,
         };
         clonePin(state, newPin);
         mutatePins(state, (list) => {
-          const rest = list.filter((x) => x.name !== trimmedName);
-          return [newPin, ...rest];
+          if (list.some((p) => p.name === trimmedName)) return list;
+          return [...list, newPin];
         });
         return {
           ok: true,
           ...(state.sessionId && { sessionId: state.sessionId }),
           action: "pin_set",
-          defaultPin: trimmedName,
+          pin: {
+            name: newPin.name,
+            source: newPin.source,
+            sha: newPin.sha,
+            branch: newPin.branch ?? null,
+          },
           created: true,
         };
       })
