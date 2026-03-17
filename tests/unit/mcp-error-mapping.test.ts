@@ -1,6 +1,23 @@
 import { assertEquals } from "jsr:@std/assert";
-import { GlError, StaleIndexError } from "../../lib/errors.ts";
+import { BranchShaMismatchError, GlError, StaleIndexError } from "../../lib/errors.ts";
 import { mapErrorToMcp, mcpCodeToHttpStatus } from "../../lib/mcp-error-mapping.ts";
+
+Deno.test("mapErrorToMcp maps BranchShaMismatchError to branch_sha_mismatch", () => {
+  const err = new BranchShaMismatchError(
+    "branch exists on remote but pin SHA does not match",
+    "mypin",
+    "aaa111",
+    "bbb222",
+    "feature"
+  );
+  const result = mapErrorToMcp(err);
+  assertEquals(result.ok, false);
+  assertEquals(result.code, "branch_sha_mismatch");
+  assertEquals(result.details.pinName, "mypin");
+  assertEquals(result.details.pinSha, "aaa111");
+  assertEquals(result.details.remoteSha, "bbb222");
+  assertEquals(result.details.branch, "feature");
+});
 
 Deno.test("mapErrorToMcp maps StaleIndexError to stale_index", () => {
   const err = new StaleIndexError(
@@ -81,6 +98,7 @@ Deno.test("mcpCodeToHttpStatus returns correct status codes", () => {
   assertEquals(mcpCodeToHttpStatus("missing_pin"), 404);
   assertEquals(mcpCodeToHttpStatus("stale_index"), 409);
   assertEquals(mcpCodeToHttpStatus("mismatched_sha"), 409);
+  assertEquals(mcpCodeToHttpStatus("branch_sha_mismatch"), 409);
   assertEquals(mcpCodeToHttpStatus("branchless_write"), 400);
   assertEquals(mcpCodeToHttpStatus("invalid_argument"), 400);
   assertEquals(mcpCodeToHttpStatus("reconciliation_conflict"), 409);

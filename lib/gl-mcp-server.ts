@@ -28,6 +28,7 @@ import {
   assertBranchFresh,
   branchFreshSoft,
   commitIfDirty,
+  eagerPushBranchOrFail,
   ensureWorkingClone,
   pushBranchOrFail,
   requirePinBranch,
@@ -430,6 +431,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           if (branchProvided) {
             const defaultPin = pins[0];
             const updated: Pin = { ...defaultPin, branch: branch!.trim() || undefined };
+            eagerPushBranchOrFail(state, updated);
             mutatePins(state, (list) =>
               list.map((p, i) => (i === 0 ? updated : p))
             );
@@ -487,6 +489,12 @@ export function createServer(options?: CreateServerOptions): McpServer {
               teardownPinData(state, existing);
               clonePin(state, snapshotPin);
             }
+            try {
+              eagerPushBranchOrFail(state, snapshotPin);
+            } catch (e) {
+              if (shaChanged || sourceChanged) teardownPinData(state, snapshotPin);
+              throw e;
+            }
             mutatePins(state, (list) =>
               list.map((p) => (p.name === trimmedName ? snapshotPin : p))
             );
@@ -504,6 +512,12 @@ export function createServer(options?: CreateServerOptions): McpServer {
             };
           }
           clonePin(state, snapshotPin);
+          try {
+            eagerPushBranchOrFail(state, snapshotPin);
+          } catch (e) {
+            teardownPinData(state, snapshotPin);
+            throw e;
+          }
           mutatePins(state, (list) => {
             if (list.some((p) => p.name === trimmedName)) return list;
             return [...list, snapshotPin];

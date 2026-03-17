@@ -1,15 +1,15 @@
 /**
  * Branch operations: requirePinBranch, assertBranchReadyForWrite, ensureWorkingClone,
- * assertBranchFresh, branchFreshSoft.
+ * assertBranchFresh, branchFreshSoft, eagerPushBranchOrFail.
  */
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 
-import { EXIT, fail } from "./errors.ts";
+import { BranchShaMismatchError, EXIT, fail } from "./errors.ts";
 import { run, runSoft } from "./run.ts";
 import { isBranchNotFoundError } from "./run.ts";
 import { resolveBranchShaReachable, setCloneIdentity, toRemoteUrl } from "./git.ts";
-import { ensureDir, stagedDir } from "./paths.ts";
+import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
 
@@ -162,6 +162,61 @@ export function pushBranchOrFail(
     ].join("\n"),
     EXIT.STATE
   );
+}
+
+/**
+ * Eager branch push when assigning a branch to a pin.
+ * - If branch not on remote: push it immediately from the pin's clone.
+ * - If branch on remote with different SHA: throw BranchShaMismatchError.
+ * Call after clonePin and before/after mutatePins when setting a pin's branch.
+ * Caller must ensure clone exists at pin.sha (clonePin already called).
+ */
+export function eagerPushBranchOrFail(state: GlState, pin: Pin): void {
+  requirePinBranch(pin, "eager branch push");
+  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!);
+  if (!reachable) {
+    fail(
+      `could not reach remote to push branch for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
+      EXIT.EXTERNAL
+    );
+  }
+  if (remoteSha !== null) {
+    if (remoteSha.toLowerCase() !== pin.sha.toLowerCase()) {
+      throw new BranchShaMismatchError(
+        [
+          `branch "${pin.branch}" exists on remote but pin "${pin.name}" SHA does not match remote HEAD.`,
+          `  Pin SHA:    ${pin.sha}`,
+          `  Remote SHA: ${remoteSha}`,
+          "  Pin the remote head and investigate under a different named pin:",
+          `  gl pin add <new-name> ${pin.source} --ref ${pin.branch}`,
+        ].join("\n"),
+        pin.name,
+        pin.sha,
+        remoteSha,
+        pin.branch!
+      );
+    }
+    return; // branch exists and matches; nothing to push
+  }
+  const dir = cloneDir(state, pin);
+  if (!existsSync(dir)) {
+    fail(
+      `clone for pin "${pin.name}" not found; cannot push branch "${pin.branch}". Ensure pin is cloned first.`,
+      EXIT.STATE
+    );
+  }
+  setCloneIdentity(dir);
+  run("git", ["-C", dir, "checkout", "-B", pin.branch!]);
+  const pushed = runSoft("git", ["-C", dir, "push", "-u", "origin", pin.branch!]);
+  if (!pushed.ok) {
+    fail(
+      [
+        `eager branch push failed for pin "${pin.name}" (branch "${pin.branch}").`,
+        `Git output: ${(pushed.stderr || pushed.stdout || "push failed").trim()}`,
+      ].join("\n"),
+      EXIT.EXTERNAL
+    );
+  }
 }
 
 export function branchFreshSoft(state: GlState, pin: Pin): BranchFreshResult {

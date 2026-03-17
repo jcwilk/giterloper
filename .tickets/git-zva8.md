@@ -1,6 +1,6 @@
 ---
 id: git-zva8
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-17T02:44:09Z

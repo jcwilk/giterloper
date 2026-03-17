@@ -9,13 +9,14 @@
  *   `branchless_write`, `reconciliation_conflict`, `external`.
  * mcpCodeToHttpStatus maps each code to an HTTP status; only 401 is currently set by the server (auth). Tool errors are conveyed in the MCP result body.
  */
-import { EXIT, GlError, StaleIndexError } from "./errors.ts";
+import { BranchShaMismatchError, EXIT, GlError, StaleIndexError } from "./errors.ts";
 
 export type McpErrorCode =
   | "unauthorized"
   | "missing_pin"
   | "stale_index"
   | "mismatched_sha"
+  | "branch_sha_mismatch"
   | "branchless_write"
   | "reconciliation_conflict"
   | "invalid_argument"
@@ -51,6 +52,20 @@ export function mapErrorToMcp(error: unknown): McpErrorResult {
       details: {
         expectedPinName: error.expectedPinName,
         expectedSha: error.expectedSha,
+      },
+    };
+  }
+
+  if (error instanceof BranchShaMismatchError) {
+    return {
+      ok: false,
+      code: "branch_sha_mismatch",
+      message: error.message,
+      details: {
+        pinName: error.pinName,
+        pinSha: error.pinSha,
+        remoteSha: error.remoteSha,
+        branch: error.branch,
       },
     };
   }
@@ -124,6 +139,7 @@ export function mcpCodeToHttpStatus(code: McpErrorCode): number {
       return 404;
     case "stale_index":
     case "mismatched_sha":
+    case "branch_sha_mismatch":
     case "reconciliation_conflict":
       return 409;
     case "branchless_write":

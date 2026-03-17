@@ -19,6 +19,7 @@ import {
   assertBranchFresh,
   branchFreshSoft,
   commitIfDirty,
+  eagerPushBranchOrFail,
   ensureWorkingClone,
   pushBranchOrFail,
   requirePinBranch,
@@ -93,6 +94,14 @@ async function cmdPinAdd(state: GlState, args: string[]) {
   const existing = pins.find((p) => p.name === name);
   try {
     clonePin(state, newPin, { infoFn: info });
+  } catch (e) {
+    teardownPinData(state, newPin);
+    throw e;
+  }
+  try {
+    if (branch) {
+      eagerPushBranchOrFail(state, newPin);
+    }
   } catch (e) {
     teardownPinData(state, newPin);
     throw e;

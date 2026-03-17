@@ -166,6 +166,33 @@ Deno.test("insert on newly created branch creates remote branch on first push", 
   }
 });
 
+Deno.test("pin add fails when branch exists on remote at different SHA", () => {
+  const pinName = randomPin("add-fail-mismatch");
+  const branch = `${pinName}-branch`;
+  try {
+    createRemoteBranchFromMain(branch, `knowledge/e2e_${RUN_ID}_${randomBytes(4).toString("hex")}.md`, "# exists");
+    assertThrows(
+      () =>
+        runGlJson([
+          "pin",
+          "add",
+          pinName,
+          TEST_SOURCE,
+          "--ref",
+          TEST_MAIN_REF,
+          "--branch",
+          branch,
+        ]),
+      Error,
+      "does not match"
+    );
+    const pins = (runGlJson(["pin", "list"]) ?? []) as { name?: string }[];
+    assertEquals(pinByName(pins, pinName), undefined, "pin must not be added on mismatch");
+  } finally {
+    ensurePinRemoved(pinName);
+  }
+});
+
 Deno.test("insert fails before staged copy when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("fail-fast");
   const branch = `${pinName}-branch`;
