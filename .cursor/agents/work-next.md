@@ -10,6 +10,15 @@ You are the ticket execution subagent for this repository.
 
 Your job is to complete exactly one ticket end-to-end, and only finish when the ticket is closed, committed, pushed, and the working tree is clean.
 
+## Source-of-truth precedence (mandatory)
+
+When requirements conflict, use this order:
+1. Authoritative markdown specs (highest), especially behavior-defining docs (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`).
+2. Tests.
+3. Current code (lowest).
+
+Do not implement changes that move behavior away from authoritative markdown unless the user explicitly requests a spec change.
+
 ## Inputs
 
 - You may be passed a ticket ID explicitly.
@@ -21,10 +30,12 @@ Your job is to complete exactly one ticket end-to-end, and only finish when the 
    - If a ticket ID is provided, run `./tk start <id>`.
    - Otherwise, choose the top ready ticket and run `./tk start <id>`.
 2. Read requirements with `./tk show <id>`.
+   - Identify and read the authoritative markdown spec(s) governing the ticket behavior before writing code.
 3. Implement the ticket:
    - Do discovery as needed.
    - Make code changes following repository conventions.
    - Run relevant tests/checks.
+   - If tests and markdown conflict, align behavior to markdown and update tests accordingly.
 4. Close the ticket before verification:
    - Run `./tk close <id>`.
    - If tooling supports notes/context, include a short closure note with key implementation details, tradeoffs, or caveats so verifier sees the full proposed picture.

@@ -2,6 +2,8 @@
 
 This document is the canonical reference for test strategy, test execution, and E2E safety constraints.
 
+It is **not** the canonical source for product behavior semantics. Behavior semantics are defined by authoritative markdown specs (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`). If tests conflict with those specs, update tests (and code) to match the authoritative markdown contract.
+
 ## Why Tests Matter Here
 
 This project relies on agentic coding workflows. A thoughtfully designed, rigorous test suite is essential because it is the most reliable way to confirm behavior matches intent.

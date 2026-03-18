@@ -2,6 +2,19 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
+## Source-of-truth precedence (CRITICAL)
+
+When requirements conflict, follow this precedence order:
+
+1. **Authoritative markdown specs** (highest), especially documents that define exact behavior with words like "MUST", "exact", or "single source of truth" (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`).
+2. **Tests** (next): tests are executable checks, but they are not allowed to redefine behavior that authoritative markdown already specifies.
+3. **Current code** (lowest): code may drift and must be updated to match the higher-priority sources.
+
+Required behavior for agents:
+- If tests conflict with authoritative markdown, treat the tests as stale and propose/implement updates that restore alignment with markdown specs.
+- If code conflicts with tests and markdown, align code to markdown first, then align tests to the same contract.
+- Never file or execute work that moves behavior away from authoritative markdown unless the user explicitly requests a spec change.
+
 ## Task Tracking
 
 Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./tk`. Run `./tk` with no arguments to see full usage (create, start, close, ready, blocked, closed, show, dep, etc.). There is no `./tk list` command — use `ready` / `blocked` / `closed` to list tickets.
