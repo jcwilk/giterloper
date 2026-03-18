@@ -86,6 +86,7 @@ Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, sn
 
     const client = await createClient({
       url: `http://127.0.0.1:${port}/mcp`,
+      requestTimeoutMs: 120000,
     });
 
     try {

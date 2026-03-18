@@ -11,6 +11,8 @@ export interface ClientConfig {
   url: string;
   /** Bearer token for auth; omit when MCP_INSECURE=true on server */
   token?: string;
+  /** Per-request timeout in ms. Defaults to MCP SDK default (60s). Use higher values for E2E tests with clone/push. */
+  requestTimeoutMs?: number;
 }
 
 /** Parse tool result JSON from MCP callTool text content */
@@ -46,7 +48,16 @@ export async function createClient(config: ClientConfig): Promise<Client> {
     { capabilities: {} }
   );
   await client.connect(transport);
+  if (config.requestTimeoutMs != null) {
+    (client as Client & { _giterloperRequestTimeoutMs?: number })._giterloperRequestTimeoutMs =
+      config.requestTimeoutMs;
+  }
   return client;
+}
+
+function getRequestOpts(client: Client): { timeout?: number } | undefined {
+  const ms = (client as Client & { _giterloperRequestTimeoutMs?: number })._giterloperRequestTimeoutMs;
+  return ms != null ? { timeout: ms } : undefined;
 }
 
 /** Call giterloper_search and return parsed result. */
@@ -54,10 +65,11 @@ export async function search(
   client: Client,
   args: { pin: string; query: string; sha?: string; limit?: number }
 ): Promise<{ ok: boolean; pin: string; effectiveSha: string; results: unknown[] }> {
-  const result = await client.callTool({
-    name: "giterloper_search",
-    arguments: args as Record<string, unknown>,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_search", arguments: args as Record<string, unknown> },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -82,10 +94,11 @@ export async function retrieve(
   const toolArgs: Record<string, unknown> = { path: args.path };
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
   if (args.sha != null && args.sha !== "") toolArgs.sha = args.sha;
-  const result = await client.callTool({
-    name: "giterloper_retrieve",
-    arguments: toolArgs,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_retrieve", arguments: toolArgs },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -108,10 +121,11 @@ export async function stateInspect(
   client: Client,
   args?: { pin?: string; verify?: boolean }
 ): Promise<{ ok: boolean; pins?: unknown[]; checks?: unknown[] }> {
-  const result = await client.callTool({
-    name: "giterloper_state_inspect",
-    arguments: (args ?? {}) as Record<string, unknown>,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_state_inspect", arguments: (args ?? {}) as Record<string, unknown> },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -132,10 +146,11 @@ export async function pinSet(
   client: Client,
   args: { pin?: string; source?: string; ref?: string; branch?: string }
 ): Promise<{ ok: boolean; action?: string; message?: string; pin?: { name: string }; sessionPin?: unknown }> {
-  const result = await client.callTool({
-    name: "giterloper_pin_set",
-    arguments: args as Record<string, unknown>,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_pin_set", arguments: args as Record<string, unknown> },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -169,10 +184,11 @@ export async function insertPending(
   const toolArgs: Record<string, unknown> = { content: args.content };
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
   if (args.name != null && args.name !== "") toolArgs.name = args.name;
-  const result = await client.callTool({
-    name: "giterloper_insert_pending",
-    arguments: toolArgs,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_insert_pending", arguments: toolArgs },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -209,10 +225,11 @@ export async function reconcilePending(
 }> {
   const toolArgs: Record<string, unknown> = {};
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
-  const result = await client.callTool({
-    name: "giterloper_reconcile_pending",
-    arguments: toolArgs,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_reconcile_pending", arguments: toolArgs },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
@@ -244,10 +261,11 @@ export async function merge(
   source: { pin: string; branch: string; sha: string };
   target: { pin: string; branch: string; oldSha: string; newSha: string };
 }> {
-  const result = await client.callTool({
-    name: "giterloper_merge",
-    arguments: args as Record<string, unknown>,
-  });
+  const result = await client.callTool(
+    { name: "giterloper_merge", arguments: args as Record<string, unknown> },
+    undefined,
+    getRequestOpts(client)
+  );
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
     throw new Error("Unexpected tool response");
