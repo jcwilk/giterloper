@@ -21,6 +21,9 @@ Turn the **conclusion of the current conversation** into a structured set of tic
    ```
    ./tk create "Title" --parent <epic-id> -d "<description>" [--design "..."] [--acceptance "..."] [-t feature|task|bug|chore] [-p 0-4]
    ```
+   - Write ticket content with high parity to the conversation's agreed source material; avoid unnecessary rewording.
+   - Include enough detail in `description`/`design`/`acceptance` so `.cursor/agents/work-next.md` can complete the ticket in isolation.
+   - Include concrete acceptance criteria and expected evidence so `.cursor/agents/verifier.md` can definitively assess whether the proposed changes satisfy the ticket.
 4. **Model dependencies**: This is critical.
    - `./tk dep <id> <dep-id>` — `id` cannot start until `dep-id` is closed.
    - Run `./tk dep cycle` to verify no cycles.

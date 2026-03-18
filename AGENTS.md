@@ -4,18 +4,20 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 ## Task Tracking
 
-Use the ticket system for all work.
+Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./tk`.
 
 - `./tk ready` — available tasks (open/in-progress, deps resolved)
 - `./tk start <id>` — begin work on a ticket
-- `./tk close <id>` — close after verification
+- `./tk close <id>` — close a ticket
 - `./tk show <id>` — full ticket details
 
 **Task completion requires commit and push.** A closed ticket with a dirty tree is not done.
 
-**Workflow** (`/work-next`): Run `./tk ready`, pick the top ticket, `./tk start <id>`, read with `./tk show <id>`, then implement, validate, close, commit, and push.
-
-**Cursor skill commands**: `/work-next`, `/work-all`, `/file-tickets`, `/persist`, `/archive-tickets` — see `.cursor/skills/ticket/SKILL.md`.
+Ticket operations are typically induced by user-invoked skills/subagents such as:
+- `/work-all` (`.cursor/skills/work-all/SKILL.md`)
+- `/file-tickets` (`.cursor/skills/file-tickets/SKILL.md`)
+- `/archive-tickets` (`.cursor/skills/archive-tickets/SKILL.md`)
+- `/work-next` (`.cursor/agents/work-next.md`)
 
 ## Run environment: native for dev/test, Docker for prod
 
