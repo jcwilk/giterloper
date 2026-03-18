@@ -210,11 +210,14 @@ async function main() {
   let args = [...Deno.args];
   const helpJsonParsed = consumeBooleanFlag(args, "--json");
   args = helpJsonParsed.args;
+  const sessionIdParsed = parseFlag(args, "--session-id");
+  args = sessionIdParsed.args;
+  const sessionId = sessionIdParsed.found && sessionIdParsed.value ? sessionIdParsed.value : "_cli";
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printMaintenanceHelp();
     return;
   }
-  const state = makeState();
+  const state = makeState(sessionId);
   state.globalJson = helpJsonParsed.found;
 
   const [cmd, ...rest] = args;

@@ -23,7 +23,6 @@ export const KNOWLEDGE_STORE_REMOTE = "KNOWLEDGE_STORE_REMOTE";
  * Ensures session root exists. Called by MCP stateForSession.
  */
 export function ensureSessionDir(state: GlState): void {
-  if (!state.sessionId) return;
   if (!existsSync(state.rootDir)) {
     mkdirSync(state.rootDir, { recursive: true });
   }
@@ -34,7 +33,6 @@ export function ensureSessionDir(state: GlState): void {
  * Session pin starts at main branch with remote main's SHA. No shared pinned.yaml.
  */
 export function autoInitSessionPin(state: GlState): void {
-  if (!state.sessionId) return;
   const pins = readPins(state);
   if (pins.some((p) => p.name === SESSION_PIN_NAME)) return;
 
@@ -75,34 +73,21 @@ export function validateSessionId(sessionId: string | null | undefined): string 
 }
 
 /**
- * Creates GlState. When sessionId is provided, mutable paths root under
- * .giterloper/sessions/<sessionId>/ (pinned.yaml, versions, staged, indexes).
- * CLI and maintenance use makeState() without sessionId (shared .giterloper/).
+ * Creates GlState. Mutable paths root under .giterloper/sessions/<sessionId>/
+ * (pinned.yaml, versions, staged, indexes).
  */
-export function makeState(sessionId?: string | null): GlState {
+export function makeState(sessionId: string): GlState {
   const projectRoot = PROJECT_ROOT;
   const baseGiterloper = path.join(projectRoot, ".giterloper");
-
-  if (sessionId != null && sessionId !== "") {
-    const validated = validateSessionId(sessionId);
-    const sessionRoot = path.join(baseGiterloper, "sessions", validated);
-    return {
-      projectRoot,
-      rootDir: sessionRoot,
-      versionsDir: path.join(sessionRoot, "versions"),
-      stagedRoot: path.join(sessionRoot, "staged"),
-      pinnedPath: path.join(sessionRoot, "pinned.yaml"),
-      globalJson: false,
-      sessionId: validated,
-    };
-  }
-
+  const validated = validateSessionId(sessionId);
+  const sessionRoot = path.join(baseGiterloper, "sessions", validated);
   return {
     projectRoot,
-    rootDir: baseGiterloper,
-    versionsDir: path.join(baseGiterloper, "versions"),
-    stagedRoot: path.join(baseGiterloper, "staged"),
-    pinnedPath: path.join(baseGiterloper, "pinned.yaml"),
+    rootDir: sessionRoot,
+    versionsDir: path.join(sessionRoot, "versions"),
+    stagedRoot: path.join(sessionRoot, "staged"),
+    pinnedPath: path.join(sessionRoot, "pinned.yaml"),
     globalJson: false,
+    sessionId: validated,
   };
 }

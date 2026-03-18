@@ -17,6 +17,14 @@ Deno.test("makeState with sessionId roots mutable paths under sessions/<sessionI
   assertEquals(state.sessionId, "abc123");
 });
 
+Deno.test("makeState('_cli') returns paths under .giterloper/sessions/_cli/", () => {
+  const state = makeState("_cli");
+  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper", "sessions", "_cli");
+  assertEquals(state.rootDir, sessionRoot);
+  assertEquals(state.pinnedPath, path.join(sessionRoot, "pinned.yaml"));
+  assertEquals(state.sessionId, "_cli");
+});
+
 Deno.test("validateSessionId accepts UUID-like sessionId", () => {
   const id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
   assertEquals(validateSessionId(id), id);

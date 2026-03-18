@@ -21,6 +21,7 @@ function makeState(rootDir: string): GlState {
     stagedRoot: path.join(rootDir, "staged"),
     pinnedPath: path.join(rootDir, "pinned.yaml"),
     globalJson: false,
+    sessionId: "test",
   };
 }
 
