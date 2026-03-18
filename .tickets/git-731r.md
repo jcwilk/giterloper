@@ -1,6 +1,6 @@
 ---
 id: git-731r
-status: in_progress
+status: closed
 deps: []
 links: []
 created: 2026-03-18T20:10:27Z
