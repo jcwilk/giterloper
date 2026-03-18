@@ -19,9 +19,23 @@ E2E tests are especially valuable as executable workflow documentation: they sho
 
 Use native Deno for development and tests.
 
-- Unit tests: `deno test -A tests/unit/`
-- E2E tests: `deno run -A scripts/run-e2e.ts`
-- Typecheck (recommended with test changes): `deno check lib/gl.ts`
+### Running all checks
+
+From the repository root, run every check (typecheck, unit tests, E2E tests) in the canonical order; the script exits on first failure:
+
+```bash
+./scripts/check_all.sh
+```
+
+Or via Deno: `deno task check`
+
+Use this before persisting ticket work (e.g. verifier and work-next run it to validate changes).
+
+### Individual commands
+
+- **Typecheck:** `deno check lib/gl.ts` — required when touching TypeScript; run with test changes.
+- **Unit tests:** `deno test -A tests/unit/`
+- **E2E tests:** `deno run -A scripts/run-e2e.ts`
 
 ## E2E Tests: Collision Avoidance (CRITICAL)
 

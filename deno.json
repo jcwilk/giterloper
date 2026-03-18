@@ -1,5 +1,6 @@
 {
   "tasks": {
+    "check": "./scripts/check_all.sh",
     "test:unit": "deno test -A tests/unit/",
     "test:e2e": "deno run -A scripts/run-e2e.ts",
     "mcp:serve": "deno run -A lib/gl-mcp-server.ts",
