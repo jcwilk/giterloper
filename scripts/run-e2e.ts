@@ -1,7 +1,8 @@
 #!/usr/bin/env -S deno run -A
 /**
  * Runs e2e tests. Random pin/branch names (RUN_ID) avoid collisions.
- * pinned.yaml writes are protected by a lock. cleanupLeakedTestPins() removes leaked E2E pins after tests.
+ * CLI E2E tests share session _cli; run serially to avoid concurrent pinned.yaml writes.
+ * cleanupLeakedTestPins() removes leaked E2E pins after tests.
  */
 import { spawnSync } from "node:child_process";
 import path from "node:path";
@@ -39,7 +40,7 @@ function cleanupLeakedTestPins() {
 
 const result = spawnSync(
   "deno",
-  ["test", "-A", "--parallel", testDir],
+  ["test", "-A", testDir],
   { cwd: root, stdio: "inherit" }
 );
 
