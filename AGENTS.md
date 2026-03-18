@@ -52,18 +52,22 @@ Use [tests/README.md](./tests/README.md) as the canonical source for all test-sp
 
 ## pinned.yaml Format
 
-Nested format for pins with optional branch:
+Nested format for pins with optional branch. The session pin is always named `_session`; omit the `pin` parameter in MCP tools to target it.
 
 ```yaml
-name:
+_session:
   repo: source
   sha: commit-sha
   branch: branch-name  # optional; required for write ops
+my_feature:
+  repo: source
+  sha: commit-sha
+  branch: branch-name
 ```
 
 Branchless pins are read-only.
 
-### MCP pin_set semantics
+### MCP session pin (_session) and pin_set semantics
 
 `giterloper_pin_set` semantics are defined in [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md). Treat that document as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
 
@@ -117,7 +121,7 @@ See [tests/README.md](./tests/README.md) for canonical test execution commands a
 
 ### MCP server
 
-The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. Tools that omit the `pin` parameter resolve through the session default (first pin). Use `giterloper_pin_set` to view or configure the default, or to upsert named pins without changing which pin is default. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. Tools that omit the `pin` parameter resolve through the session pin (_session). Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
 
@@ -130,7 +134,7 @@ deno task mcp:serve
 For stdio (one session per process): `deno task mcp:serve-stdio` or `deno run -A lib/gl-mcp-server-stdio.ts`.
 For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
-**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1).
+**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). `KNOWLEDGE_STORE_REMOTE` — when set (e.g. `https://github.com/owner/repo`), new MCP sessions auto-create the session pin (_session) at the remote repo's `main` HEAD; useful for agent workflows without manual pin setup. If unset, the session starts with no pins; use `pin_set` with source and branch/ref to create the session pin.
 
 **Endpoints:** `GET /health` — health diagnostics (unauthenticated); `GET|POST /mcp` — MCP Streamable HTTP (requires auth unless insecure mode).
 

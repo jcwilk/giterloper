@@ -14,7 +14,7 @@ Project state lives in `.giterloper/`:
 - `.giterloper/versions/`: read-only clones at exact SHAs
 - `.giterloper/staged/`: temporary working clones for write operations
 
-Pins always use full 40-character commit SHAs. If `--pin` is omitted, the first pin in `.giterloper/pinned.yaml` is the default.
+Pins always use full 40-character commit SHAs. If `--pin` is omitted, the session pin (`_session`) is used; it must exist in `.giterloper/pinned.yaml`.
 
 ## Core Concepts
 
@@ -92,7 +92,7 @@ If `--ref` is omitted when using `--branch`, it defaults to the branch name (whi
 ## Write Directionality (Critical)
 
 For write-style operations:
-- The **base store** is always the `--pin` target (or default first pin).
+- The **base store** is always the `--pin` target (or session pin when omitted).
 - The **reference** is the second input (raw text, conversation context, or another pin).
 - **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`). When any knowledge operation fails, do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide.
 
