@@ -138,7 +138,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Search knowledge",
       description:
-        "Search knowledge at a pinned version. Returns paths, titles, snippets, scores.",
+        "Search knowledge at a pinned version. Returns paths, titles, snippets, scores. Omit pin to target the session pin.",
       inputSchema: z.object({
         pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         query: z.string().describe("Search query (required)"),
@@ -180,7 +180,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Retrieve content",
       description:
-        "Retrieve content by path at a pinned version.",
+        "Retrieve content by path at a pinned version. Omit pin to target the session pin.",
       inputSchema: z.object({
         pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         path: z
@@ -225,7 +225,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Insert pending knowledge",
       description:
-        "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert.",
+        "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert. Omit pin to target the session pin.",
       inputSchema: z.object({
         pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
         content: z.string().describe("Markdown content to queue (required)"),
@@ -288,7 +288,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Reconcile pending knowledge",
       description:
-        "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile.",
+        "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile. Omit pin to target the session pin.",
       inputSchema: z.object({
         pin: z.string().optional().describe("Pin name; omit to use session pin (_session)"),
       }),
@@ -334,7 +334,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Merge pins",
       description:
-        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit one side to use session pin (_session).",
+        "Merge source pin's branch into target pin's branch via GitHub API. Equivalent to CLI gl merge. Omit sourcePin or targetPin to target the session pin.",
       inputSchema: z.object({
         sourcePin: z.string().optional().describe("Source pin; omit to use session pin (_session)"),
         targetPin: z.string().optional().describe("Target pin; omit to use session pin (_session)"),
@@ -406,7 +406,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Configure pins",
       description:
-        "Configure pins per docs/PIN_SETTING_PARAM_BEHAVIOR.md. Omit pin = operate on session pin (name _session). Pin name = add or change that named pin. Must specify at least one of branch or ref. ref may be a SHA or branch/tag; resolved to SHA from remote. Pins store name, sha, optionally branch.",
+        "Configure pins per docs/PIN_SETTING_PARAM_BEHAVIOR.md. Omit pin to target the session pin (name _session). Pin name = add or change that named pin. Must specify at least one of branch or ref. ref may be a SHA or branch/tag; resolved to SHA from remote. Pins store name, sha, optionally branch.",
       inputSchema: z
         .object({
           pin: z.string().optional().describe("Pin name; omit for session pin (_session)"),
@@ -744,7 +744,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     {
       title: "Inspect pin state",
       description:
-        "List pins or verify clone health and branch freshness. Session pin is named _session and appears first when listing all.",
+        "List pins or verify clone health and branch freshness. Session pin is named _session and appears first when listing all. Omit pin to list all pins.",
       inputSchema: z.object({
         pin: z
           .string()

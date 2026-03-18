@@ -1,6 +1,6 @@
 ---
 id: git-5lt8
-status: open
+status: closed
 deps: [git-69p7]
 links: []
 created: 2026-03-17T06:12:07Z
