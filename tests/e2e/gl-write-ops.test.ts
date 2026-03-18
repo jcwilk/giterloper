@@ -20,8 +20,10 @@ function randomPin(prefix: string): string {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
+const E2E_CLI_SESSION = "_cli";
+
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "staged", pinName, branch);
+  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -71,8 +73,7 @@ function createRemoteBranchFromMain(
   }
 }
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert queues content in knowledge/_pending and advances pin sha", ignore: true, fn: () => {
+Deno.test("insert queues content in knowledge/_pending and advances pin sha", () => {
   const pinName = randomPin("insert");
   const branch = `${pinName}-branch`;
   try {
@@ -92,10 +93,9 @@ Deno.test({ name: "insert queues content in knowledge/_pending and advances pin 
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha", ignore: true, fn: () => {
+Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha", () => {
   const pinName = randomPin("install-remote");
   const branch = `${pinName}-branch`;
   try {
@@ -120,10 +120,9 @@ Deno.test({ name: "install-remote copies CONSTITUTION.md to GITERLOPER.md and ad
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "reconcile processes _pending into topic files and deletes pending", ignore: true, fn: () => {
+Deno.test("reconcile processes _pending into topic files and deletes pending", () => {
   const pinName = randomPin("reconcile");
   const branch = `${pinName}-branch`;
   try {
@@ -154,10 +153,9 @@ Deno.test({ name: "reconcile processes _pending into topic files and deletes pen
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert with --name uses requested file name", ignore: true, fn: () => {
+Deno.test("insert with --name uses requested file name", () => {
   const pinName = randomPin("insert-name");
   const branch = `${pinName}-branch`;
   try {
@@ -171,4 +169,4 @@ Deno.test({ name: "insert with --name uses requested file name", ignore: true, f
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});

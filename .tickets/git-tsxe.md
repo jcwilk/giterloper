@@ -1,6 +1,6 @@
 ---
 id: git-tsxe
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-18T23:00:44Z

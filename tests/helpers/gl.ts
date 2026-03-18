@@ -21,10 +21,10 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
 
 export function runGl(
   args: string[],
-  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null } = {}
+  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null; sessionId?: string } = {}
 ) {
   const parseJson = opts.parseJson ?? true;
-  const cliArgs = ["--json", ...args];
+  const cliArgs = ["--json", ...(opts.sessionId ? ["--session-id", opts.sessionId] : []), ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
   // When stdin provided, use temp file + redirect - avoids spawnSync input quirks in Deno test context
@@ -81,10 +81,11 @@ export function runGlJson(
 /** Run gl-maintenance commands (status, verify, clone, teardown, stage, stage-cleanup, promote). */
 export function runGlMaintenance(
   args: string[],
-  opts: { parseJson?: boolean; cwd?: string } = {}
+  opts: { parseJson?: boolean; cwd?: string; sessionId?: string } = {}
 ) {
   const parseJson = opts.parseJson ?? true;
-  const cliArgs = parseJson ? ["--json", ...args] : args;
+  const sessionArgs = opts.sessionId ? ["--session-id", opts.sessionId] : [];
+  const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
   const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {

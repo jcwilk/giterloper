@@ -47,8 +47,10 @@ function runGit(args: string[], opts: { cwd?: string; silent?: boolean } = {}): 
   return (result.stdout || "").trim();
 }
 
+const E2E_CLI_SESSION = "_cli";
+
 function runGlJson(args: string[]): unknown {
-  const result = spawnSync(GL_SCRIPT, ["--json", ...args], {
+  const result = spawnSync(GL_SCRIPT, ["--json", "--session-id", E2E_CLI_SESSION, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -62,7 +64,7 @@ function runGlJson(args: string[]): unknown {
 }
 
 function runGlMaintenanceJson(args: string[]): unknown {
-  const result = spawnSync(GL_MAINTENANCE, ["--json", ...args], {
+  const result = spawnSync(GL_MAINTENANCE, ["--json", "--session-id", E2E_CLI_SESSION, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -87,16 +89,18 @@ export function ensurePinRemoved(name: string): void {
   if (getPin(pins, name)) runGlJson(["pin", "remove", name]);
 }
 
+const E2E_CLI_SESSION = "_cli";
+
 function cleanupLocalCopies(pinName: string): void {
-  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "versions", pinName);
-  const stagedDir = path.join(WORKSPACE_ROOT, ".giterloper", "staged", pinName);
+  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "versions", pinName);
+  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName);
   try {
     rmSync(versionsDir, { recursive: true, force: true });
   } catch {
     /* ignore */
   }
   try {
-    rmSync(stagedDir, { recursive: true, force: true });
+    rmSync(stagedDirPath, { recursive: true, force: true });
   } catch {
     /* ignore */
   }
@@ -164,7 +168,7 @@ export function addTestPin(
 ): void {
   runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
   runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", "staged", pinName, branch);
+  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
   if (!existsSync(stagedPath)) {
     throw new Error(`Stage failed: ${stagedPath} does not exist`);
   }

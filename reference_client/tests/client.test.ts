@@ -58,7 +58,7 @@ Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
 Deno.test({
@@ -96,7 +96,7 @@ Deno.test({
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
 Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () => {
@@ -131,7 +131,7 @@ Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () =>
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
 Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn: async () => {
@@ -173,7 +173,7 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn:
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
 Deno.test({ name: "merge merges source into target", ignore: true, fn: async () => {
@@ -217,4 +217,4 @@ Deno.test({ name: "merge merges source into target", ignore: true, fn: async () 
     cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch });
     cleanupTestRepo({ pinName: targetPin, branchName: targetBranch });
   }
-}});
+});

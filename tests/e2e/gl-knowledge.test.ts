@@ -28,12 +28,14 @@ function getPin(
   return arr.find((entry: { name?: string }) => entry.name === pinName);
 }
 
+const E2E_CLI_SESSION = "_cli";
+
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "staged", pinName, branch);
+  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
 }
 
 function cloneDir(pinName: string, sha: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "versions", pinName, sha);
+  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "versions", pinName, sha);
 }
 
 function branchContentText(): string {
@@ -100,8 +102,7 @@ function createRemoteBranchFromMain(
   }
 }
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "stage creates a working clone", ignore: true, fn: () => {
+Deno.test("stage creates a working clone", () => {
   const pinName = scratchPinName("scratch-stage");
   const branch = `${pinName}-branch`;
   try {
@@ -121,10 +122,9 @@ Deno.test({ name: "stage creates a working clone", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "write content to staged clone", ignore: true, fn: () => {
+Deno.test("write content to staged clone", () => {
   const pinName = scratchPinName("scratch-write");
   const branch = `${pinName}-branch`;
   try {
@@ -143,10 +143,9 @@ Deno.test({ name: "write content to staged clone", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "promote pushes and updates pin", ignore: true, fn: () => {
+Deno.test("promote pushes and updates pin", () => {
   const pinName = scratchPinName("scratch-promote");
   const branch = `${pinName}-branch`;
   try {
@@ -171,10 +170,9 @@ Deno.test({ name: "promote pushes and updates pin", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "diagnostic reports healthy state (main gl)", ignore: true, fn: () => {
+Deno.test("diagnostic reports healthy state (main gl)", () => {
   const pinName = scratchPinName("scratch-diagnostic");
   const branch = `${pinName}-branch`;
   try {
@@ -195,10 +193,9 @@ Deno.test({ name: "diagnostic reports healthy state (main gl)", ignore: true, fn
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "verify reports healthy state (extended)", ignore: true, fn: () => {
+Deno.test("verify reports healthy state (extended)", () => {
   const pinName = scratchPinName("scratch-verify");
   const branch = `${pinName}-branch`;
   try {
@@ -219,10 +216,9 @@ Deno.test({ name: "verify reports healthy state (extended)", ignore: true, fn: (
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "stage-cleanup removes staged clone", ignore: true, fn: () => {
+Deno.test("stage-cleanup removes staged clone", () => {
   const pinName = scratchPinName("scratch-cleanup");
   const branch = `${pinName}-branch`;
   try {
@@ -243,10 +239,9 @@ Deno.test({ name: "stage-cleanup removes staged clone", ignore: true, fn: () => 
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "stage same branch reuses existing", ignore: true, fn: () => {
+Deno.test("stage same branch reuses existing", () => {
   const pinName = scratchPinName("scratch-reuse");
   const branch = `${pinName}-branch`;
   try {
@@ -269,10 +264,9 @@ Deno.test({ name: "stage same branch reuses existing", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "pin list includes the test pin", ignore: true, fn: () => {
+Deno.test("pin list includes the test pin", () => {
   const pinName = scratchPinName("scratch-list");
   const branch = `${pinName}-branch`;
   try {
@@ -289,10 +283,9 @@ Deno.test({ name: "pin list includes the test pin", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "pin remove removes local pin data", ignore: true, fn: () => {
+Deno.test("pin remove removes local pin data", () => {
   const pinName = scratchPinName("scratch-remove");
   try {
     const added = runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]) as {
@@ -303,24 +296,23 @@ Deno.test({ name: "pin remove removes local pin data", ignore: true, fn: () => {
     assertEquals(existsSync(cloneDir(pinName, added.sha!)), true, "clone should create pin version");
     const removed = runGlJson(["pin", "remove", pinName]) as { removed?: boolean };
     assertEquals(removed.removed, true, "pin remove should report removed");
-    assertEquals(getPin(runGlJson(["pin", "list"]), pinName), undefined, "pin should no longer exist");
+    assertEquals(getPin(runGlJson(["pin", "list"]) as { name?: string }[], pinName), undefined, "pin should no longer exist");
     assertEquals(
-      existsSync(path.join(Deno.cwd(), ".giterloper", "versions", pinName)),
+      existsSync(path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "versions", pinName)),
       false,
       "pin versions directory should be removed"
     );
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "pin update advances pin sha", ignore: true, fn: () => {
+Deno.test("pin update advances pin sha", () => {
   const pinName = scratchPinName("scratch-update");
   const branchName = `${pinName}-branch`;
   try {
     runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
-    const originalSha = (getPin(runGlJson(["pin", "list"]), pinName) as { sha?: string })!.sha!;
+    const originalSha = getPin(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName)!.sha!;
     const branchSha = createRemoteBranchFromMain(
       branchName,
       `knowledge/e2e-update_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
@@ -336,17 +328,16 @@ Deno.test({ name: "pin update advances pin sha", ignore: true, fn: () => {
     assertEquals(update.name, pinName);
     assertEquals(update.oldSha, originalSha, "pin update should record previous SHA");
     assertEquals(update.newSha, branchSha, "pin update should update to branch SHA");
-    const pin = getPin(runGlJson(["pin", "list"]), pinName) as { sha?: string };
+    const pin = getPin(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertExists(pin, "pin should still exist after update");
     assertEquals(pin!.sha, branchSha, "pinned sha should match updated hash");
   } finally {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName });
   }
-}});
+});
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "status returns pinned state", ignore: true, fn: () => {
+Deno.test("status returns pinned state", () => {
   const pinName = scratchPinName("scratch-status");
   const branch = `${pinName}-branch`;
   try {
@@ -371,4 +362,4 @@ Deno.test({ name: "status returns pinned state", ignore: true, fn: () => {
     ensurePinRemoved(pinName);
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
   }
-}});
+});

@@ -51,7 +51,7 @@ Use [tests/README.md](./tests/README.md) as the canonical source for all test-sp
 
 ## Gl Script Notes
 
-- **pinned.yaml locking** — All writes go through `mutatePins()`, which uses a ticket-based FIFO mutex at `.giterloper/locks/pins/`.
+- **pinned.yaml** — All writes go through `mutatePins()`. Each session has its own pinned.yaml under `.giterloper/sessions/<sessionId>/`; no cross-session locking.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
 - **Branched vs branchless pins:** Write ops (`insert`, `promote`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
 - **Stale detection:** `assertBranchFresh` fails when local HEAD ≠ remote branch HEAD (ahead or behind). Sync with `gl pin update <name>` or `git -C <staged-dir> pull --rebase`.
@@ -65,7 +65,7 @@ Use [tests/README.md](./tests/README.md) as the canonical source for all test-sp
 
 ## pinned.yaml Format
 
-Nested format for pins with optional branch. The session pin is always named `_session`; omit the `pin` parameter in MCP tools to target it.
+State is session-scoped: `.giterloper/sessions/<sessionId>/pinned.yaml`. CLI defaults to session `_cli`; use `--session-id <id>` to override. MCP uses per-connection session ids. The session pin is always named `_session`; omit the `pin` parameter in MCP tools to target it.
 
 ```yaml
 _session:

@@ -28,7 +28,7 @@ Use that `serverIdentifier` as the `server` argument in all MCP tool invocations
 - Do not use the giterloper CLI (`./.cursor/skills/gl/scripts/gl ...`) for giterloper behavior.
 - Do not run or call HTTP/SSE MCP endpoints.
 - Do not use cloud-hosted or remote MCP routes for giterloper behavior.
-- Do not edit `.giterloper/pinned.yaml` directly to simulate tool behavior.
+- Do not edit `.giterloper/sessions/<sessionId>/pinned.yaml` directly to simulate tool behavior.
 - If an operation is unavailable in exposed MCP tools, report that clearly instead of switching interfaces.
 
 ## MCP-Only Workflow

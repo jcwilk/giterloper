@@ -33,12 +33,14 @@ function runGit(
   return (result.stdout || "").trim();
 }
 
-function cleanupLocalCopies(pinName: string | null): void {
+const E2E_CLI_SESSION = "_cli";
+
+function cleanupLocalCopies(pinName: string | null, sessionId = E2E_CLI_SESSION): void {
   if (!pinName) return;
 
   const root = Deno.cwd();
-  const versionsDir = path.join(root, ".giterloper", "versions", pinName);
-  const stagedDir = path.join(root, ".giterloper", "staged", pinName);
+  const versionsDir = path.join(root, ".giterloper", "sessions", sessionId, "versions", pinName);
+  const stagedDir = path.join(root, ".giterloper", "sessions", sessionId, "staged", pinName);
 
   try {
     rmSync(versionsDir, { recursive: true, force: true });

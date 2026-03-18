@@ -7,7 +7,6 @@ import path from "node:path";
 import { EXIT, fail } from "./errors.ts";
 import type { GlState } from "./types.ts";
 import type { Pin } from "./types.ts";
-import { withFifoLock } from "./locking.ts";
 import { ensureDir } from "./paths.ts";
 
 /** Session pin key; passing this explicitly always fails. Omit pin to refer to session pin. */
@@ -112,16 +111,10 @@ function doMutatePins(state: GlState, mutator: (pins: Pin[]) => Pin[]): void {
 }
 
 /**
- * Mutates pinned.yaml. When state is session-scoped (sessionId set), skips FIFO lock
- * since each session has its own pinned.yaml and no cross-process contention exists.
+ * Mutates pinned.yaml. Each session has its own pinned.yaml; no cross-process contention.
  */
 export function mutatePins(state: GlState, mutator: (pins: Pin[]) => Pin[]): void {
-  if (state.sessionId) {
-    doMutatePins(state, mutator);
-    return;
-  }
-  const lockDir = path.join(state.rootDir, "locks", "pins");
-  withFifoLock(lockDir, () => doMutatePins(state, mutator), { maxWaitMs: 5000 });
+  doMutatePins(state, mutator);
 }
 
 export function writePinsAtomic(state: GlState, pins: Pin[]): void {
@@ -143,7 +136,7 @@ export function resolvePin(state: GlState, pinName: string | null | undefined): 
     const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME);
     if (!sessionPin) {
       fail(
-        `No session pin (${SESSION_PIN_NAME}) configured. For MCP: set KNOWLEDGE_STORE_REMOTE for auto-init. For CLI: ensure .giterloper/pinned.yaml contains a pin named ${SESSION_PIN_NAME} (gl pin add rejects _session).`,
+        `No session pin (${SESSION_PIN_NAME}) configured. For MCP: set KNOWLEDGE_STORE_REMOTE for auto-init. For CLI: ensure ${state.pinnedPath} contains a pin named ${SESSION_PIN_NAME} (gl pin add rejects _session).`,
         EXIT.STATE
       );
     }

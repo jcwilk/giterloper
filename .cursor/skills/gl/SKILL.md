@@ -1,6 +1,6 @@
 ---
 name: gl
-description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to manage pins in .giterloper/pinned.yaml.
+description: Interact with giterloper knowledge stores connected to this project. Use when the user needs to manage pins in .giterloper/sessions/<sessionId>/pinned.yaml.
 ---
 
 # gl
@@ -9,12 +9,12 @@ description: Interact with giterloper knowledge stores connected to this project
 
 Use this skill for giterloper operations in this project.
 
-Project state lives in `.giterloper/`:
-- `.giterloper/pinned.yaml`: pin name -> object with `repo`, `sha`, optional `branch`
-- `.giterloper/versions/`: read-only clones at exact SHAs
-- `.giterloper/staged/`: temporary working clones for write operations
+Project state lives in `.giterloper/sessions/<sessionId>/` (CLI defaults to `_cli` via `--session-id`):
+- `.giterloper/sessions/<sessionId>/pinned.yaml`: pin name -> object with `repo`, `sha`, optional `branch`
+- `versions/`: read-only clones at exact SHAs
+- `staged/`: temporary working clones for write operations
 
-Pins always use full 40-character commit SHAs. If `--pin` is omitted, the session pin (`_session`) is used; it must exist in `.giterloper/pinned.yaml`.
+Pins always use full 40-character commit SHAs. If `--pin` is omitted, the session pin (`_session`) is used; it must exist in the session's pinned.yaml.
 
 ## Core Concepts
 

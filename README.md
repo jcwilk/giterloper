@@ -10,13 +10,13 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 ## Knowledge stores
 
-Knowledge lives in separate repositories. The default store is [giterloper_knowledge](https://github.com/jcwilk/giterloper_knowledge). Store connections are defined in `.giterloper/pinned.yaml`:
+Knowledge lives in separate repositories. The default store is [giterloper_knowledge](https://github.com/jcwilk/giterloper_knowledge). Store connections are defined per session in `.giterloper/sessions/<sessionId>/pinned.yaml`:
 
 ```yaml
 <name>: <source>@<sha>
 ```
 
-Each pin uses an exact commit SHA. Cloned stores live under `.giterloper/versions/<name>/<sha>/`. Temporary write clones use `.giterloper/staged/<name>/<branch>/`.
+Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override with `--session-id`). Cloned stores live under `.giterloper/sessions/<sessionId>/versions/<name>/<sha>/`. Temporary write clones use `.giterloper/sessions/<sessionId>/staged/<name>/<branch>/`.
 
 ## Quick start
 

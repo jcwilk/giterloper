@@ -41,7 +41,7 @@ Use this before persisting ticket work (e.g. verifier and work-next run it to va
 
 ## E2E Tests: Collision Avoidance (CRITICAL)
 
-E2E tests use a shared remote repository (`giterloper_test_knowledge`) and shared local state (`.giterloper/`, `pinned.yaml`). Avoid collisions using the rules below.
+E2E tests use a shared remote repository (`giterloper_test_knowledge`) and session-scoped local state. CLI E2E tests use session `_cli` by default (`.giterloper/sessions/_cli/`). Avoid collisions using the rules below.
 
 ### 1) Randomize all collision-prone names
 
@@ -71,12 +71,11 @@ Every test must be self-contained. No test may depend on another test's side eff
 - Tests that write should create their own scratch pins with unique branches.
 - Do not use `concurrency: 1` or shared mutable state between tests.
 
-### 3) Shared state notes (`pinned.yaml`)
+### 3) Session-isolated state
 
-- `.giterloper/pinned.yaml` is read/written by multiple test files.
+- CLI E2E tests use session `_cli`; state lives under `.giterloper/sessions/_cli/`.
 - With unique pin names, tests do not collide.
-- Writes are protected by a FIFO mutex at `.giterloper/locks/pins/`.
-- `.giterloper/versions/` and `staged/` are keyed by pin name, so unique names isolate runs.
+- `.giterloper/sessions/_cli/versions/` and `staged/` are keyed by pin name, so unique names isolate runs.
 
 ### 4) Cleanup and branch isolation
 

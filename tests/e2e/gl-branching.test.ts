@@ -22,8 +22,10 @@ function randomPin(prefix: string): string {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
+const E2E_CLI_SESSION = "_cli";
+
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "staged", pinName, branch);
+  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -97,7 +99,7 @@ function pushCommitToBranch(
 }
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert fails for branchless pin", ignore: true, fn: () => {
+Deno.test("insert fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
     runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
@@ -109,10 +111,10 @@ Deno.test({ name: "insert fails for branchless pin", ignore: true, fn: () => {
   } finally {
     ensurePinRemoved(branchlessPin);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "promote fails for branchless pin", ignore: true, fn: () => {
+Deno.test("promote fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
     runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
@@ -124,10 +126,10 @@ Deno.test({ name: "promote fails for branchless pin", ignore: true, fn: () => {
   } finally {
     ensurePinRemoved(branchlessPin);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "pin add with non-existent branch creates pin and clones from ref", ignore: true, fn: () => {
+Deno.test("pin add with non-existent branch creates pin and clones from ref", () => {
   const pinName = randomPin("create-branch");
   const branch = `${pinName}-branch`;
   try {
@@ -150,10 +152,10 @@ Deno.test({ name: "pin add with non-existent branch creates pin and clones from 
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert on newly created branch creates remote branch on first push", ignore: true, fn: () => {
+Deno.test("insert on newly created branch creates remote branch on first push", () => {
   const pinName = randomPin("create-on-push");
   const branch = `${pinName}-branch`;
   try {
@@ -168,10 +170,10 @@ Deno.test({ name: "insert on newly created branch creates remote branch on first
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "pin add fails when branch exists on remote at different SHA", ignore: true, fn: () => {
+Deno.test("pin add fails when branch exists on remote at different SHA", () => {
   const pinName = randomPin("add-fail-mismatch");
   const branch = `${pinName}-branch`;
   try {
@@ -196,10 +198,10 @@ Deno.test({ name: "pin add fails when branch exists on remote at different SHA",
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert fails before staged copy when branch exists and pin SHA mismatches remote", ignore: true, fn: () => {
+Deno.test("insert fails before staged copy when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("fail-fast");
   const branch = `${pinName}-branch`;
   try {
@@ -220,10 +222,10 @@ Deno.test({ name: "insert fails before staged copy when branch exists and pin SH
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "stage fails before clone when branch exists and pin SHA mismatches remote", ignore: true, fn: () => {
+Deno.test("stage fails before clone when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("stage-fail-fast");
   const branch = `${pinName}-branch`;
   try {
@@ -242,10 +244,10 @@ Deno.test({ name: "stage fails before clone when branch exists and pin SHA misma
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "insert succeeds when branch exists and pin SHA matches remote", ignore: true, fn: () => {
+Deno.test("insert succeeds when branch exists and pin SHA matches remote", () => {
   const pinName = randomPin("match-flow");
   const branch = `${pinName}-branch`;
   try {
@@ -262,10 +264,10 @@ Deno.test({ name: "insert succeeds when branch exists and pin SHA matches remote
   } finally {
     ensurePinRemoved(pinName);
   }
-}});
+});
 
 // Skip: depends on global pinned.yaml, skip until CLI sessionized
-Deno.test({ name: "merge merges source pin branch into target via GitHub API", ignore: true, fn: () => {
+Deno.test("merge merges source pin branch into target via GitHub API", () => {
   const srcBranch = `${RUN_ID}_merge_src`;
   const tgtBranch = `${RUN_ID}_merge_tgt`;
   const srcPin = randomPin("merge-src");
@@ -298,4 +300,4 @@ Deno.test({ name: "merge merges source pin branch into target via GitHub API", i
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: srcBranch });
     cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { branchName: tgtBranch });
   }
-}});
+});

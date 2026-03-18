@@ -1,5 +1,6 @@
 /**
- * FIFO lock for coordinated access to shared resources.
+ * FIFO lock for coordinated access. Not used for pinned.yaml (session-scoped);
+ * available for other shared resources.
  */
 import { readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
