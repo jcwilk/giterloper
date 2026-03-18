@@ -4,12 +4,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 ## Task Tracking
 
-Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./tk`.
-
-- `./tk ready` — available tasks (open/in-progress, deps resolved)
-- `./tk start <id>` — begin work on a ticket
-- `./tk close <id>` — close a ticket
-- `./tk show <id>` — full ticket details
+Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./tk`. Run `./tk` with no arguments to see full usage (create, start, close, ready, blocked, closed, show, dep, etc.). There is no `./tk list` command — use `ready` / `blocked` / `closed` to list tickets.
 
 **Task completion requires commit and push.** A closed ticket with a dirty tree is not done.
 
