@@ -110,6 +110,13 @@ export function createServer(options?: CreateServerOptions): McpServer {
     }
   }
 
+  /** Normalize pin param: omit/blank/_session → undefined for session pin. Some clients send "_session" when omitting. */
+  function effectivePinForResolve(pin: string | null | undefined): string | undefined {
+    if (!pin || typeof pin !== "string") return undefined;
+    const t = pin.trim();
+    return t === "" || t === SESSION_PIN_NAME ? undefined : pin;
+  }
+
   /** Resolves session-scoped state for MCP tool calls. Requires valid sessionId. */
   function stateForSession(
     extra: { sessionId?: string } | undefined
@@ -153,7 +160,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     async ({ pin, query, sha, limit }, extra) =>
       wrapTool(() => {
         const state = stateForSession(extra);
-        const p = resolvePin(state, pin ?? undefined);
+        const p = resolvePin(state, effectivePinForResolve(pin));
         const effectiveSha = sha ?? p.sha;
         const pinAtSha = { ...p, sha: effectiveSha };
         const results = memsearchSearch(state, p.name, effectiveSha, query, limit ?? 20, {
@@ -206,7 +213,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
             details: {},
           };
         }
-        const p = resolvePin(state, pin ?? undefined);
+        const p = resolvePin(state, effectivePinForResolve(pin));
         const effectiveSha = sha ?? p.sha;
         const content = retrieveFileContent(state, p, effectiveSha, filePath);
         return {
@@ -241,7 +248,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const validationError = validateInsertContent(content);
         if (validationError) return validationError;
         const trimmed = (content ?? "").trim();
-        const p = resolvePin(state, pin ?? undefined);
+        const p = resolvePin(state, effectivePinForResolve(pin));
         requirePinBranch(p, "insert_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
@@ -296,7 +303,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     async ({ pin }, extra) =>
       wrapTool(async () => {
         const state = stateForSession(extra);
-        const p = resolvePin(state, pin ?? undefined);
+        const p = resolvePin(state, effectivePinForResolve(pin));
         requirePinBranch(p, "reconcile_pending");
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
@@ -343,8 +350,10 @@ export function createServer(options?: CreateServerOptions): McpServer {
     async ({ sourcePin, targetPin }, extra) =>
       wrapTool(async () => {
         const state = stateForSession(extra);
+        const effSource = effectivePinForResolve(sourcePin);
+        const effTarget = effectivePinForResolve(targetPin);
         // Per docs/PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception: both omitted → merge into itself.
-        if (!sourcePin?.trim() && !targetPin?.trim()) {
+        if (effSource === undefined && effTarget === undefined) {
           return {
             ok: false,
             code: "invalid_argument",
@@ -352,8 +361,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
             details: {},
           };
         }
-        const source = resolvePin(state, sourcePin ?? undefined);
-        const target = resolvePin(state, targetPin ?? undefined);
+        const source = resolvePin(state, effSource);
+        const target = resolvePin(state, effTarget);
         if (source.name === target.name) {
           return {
             ok: false,

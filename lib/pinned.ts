@@ -21,8 +21,10 @@ export function validatePinName(name: string | null | undefined): void {
   if (!name || typeof name !== "string") return;
   const trimmed = name.trim();
   if (trimmed === SESSION_PIN_NAME) {
-    // Accept _session: some MCP clients send it when pin is omitted. resolvePin treats it as omitted.
-    return;
+    fail(
+      `"${SESSION_PIN_NAME}" is a reserved name. Omit the pin argument to use the session pin.`,
+      EXIT.USER
+    );
   }
 }
 
@@ -134,14 +136,10 @@ export function writePinsAtomic(state: GlState, pins: Pin[]): void {
  * Per docs/PIN_SETTING_PARAM_BEHAVIOR.md: session pin's name is always _session.
  */
 export function resolvePin(state: GlState, pinName: string | null | undefined): Pin {
-  // Normalize: some MCP clients/SDKs send "_session" when pin is omitted — treat as omission.
-  const normalized =
-    pinName != null && typeof pinName === "string" && pinName.trim() === SESSION_PIN_NAME
-      ? undefined
-      : pinName;
-  validatePinName(normalized);
+  validatePinName(pinName);
   const pins = readPins(state);
-  if (!normalized || (typeof normalized === "string" && normalized.trim() === "")) {
+  const omitPin = !pinName || (typeof pinName === "string" && pinName.trim() === "");
+  if (omitPin) {
     const sessionPin = pins.find((p) => p.name === SESSION_PIN_NAME);
     if (!sessionPin) {
       fail(
@@ -151,8 +149,9 @@ export function resolvePin(state: GlState, pinName: string | null | undefined): 
     }
     return sessionPin;
   }
-  const pin = pins.find((p) => p.name === normalized);
-  if (!pin) fail(`pin "${normalized}" not found`, EXIT.USER);
+  const trimmedName = (pinName as string).trim();
+  const pin = pins.find((p) => p.name === trimmedName);
+  if (!pin) fail(`pin "${trimmedName}" not found`, EXIT.USER);
   return pin;
 }
 

@@ -165,8 +165,8 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   }
 });
 
-/** pin_set with pin _session operates on session pin (accepted for MCP client compatibility). */
-Deno.test("pin_set with pin _session updates session pin branch", async () => {
+/** pin_set with pin _session is rejected; omit pin to target session pin. Per PIN_SETTING_PARAM_BEHAVIOR.md. */
+Deno.test("pin_set with pin _session is rejected", async () => {
   const origInsecure = Deno.env.get("MCP_INSECURE");
   const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
   try {
@@ -175,23 +175,24 @@ Deno.test("pin_set with pin _session updates session pin branch", async () => {
     const app = await createMcpAppForTest();
     const { req } = await setupSession(app);
 
-    const branchName = `pin_set_session_ref_${Date.now()}`;
     const res = await req({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "giterloper_pin_set", arguments: { pin: "_session", branch: branchName } },
+      params: { name: "giterloper_pin_set", arguments: { pin: "_session", branch: "main" } },
     });
     assertEquals(res.status, 200);
     const result = (await parseToolResult(res)) as {
       ok?: boolean;
-      pin?: { name: string; branch: string | null };
-      sessionPin?: { name: string; branch: string | null };
+      code?: string;
+      message?: string;
     };
-    assertEquals(result.ok, true);
-    const pinInfo = result.pin ?? result.sessionPin;
-    assertEquals(pinInfo?.name, "_session");
-    assertEquals(pinInfo?.branch, branchName);
+    assertEquals(result.ok, false, "pin_set with pin _session must fail");
+    assertEquals(result.code, "invalid_argument");
+    assertEquals(
+      (result.message ?? "").includes("reserved") || (result.message ?? "").includes("omit"),
+      true
+    );
   } finally {
     if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
     else Deno.env.delete("MCP_INSECURE");

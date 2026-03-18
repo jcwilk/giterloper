@@ -23,10 +23,11 @@ const SAMPLE_PINS_YAML = `foo:
 bar: github.com/y/repo@abcdef0123456789abcdef0123456789abcdef01
 `;
 
-/** validatePinName accepts _session for MCP client compatibility (resolvePin treats as omitted). */
-Deno.test("validatePinName accepts _session", () => {
-  validatePinName("_session");
-  validatePinName("  _session  ");
+Deno.test("validatePinName rejects _session", () => {
+  const err1 = assertThrows(() => validatePinName("_session"), GlError) as GlError;
+  assertEquals(err1.message.includes("reserved") || err1.message.includes("omit"), true);
+  const err2 = assertThrows(() => validatePinName("  _session  "), GlError) as GlError;
+  assertEquals(err2.message.includes("reserved") || err2.message.includes("omit"), true);
 });
 
 Deno.test("validatePinName allows non-reserved names", () => {
@@ -43,28 +44,6 @@ const SAMPLE_PINS_WITH_SESSION = `_session:
   branch: main
 bar: github.com/y/repo@abcdef0123456789abcdef0123456789abcdef01
 `;
-
-Deno.test("resolvePin returns _session when pinName omitted", () => {
-  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
-  mkdirSync(root, { recursive: true });
-  writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_WITH_SESSION, "utf8");
-  const state: GlState = {
-    projectRoot: path.dirname(root),
-    rootDir: root,
-    versionsDir: path.join(root, "versions"),
-    stagedRoot: path.join(root, "staged"),
-    pinnedPath: path.join(root, "pinned.yaml"),
-    globalJson: false,
-  };
-  try {
-    const pin = resolvePin(state, null);
-    assertEquals(pin.name, SESSION_PIN_NAME);
-    assertEquals(resolvePin(state, undefined).name, SESSION_PIN_NAME);
-    assertEquals(resolvePin(state, "").name, SESSION_PIN_NAME);
-  } finally {
-    Deno.removeSync(root, { recursive: true });
-  }
-});
 
 Deno.test("resolvePin fails when no _session exists", () => {
   const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
@@ -90,7 +69,7 @@ Deno.test("resolvePin fails when no _session exists", () => {
   }
 });
 
-Deno.test("resolvePin returns _session when pinName is _session", () => {
+Deno.test("resolvePin('_session') is rejected", () => {
   const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_WITH_SESSION, "utf8");
@@ -103,9 +82,41 @@ Deno.test("resolvePin returns _session when pinName is _session", () => {
     globalJson: false,
   };
   try {
-    const pin = resolvePin(state, "_session");
+    const err = assertThrows(() => resolvePin(state, "_session"), GlError) as GlError;
+    assertEquals(err.message.includes("reserved") || err.message.includes("omit"), true);
+  } finally {
+    Deno.removeSync(root, { recursive: true });
+  }
+});
+
+const PINS_SESSION_SECOND = `foo:
+  repo: github.com/x/repo
+  sha: 0123456789abcdef0123456789abcdef01234567
+  branch: main
+_session:
+  repo: github.com/x/repo
+  sha: 0123456789abcdef0123456789abcdef01234567
+  branch: main
+`;
+
+Deno.test("resolvePin finds _session pin by name regardless of position in list", () => {
+  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(path.join(root, "pinned.yaml"), PINS_SESSION_SECOND, "utf8");
+  const state: GlState = {
+    projectRoot: path.dirname(root),
+    rootDir: root,
+    versionsDir: path.join(root, "versions"),
+    stagedRoot: path.join(root, "staged"),
+    pinnedPath: path.join(root, "pinned.yaml"),
+    globalJson: false,
+  };
+  try {
+    const pin = resolvePin(state, null);
     assertEquals(pin.name, SESSION_PIN_NAME);
     assertEquals(pin.branch, "main");
+    assertEquals(resolvePin(state, undefined).name, SESSION_PIN_NAME);
+    assertEquals(resolvePin(state, "").name, SESSION_PIN_NAME);
   } finally {
     Deno.removeSync(root, { recursive: true });
   }
