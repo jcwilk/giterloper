@@ -1,6 +1,6 @@
 ---
 id: git-rxfb
-status: open
+status: closed
 deps: [git-lpj8]
 links: []
 created: 2026-03-18T21:18:54Z

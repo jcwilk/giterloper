@@ -1,6 +1,6 @@
 ---
 id: git-0sqi
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-18T21:18:45Z
