@@ -21,6 +21,7 @@ import { runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
 import {
   createClient,
   insertPending,
+  pinSet,
   reconcilePending,
   retrieve,
 } from "../../reference_client/client.ts";
@@ -150,6 +151,14 @@ Deno.test("MCP read → intake → reconcile → read loop with state-id asserti
     });
 
     try {
+      // Session-scoped state: bootstrap the pin in this session via pin_set (CLI added it to shared pinned.yaml only).
+      await pinSet(client, {
+        pin: pinName,
+        source: TEST_SOURCE,
+        ref: branch,
+        branch,
+      });
+
       // Read 1: retrieve initial file, capture effectiveSha (state-id)
       const read1 = await retrieve(client, { pin: pinName, path: initialPath });
       assertEquals(read1.ok, true);

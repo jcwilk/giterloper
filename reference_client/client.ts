@@ -124,6 +124,32 @@ export async function stateInspect(
   };
 }
 
+/** Call giterloper_pin_set and return parsed result. */
+export async function pinSet(
+  client: Client,
+  args: { pin?: string; source?: string; ref?: string; branch?: string }
+): Promise<{ ok: boolean; action?: string; message?: string; pin?: { name: string }; sessionPin?: unknown }> {
+  const result = await client.callTool({
+    name: "giterloper_pin_set",
+    arguments: args as Record<string, unknown>,
+  });
+  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
+  if (!content) {
+    throw new Error("Unexpected tool response");
+  }
+  if (result.isError) {
+    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
+    throw new Error(`${err.code}: ${err.message}`);
+  }
+  return parseToolResult(content.text) as {
+    ok: boolean;
+    action?: string;
+    message?: string;
+    pin?: { name: string };
+    sessionPin?: unknown;
+  };
+}
+
 /** Call giterloper_insert_pending and return parsed result. */
 export async function insertPending(
   client: Client,
