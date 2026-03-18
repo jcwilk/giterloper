@@ -1,6 +1,6 @@
 ---
 id: git-gyzy
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-18T20:10:36Z

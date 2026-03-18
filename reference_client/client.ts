@@ -74,14 +74,17 @@ export async function search(
   };
 }
 
-/** Call giterloper_retrieve and return parsed result. */
+/** Call giterloper_retrieve and return parsed result. Omit pin to use session pin. */
 export async function retrieve(
   client: Client,
-  args: { pin: string; path: string; sha?: string }
+  args: { pin?: string; path: string; sha?: string }
 ): Promise<{ ok: boolean; pin: string; effectiveSha: string; path: string; content: string }> {
+  const toolArgs: Record<string, unknown> = { path: args.path };
+  if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
+  if (args.sha != null && args.sha !== "") toolArgs.sha = args.sha;
   const result = await client.callTool({
     name: "giterloper_retrieve",
-    arguments: args as Record<string, unknown>,
+    arguments: toolArgs,
   });
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
@@ -150,10 +153,10 @@ export async function pinSet(
   };
 }
 
-/** Call giterloper_insert_pending and return parsed result. */
+/** Call giterloper_insert_pending and return parsed result. Omit pin to use session pin. */
 export async function insertPending(
   client: Client,
-  args: { pin: string; content: string; name?: string }
+  args: { pin?: string; content: string; name?: string }
 ): Promise<{
   ok: boolean;
   action: string;
@@ -163,9 +166,12 @@ export async function insertPending(
   oldSha: string;
   newSha: string;
 }> {
+  const toolArgs: Record<string, unknown> = { content: args.content };
+  if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
+  if (args.name != null && args.name !== "") toolArgs.name = args.name;
   const result = await client.callTool({
     name: "giterloper_insert_pending",
-    arguments: args as Record<string, unknown>,
+    arguments: toolArgs,
   });
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {
@@ -186,10 +192,10 @@ export async function insertPending(
   };
 }
 
-/** Call giterloper_reconcile_pending and return parsed result. */
+/** Call giterloper_reconcile_pending and return parsed result. Omit pin to use session pin. */
 export async function reconcilePending(
   client: Client,
-  args: { pin: string }
+  args: { pin?: string } = {}
 ): Promise<{
   ok: boolean;
   action: string;
@@ -201,9 +207,11 @@ export async function reconcilePending(
   deleted: string[];
   unresolved: string[];
 }> {
+  const toolArgs: Record<string, unknown> = {};
+  if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
   const result = await client.callTool({
     name: "giterloper_reconcile_pending",
-    arguments: args as Record<string, unknown>,
+    arguments: toolArgs,
   });
   const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
   if (!content) {

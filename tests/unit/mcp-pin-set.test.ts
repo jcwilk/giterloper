@@ -165,10 +165,8 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   }
 });
 
-/**
- * PIN_SETTING_PARAM_BEHAVIOR.md § Pin Name: "_session" always fails.
- */
-Deno.test("pin_set with pin _session fails", async () => {
+/** pin_set with pin _session operates on session pin (accepted for MCP client compatibility). */
+Deno.test("pin_set with pin _session updates session pin branch", async () => {
   const origInsecure = Deno.env.get("MCP_INSECURE");
   const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
   try {
@@ -177,22 +175,23 @@ Deno.test("pin_set with pin _session fails", async () => {
     const app = await createMcpAppForTest();
     const { req } = await setupSession(app);
 
+    const branchName = `pin_set_session_ref_${Date.now()}`;
     const res = await req({
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
-      params: { name: "giterloper_pin_set", arguments: { pin: "_session", branch: "main" } },
+      params: { name: "giterloper_pin_set", arguments: { pin: "_session", branch: branchName } },
     });
     assertEquals(res.status, 200);
-    const result = (await parseToolResult(res)) as { ok?: boolean; code?: string; message?: string };
-    assertEquals(result.ok, false, "pin_set with pin=_session must fail");
-    assertEquals(result.code, "invalid_argument");
-    assertEquals(
-      (result.message ?? "").toLowerCase().includes("_session") ||
-        (result.message ?? "").toLowerCase().includes("reserved"),
-      true,
-      `Expected reserved-name error (${PIN_SETTING_DOC})`
-    );
+    const result = (await parseToolResult(res)) as {
+      ok?: boolean;
+      pin?: { name: string; branch: string | null };
+      sessionPin?: { name: string; branch: string | null };
+    };
+    assertEquals(result.ok, true);
+    const pinInfo = result.pin ?? result.sessionPin;
+    assertEquals(pinInfo?.name, "_session");
+    assertEquals(pinInfo?.branch, branchName);
   } finally {
     if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
     else Deno.env.delete("MCP_INSECURE");

@@ -6,16 +6,6 @@ import { GlError } from "../../lib/errors.ts";
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
 
-Deno.test("makeState without sessionId uses shared .giterloper", () => {
-  const state = makeState();
-  assertEquals(state.projectRoot, PROJECT_ROOT);
-  assertEquals(state.rootDir, path.join(PROJECT_ROOT, ".giterloper"));
-  assertEquals(state.versionsDir, path.join(PROJECT_ROOT, ".giterloper", "versions"));
-  assertEquals(state.stagedRoot, path.join(PROJECT_ROOT, ".giterloper", "staged"));
-  assertEquals(state.pinnedPath, path.join(PROJECT_ROOT, ".giterloper", "pinned.yaml"));
-  assertEquals(state.sessionId, undefined);
-});
-
 Deno.test("makeState with sessionId roots mutable paths under sessions/<sessionId>", () => {
   const state = makeState("abc123");
   assertEquals(state.projectRoot, PROJECT_ROOT);

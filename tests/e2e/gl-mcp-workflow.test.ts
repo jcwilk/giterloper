@@ -1,47 +1,31 @@
 /**
- * MCP E2E workflow tests: read → intake → reconcile → read loop.
- * Uses RUN_ID (gle2e_) for collision safety. Targets giterloper_test_knowledge only.
- * Asserts state-id (effectiveSha, oldSha, newSha) transitions.
+ * MCP E2E workflow: session-driven, minimal setup.
+ * Uses KNOWLEDGE_STORE_REMOTE for session auto-bootstrap. No CLI, no global pinned.yaml.
+ * Verifies SHA chain and snapshot isolation via MCP tools only.
  */
 import { assertEquals, assertExists } from "jsr:@std/assert";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 
-import {
-  CLEAN_MAIN_SHA,
-  E2E_MARKER,
-  TEST_MAIN_REF,
-  TEST_SOURCE,
-  toRemoteUrl,
-} from "./config.ts";
-import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
-import { runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
+import { TEST_SOURCE, toRemoteUrl } from "./config.ts";
 import {
   createClient,
   insertPending,
   pinSet,
   reconcilePending,
   retrieve,
+  stateInspect,
 } from "../../reference_client/client.ts";
 
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
+const RUN_ID = `gle2e_${randomBytes(8).toString("hex")}`;
+const SNAPSHOT_NAME = `snapshot_${RUN_ID}`;
+const BRANCH_NAME = `mcp_workflow_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+const MARKER_A = `workflow_marker_a_${RUN_ID}`;
+const MARKER_B = `workflow_marker_b_${RUN_ID}`;
 
-function randomPin(prefix: string): string {
-  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
-}
-
-function pinByName(list: { name?: string; sha?: string }[] | unknown, name: string) {
-  const arr = Array.isArray(list) ? list : [];
-  return arr.find((p: { name?: string }) => p.name === name) as
-    | { name?: string; sha?: string }
-    | undefined;
-}
-
-function ensurePinRemoved(name: string): void {
-  const pins = runGlJson(["pin", "list"]) as { name?: string }[];
-  if (pinByName(pins, name)) runGlJson(["pin", "remove", name]);
+function randomPort(): number {
+  return 3500 + (randomBytes(2).readUInt16BE(0) % 1000);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -58,35 +42,6 @@ function runGit(args: string[], opts: { cwd?: string } = {}): string {
   return (result.stdout || "").trim();
 }
 
-function createRemoteBranchFromMain(
-  branchName: string,
-  contentPath: string,
-  contentBody: string
-): string {
-  const tempRoot = Deno.makeTempDirSync({ prefix: "giterloper-mcp-e2e-" });
-  const repoDir = path.join(tempRoot, "repo");
-  try {
-    runGit(["clone", "--quiet", toRemoteUrl(TEST_SOURCE), repoDir]);
-    runGit(["checkout", TEST_MAIN_REF], { cwd: repoDir });
-    runGit(["checkout", "-b", branchName], { cwd: repoDir });
-    runGit(["config", "user.name", "giterloper-test"], { cwd: repoDir });
-    runGit(["config", "user.email", "giterloper-test@example.com"], { cwd: repoDir });
-    const fullPath = path.join(repoDir, contentPath);
-    mkdirSync(path.dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, contentBody, "utf8");
-    runGit(["add", path.relative(repoDir, fullPath)], { cwd: repoDir });
-    runGit(["commit", "-m", `MCP E2E branch ${branchName}`], { cwd: repoDir });
-    runGit(["push", "origin", `HEAD:${branchName}`], { cwd: repoDir });
-    return runGit(["rev-parse", "HEAD"], { cwd: repoDir });
-  } finally {
-    rmSync(tempRoot, { recursive: true, force: true });
-  }
-}
-
-function randomPort(): number {
-  return 3500 + (randomBytes(2).readUInt16BE(0) % 1000);
-}
-
 interface ServerHandle {
   kill: () => void;
 }
@@ -98,12 +53,11 @@ function startMcpServer(port: number): ServerHandle {
       ...Deno.env.toObject(),
       MCP_PORT: String(port),
       MCP_INSECURE: "true",
+      KNOWLEDGE_STORE_REMOTE: TEST_SOURCE,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  return {
-    kill: () => proc.kill("SIGTERM"),
-  };
+  return { kill: () => proc.kill("SIGTERM") };
 }
 
 async function waitForServer(port: number, timeoutMs = 8000): Promise<void> {
@@ -122,27 +76,11 @@ async function waitForServer(port: number, timeoutMs = 8000): Promise<void> {
   throw new Error(`Server not ready at ${url} within ${timeoutMs}ms`);
 }
 
-Deno.test("MCP read → intake → reconcile → read loop with state-id assertions", async () => {
-  const pinName = randomPin("mcp-flow");
-  const branch = `${pinName}-branch`;
-  const initialPath = `knowledge/e2e_${RUN_ID}_${randomBytes(4).toString("hex")}.md`;
-  const initialContent = "# Initial Topic\n\nmcp_workflow_initial_marker";
-  const intakeContent = "# Intake Topic\n\nmcp_workflow_intake_marker";
+Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation", async () => {
   const port = randomPort();
   let server: ServerHandle | null = null;
 
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
-    createRemoteBranchFromMain(branch, initialPath, initialContent);
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const stagedPath = path.join(Deno.cwd(), ".giterloper", "staged", pinName, branch);
-    if (!existsSync(stagedPath)) {
-      throw new Error(`Stage failed: ${stagedPath} does not exist`);
-    }
-    runGlMaintenanceJson(["promote", "--pin", pinName]);
-    runGlJson(["pin", "load", "--pin", pinName]);
-
     server = startMcpServer(port);
     await waitForServer(port);
 
@@ -151,56 +89,100 @@ Deno.test("MCP read → intake → reconcile → read loop with state-id asserti
     });
 
     try {
-      // Session-scoped state: bootstrap the pin in this session via pin_set (CLI added it to shared pinned.yaml only).
-      await pinSet(client, {
-        pin: pinName,
-        source: TEST_SOURCE,
-        ref: branch,
-        branch,
+      // 1. Get session SHA (session auto-bootstrapped at main via KNOWLEDGE_STORE_REMOTE)
+      const inspectRes = await stateInspect(client);
+      assertEquals(inspectRes.ok, true);
+      assertExists(inspectRes.pins);
+      const sessionPin = (inspectRes.pins as { name: string; sha: string }[]).find(
+        (p) => p.name === "_session"
+      );
+      assertExists(sessionPin);
+      const sessionSha = sessionPin.sha;
+
+      // 2. Snapshot: create read-only pin at main
+      const snapRes = await pinSet(client, {
+        pin: SNAPSHOT_NAME,
+        ref: "main",
       });
+      assertEquals(snapRes.ok, true);
 
-      // Read 1: retrieve initial file, capture effectiveSha (state-id)
-      const read1 = await retrieve(client, { pin: pinName, path: initialPath });
-      assertEquals(read1.ok, true);
-      assertExists(read1.effectiveSha);
-      assertEquals(read1.path, initialPath);
-      assertEquals(read1.content.includes("mcp_workflow_initial_marker"), true);
-      const shaBeforeIntake = read1.effectiveSha;
+      // 3. Assign unique branch to session pin (omit pin → session)
+      const branchRes = await pinSet(client, { branch: BRANCH_NAME });
+      assertEquals(branchRes.ok, true);
+      const branchSessionPin = (branchRes as { sessionPin?: { sha: string } }).sessionPin;
+      assertExists(branchSessionPin);
+      assertEquals(branchSessionPin.sha, sessionSha, "new branch same commit as session");
 
-      // Intake: insert_pending
-      const insertResult = await insertPending(client, {
-        pin: pinName,
-        content: intakeContent,
+      // 4. Insert first knowledge entry (omit pin → session)
+      const insert1 = await insertPending(client, {
+        content: `# Topic A\n\n${MARKER_A}`,
       });
-      assertEquals(insertResult.ok, true);
-      assertEquals(insertResult.action, "inserted");
-      assertExists(insertResult.oldSha);
-      assertExists(insertResult.newSha);
-      assertEquals(insertResult.oldSha, shaBeforeIntake, "insert oldSha should match prior read effectiveSha");
-      assertEquals(insertResult.oldSha !== insertResult.newSha, true, "insert should advance sha");
+      assertEquals(insert1.ok, true);
+      assertEquals(insert1.action, "inserted");
+      assertExists(insert1.oldSha);
+      assertExists(insert1.newSha);
+      assertEquals(insert1.oldSha, sessionSha);
+      assertEquals(insert1.oldSha !== insert1.newSha, true, "insert-1 advances sha");
 
-      // Reconcile: reconcile_pending
-      const reconcileResult = await reconcilePending(client, { pin: pinName });
-      assertEquals(reconcileResult.ok, true);
-      assertEquals(reconcileResult.action, "reconciled");
-      assertExists(reconcileResult.oldSha);
-      assertExists(reconcileResult.newSha);
-      assertEquals(reconcileResult.oldSha, insertResult.newSha, "reconcile oldSha should match insert newSha");
-      assertEquals(reconcileResult.oldSha !== reconcileResult.newSha, true, "reconcile should advance sha");
+      // 5. Insert second knowledge entry
+      const insert2 = await insertPending(client, {
+        content: `# Topic B\n\n${MARKER_B}`,
+      });
+      assertEquals(insert2.ok, true);
+      assertEquals(insert2.oldSha, insert1.newSha);
+      assertEquals(insert2.oldSha !== insert2.newSha, true, "insert-2 advances sha");
 
-      // Read 2: retrieve reconciled topic file
-      const topicPath = "knowledge/intake-topic.md";
-      const read2 = await retrieve(client, { pin: pinName, path: topicPath });
-      assertEquals(read2.ok, true);
-      assertExists(read2.effectiveSha);
-      assertEquals(read2.effectiveSha, reconcileResult.newSha, "post-reconcile read effectiveSha should match reconcile newSha");
-      assertEquals(read2.content.includes("mcp_workflow_intake_marker"), true);
+      // 6. Reconcile (omit pin → session)
+      const reconcileRes = await reconcilePending(client, {});
+      assertEquals(reconcileRes.ok, true);
+      assertEquals(reconcileRes.action, "reconciled");
+      assertEquals(reconcileRes.oldSha, insert2.newSha);
+      assertEquals(reconcileRes.oldSha !== reconcileRes.newSha, true, "reconcile advances sha");
+
+      // 7. Retrieve reconciled content from session pin (omit pin)
+      assertExists(reconcileRes.touched, "reconcile touched paths");
+      const topicPath = reconcileRes.touched[0];
+      assertExists(topicPath, "at least one touched path");
+
+      const readRes = await retrieve(client, { path: topicPath });
+      assertEquals(readRes.ok, true);
+      assertEquals(readRes.effectiveSha, reconcileRes.newSha);
+      assertEquals(
+        readRes.content.includes(MARKER_A) || readRes.content.includes(MARKER_B),
+        true,
+        "content reflects inserts"
+      );
+
+      // 8. Snapshot isolation: retrieve same path from snapshot pin
+      let snapshotContent: string | null = null;
+      try {
+        const snapRead = await retrieve(client, { pin: SNAPSHOT_NAME, path: topicPath });
+        snapshotContent = snapRead.ok ? snapRead.content : null;
+      } catch {
+        // file-not-found expected — snapshot is at main, no reconciled files
+      }
+      if (snapshotContent !== null) {
+        assertEquals(
+          snapshotContent.includes(MARKER_A),
+          false,
+          "snapshot must not contain post-insert markers"
+        );
+        assertEquals(
+          snapshotContent.includes(MARKER_B),
+          false,
+          "snapshot must not contain post-insert markers"
+        );
+      }
     } finally {
       await client.close();
     }
   } finally {
     server?.kill();
-    ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch });
+    // Cleanup: delete test branch from remote
+    try {
+      runGit(["push", toRemoteUrl(TEST_SOURCE), "--delete", BRANCH_NAME]);
+    } catch {
+      /* branch may not exist */
+    }
   }
 });

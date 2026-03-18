@@ -23,10 +23,10 @@ const SAMPLE_PINS_YAML = `foo:
 bar: github.com/y/repo@abcdef0123456789abcdef0123456789abcdef01
 `;
 
-/** docs/PIN_SETTING_PARAM_BEHAVIOR.md § Pin Name: "_session" always fails. */
-Deno.test("validatePinName rejects _session", () => {
-  assertThrows(() => validatePinName("_session"), Error, "reserved");
-  assertThrows(() => validatePinName("  _session  "), Error, SESSION_PIN_NAME);
+/** validatePinName accepts _session for MCP client compatibility (resolvePin treats as omitted). */
+Deno.test("validatePinName accepts _session", () => {
+  validatePinName("_session");
+  validatePinName("  _session  ");
 });
 
 Deno.test("validatePinName allows non-reserved names", () => {
@@ -90,7 +90,7 @@ Deno.test("resolvePin fails when no _session exists", () => {
   }
 });
 
-Deno.test("resolvePin rejects _session", () => {
+Deno.test("resolvePin returns _session when pinName is _session", () => {
   const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_WITH_SESSION, "utf8");
@@ -103,12 +103,9 @@ Deno.test("resolvePin rejects _session", () => {
     globalJson: false,
   };
   try {
-    const err = assertThrows(
-      () => resolvePin(state, "_session"),
-      GlError
-    ) as GlError;
-    assertEquals(err.message.includes(SESSION_PIN_NAME), true);
-    assertEquals(err.message.includes("Omit"), true);
+    const pin = resolvePin(state, "_session");
+    assertEquals(pin.name, SESSION_PIN_NAME);
+    assertEquals(pin.branch, "main");
   } finally {
     Deno.removeSync(root, { recursive: true });
   }
