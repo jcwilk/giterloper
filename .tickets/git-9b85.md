@@ -1,6 +1,6 @@
 ---
 id: git-9b85
-status: open
+status: closed
 deps: [git-951j]
 links: []
 created: 2026-03-18T21:27:02Z
