@@ -33,50 +33,13 @@ Ticket operations are typically induced by user-invoked skills/subagents such as
 
 See [CONVENTIONS.md](./CONVENTIONS.md) for type-safety, interface/type usage, and strict mode requirements.
 
-## E2E Tests: Collision Avoidance (CRITICAL)
+## Testing Strategy (CRITICAL)
 
-E2E tests use a **shared remote repository** (`giterloper_test_knowledge`) and **shared local state** (`.giterloper/`, `pinned.yaml`). To avoid collisions:
+A rigorous, thoughtfully designed test suite is essential for agentic coding. It is the clearest way to verify that implemented behavior matches intended behavior.
 
-### 1. Randomize All Collision-Prone Names
+E2E tests are especially important because they act as executable workflow documentation for both humans and agents. Keep E2E tests high-signal and intentionally scoped: less is more. Avoid overlapping coverage and competing sources of truth.
 
-**RUN_ID** — Each test file generates a unique `RUN_ID` at load time:
-
-```js
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
-```
-
-(`E2E_MARKER` is `"gle2e_"` from `tests/e2e/config.ts`. The runner's safety net removes any pins whose name includes this marker after tests finish.)
-
-**Every** name that could collide MUST include `RUN_ID` or equivalent entropy:
-
-| Resource | Pattern | Why |
-|----------|---------|-----|
-| Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/versions/<name>/`, `pinned.yaml` |
-| Branches (remote) | `${RUN_ID}` or `${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
-| Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel tests; `Date.now()` alone can collide |
-| File paths in remote | `knowledge/e2e_${RUN_ID}_${randomBytes(4)}.md` | Avoid overwriting between runs |
-
-**Be paranoid:** Assume tests can run in parallel within a file. Use `crypto.randomBytes` for entropy; `Date.now()` is insufficient.
-
-### 2. Test Independence (CRITICAL)
-
-**Every test MUST be self-contained.** No test may depend on another test's side effects. Tests that need to write should create their own scratch pins with unique branches. Do not use `concurrency: 1` or shared mutable state between tests.
-
-### 3. Shared State: pinned.yaml
-
-- **`.giterloper/pinned.yaml`** — Both test files read/write this. With random pin names they don't collide. Writes are protected by a FIFO mutex (`.giterloper/locks/pins/`).
-- **`.giterloper/versions/` and `staged/`** — Keyed by pin name; unique names avoid collisions.
-
-### 4. Cleanup and Branch Isolation
-
-`cleanupTestKnowledgeRepo(source, sha, { pinName, branchName })` supports two modes:
-
-- **Legacy (string):** `pinName` only — deletes ALL remote branches except main. Use when no other run can be active.
-- **Parallel-safe (object):** `{ pinName, branchName }` — deletes only our branch, force-pushes main, creates our branch from main. Other runs' branches are untouched.
-
-### 5. Pin Lifecycle
-
-`updatePinSha()` and `cmdPinAdd` manage clones: when a pin name+SHA is written, we clone; when SHA changes, we tear down the old clone. `insert`, `merge`, `promote`, `pin update` flow through this. Use `gl pin load` to ensure pins are cloned without adding; use `gl-maintenance clone` for low-level cloning.
+Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, E2E collision avoidance, independence, and cleanup rules).
 
 ## Gl Script Notes
 
@@ -107,12 +70,7 @@ Branchless pins are read-only.
 
 ### MCP pin_set semantics
 
-`giterloper_pin_set` configures pins without always changing the session default. Behavior:
-
-- **No pin name** — View or configure the session default (first pin). With `branch` only, updates the default pin's branch at its current SHA.
-- **Pin name** — Upsert that named pin; the session default is unchanged. Existing pin: merge provided fields in place. New pin: inherit source/sha from default when not provided.
-- **Branch + pin name** — Create or update a snapshot pin at the default's current SHA; default is unaffected.
-- Assigning a branch to a pin eagerly pushes it to the remote (or fails with `branch_sha_mismatch` if remote SHA differs).
+`giterloper_pin_set` semantics are defined in [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md). Treat that document as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
 
 ## Cursor Cloud specific instructions
 
@@ -160,15 +118,7 @@ deno run -A lib/gl-maintenance.ts <command>
 
 ### Running tests
 
-Use **native Deno** (see "Run environment" above). No Docker required.
-
-```bash
-deno run -A scripts/run-e2e.ts
-```
-
-Unit tests: `deno test -A tests/unit/`
-
-E2E tests require push access to `github.com/jcwilk/giterloper_test_knowledge`; use GITERLOPER_GH_TOKEN (cloud) or `gh auth login` (local).
+See [tests/README.md](./tests/README.md) for canonical test execution commands and E2E prerequisites.
 
 ### MCP server
 

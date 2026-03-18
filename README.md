@@ -47,4 +47,4 @@ Unit tests:
 deno test -A tests/unit/
 ```
 
-See `AGENTS.md` for collision-avoidance guidance.
+See `tests/README.md` for collision-avoidance and test strategy guidance.
