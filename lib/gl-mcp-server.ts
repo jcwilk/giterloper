@@ -110,11 +110,12 @@ export function createServer(options?: CreateServerOptions): McpServer {
     }
   }
 
-  /** Normalize pin param: omit/blank/_session → undefined for session pin. Some clients send "_session" when omitting. */
+  /** Normalize pin param: omit/blank → undefined for session pin. Per spec, explicit "_session" must fail. */
   function effectivePinForResolve(pin: string | null | undefined): string | undefined {
     if (!pin || typeof pin !== "string") return undefined;
     const t = pin.trim();
-    return t === "" || t === SESSION_PIN_NAME ? undefined : pin;
+    if (t === "") return undefined;
+    return pin; // Pass through "_session" so resolvePin's validatePinName rejects it.
   }
 
   /** Resolves session-scoped state for MCP tool calls. Requires valid sessionId. */

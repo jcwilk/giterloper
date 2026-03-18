@@ -41,8 +41,8 @@ async function parseToolResult(res: Response): Promise<unknown> {
   }
 }
 
-/** insert_pending with omitted pin uses session pin. Ignored: MCP SDK passes _session when client omits; effectivePinForResolve should normalize but fails—needs follow-up. */
-Deno.test.ignore("insert_pending with content only uses session pin", async () => {
+/** insert_pending with omitted pin uses session pin and advances SHA. Per spec: omit pin targets session pin; updatePinSha no longer rejects _session on internal lifecycle path. */
+Deno.test("insert_pending with content only uses session pin", async () => {
   const origInsecure = Deno.env.get("MCP_INSECURE");
   const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
   try {
@@ -133,6 +133,64 @@ Deno.test("validateInsertContent rejects null", () => {
     message: "content must be non-empty",
     details: {},
   });
+});
+
+/** insert_pending with explicit pin "_session" must fail. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md. */
+Deno.test("insert_pending with pin _session is rejected", async () => {
+  const origInsecure = Deno.env.get("MCP_INSECURE");
+  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
+  try {
+    Deno.env.set("MCP_INSECURE", "true");
+    Deno.env.set("KNOWLEDGE_STORE_REMOTE", "github.com/jcwilk/giterloper_test_knowledge");
+    const app = await createMcpAppForTest();
+    const initRes = await mcpRequest(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0.0" },
+        },
+      },
+      {},
+      app
+    );
+    assertEquals(initRes.status, 200);
+    const sessionId = initRes.headers.get("mcp-session-id");
+    assertEquals(sessionId !== null && sessionId.length > 0, true);
+    const headers = { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" };
+
+    const insertRes = await mcpRequest(
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/call",
+        params: {
+          name: "giterloper_insert_pending",
+          arguments: { pin: "_session", content: "# Test\n\ncontent" },
+        },
+      },
+      headers,
+      app
+    );
+    assertEquals(insertRes.status, 200);
+    const result = (await parseToolResult(insertRes)) as { ok?: boolean; code?: string; message?: string };
+    assertEquals(result.ok, false, "insert_pending with pin _session must fail");
+    assertEquals(result.code, "invalid_argument");
+    assertEquals(
+      (result.message ?? "").toLowerCase().includes("reserved") ||
+        (result.message ?? "").toLowerCase().includes("omit"),
+      true,
+      "Must include corrective guidance"
+    );
+  } finally {
+    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
+    else Deno.env.delete("MCP_INSECURE");
+    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
+    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
+  }
 });
 
 Deno.test("validateInsertContent rejects undefined", () => {
