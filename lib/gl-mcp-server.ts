@@ -801,7 +801,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           .string()
           .optional()
           .describe(
-            "Pin name to inspect one pin; omit to list all (session pin _session first)"
+            'Pin name to inspect one pin; omit to list all (_session appears first). Do not pass the literal "_session" (reserved).'
           ),
         verify: z
           .boolean()
