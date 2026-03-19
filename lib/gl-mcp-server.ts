@@ -82,7 +82,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
   });
 
   function resolveSessionId(extra: { sessionId?: string } | undefined): string {
-    /** When set (E2E / reference_client only), pin state uses this session dir instead of the transport id. */
+    /** When set (E2E / reference client only), pin state uses this session dir instead of the transport id. */
     const testFsSession = Deno.env.get("GITERLOPER_TEST_MCP_STATE_SESSION_ID")?.trim();
     if (testFsSession && isSafeSessionId(testFsSession)) {
       return testFsSession;

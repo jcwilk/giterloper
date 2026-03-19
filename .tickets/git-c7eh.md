@@ -1,6 +1,6 @@
 ---
 id: git-c7eh
-status: open
+status: closed
 deps: [git-sv0g, git-e805]
 links: []
 created: 2026-03-18T23:02:16Z
@@ -9,25 +9,26 @@ priority: 1
 assignee: user.email
 parent: git-tsxe
 ---
-# Verify: no remaining shared/global pinned.yaml references anywhere in repo
+# Verify: no remaining non-session pinned.yaml references anywhere in repo
 
-Final verification sweep after all other tickets in this epic are complete. Hunt down and eliminate ANY remaining references — in code, comments, JSDoc, error messages, docs, test comments, ticket descriptions, or anywhere else — to a shared or global pinned.yaml that exists outside of a session subfolder.
+Final verification sweep after all other tickets in this epic are complete. Hunt down and eliminate ANY remaining references — in code, comments, JSDoc, error messages, docs, test comments, ticket descriptions, or anywhere else — to a **pinned.yaml** that lives outside `.giterloper/sessions/<sessionId>/` (legacy repo-root layout).
 
-Context: the shared .giterloper/pinned.yaml was previously used by the CLI tools (gl and gl-maintenance) which called makeState() with no session id. Those tools now use a reserved session id '_cli' by default, so all state is under .giterloper/sessions/<sessionId>/. The shared path no longer exists as a concept.
+Context: CLI tools (gl and gl-maintenance) used to call `makeState()` without a session id and wrote a pin file at `.giterloper/pinned.yaml`. They now default to reserved session id `_cli` (see `lib/gl.ts` / `lib/gl-maintenance.ts`); all mutable state lives under `.giterloper/sessions/<sessionId>/`. The old root-level pin file path must not appear as current behavior.
 
 What to check:
-- rg for 'shared.*pinned', 'global.*pinned', '.giterloper/pinned.yaml' (without sessions/ prefix), 'without sessionId', 'no sessionId', 'shared .giterloper' across entire repo
-- Code comments and JSDoc that mention shared/global state model
-- Error messages that reference .giterloper/pinned.yaml directly
-- Test skip comments mentioning 'global pinned.yaml'
-- Any makeState() call site that could produce a non-session path
-- Any GlState construction without sessionId
-- Any path.join that builds .giterloper/versions or .giterloper/staged without sessions/ in the path (for mutable state — read-only references to the .giterloper/ directory structure itself are fine)
-- Verify MCP code has zero references to '_cli'
+- ripgrep per the verifier / parent epic (case-insensitive prose scan for non-session pin-file documentation).
+- Path literals that place `pinned.yaml` directly under `.giterloper/` with no `sessions/` segment.
+- Missing `sessionId` in state builders; non-session `.giterloper` tree descriptions in prose.
+- Comments and JSDoc that describe a repo-wide pin file
+- Error strings that cite `.giterloper/pinned.yaml` directly (omit `sessions/`)
+- Test skip comments that cite obsolete root-level pin files
+- Any `makeState()` use that could yield a non-session path; any `GlState` missing `sessionId`
+- Any `path.join` building `.giterloper/versions` or `.giterloper/staged` without `sessions/` for mutable state (read-only directory layout notes may still mention `.giterloper/` as the volume root)
+- MCP code must not reference the CLI reserved session id `_cli`
 
 Fix anything found. This is the final cleanup pass.
 
 ## Acceptance Criteria
 
-rg -i 'global.*pinned\.yaml|shared.*pinned\.yaml' returns zero results (excluding .tickets/ archive). No code path can produce a non-session .giterloper/pinned.yaml path. No GlState object exists without sessionId. MCP code has zero references to '_cli'. deno check lib/gl.ts, deno test -A tests/unit/, and deno run -A scripts/run-e2e.ts all pass.
+Zero matches outside `.tickets/.archive/` for the parent epic’s prose scan (verifier runs the dual-branch `pinned.yaml` wording check case-insensitively). No code path can produce `.giterloper/pinned.yaml` without `sessions/` in the path. Every `GlState` has `sessionId`. MCP code has zero references to `_cli`. `deno check lib/gl.ts`, `deno test -A tests/unit/`, and `deno run -A scripts/run-e2e.ts` all pass.
 

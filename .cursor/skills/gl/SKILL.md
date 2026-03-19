@@ -94,7 +94,7 @@ If `--ref` is omitted when using `--branch`, it defaults to the branch name (whi
 For write-style operations:
 - The **base store** is always the `--pin` target (or session pin when omitted).
 - The **reference** is the second input (raw text, conversation context, or another pin).
-- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/staged/`). When any knowledge operation fails, do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide.
+- **Knowledge store boundaries:** Content intended for the knowledge store belongs in the store (staged clones under `.giterloper/sessions/<sessionId>/staged/`). When any knowledge operation fails, do not copy or write that content elsewhere in the project (e.g., `docs/`, root, ad‑hoc folders). Report the failure and let the user decide.
 
 If directionality is ambiguous, ask the user before making changes.
 
@@ -113,4 +113,4 @@ If the input type is unclear, ask a clarifying question first.
 - If the script reports a state error, fix state (pin, clone) before retrying.
 - Write operations fail if the tracked branch is stale; run `./.cursor/skills/gl/scripts/gl pin update <name>` and retry.
 - Confirm with the user before destructive actions (pin remove).
-- Never edit `.giterloper/versions/` directly; write via insert flow only.
+- Never edit `.giterloper/sessions/<sessionId>/versions/` directly; write via insert flow only.
