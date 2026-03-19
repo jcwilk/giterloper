@@ -1,6 +1,6 @@
 ---
 id: git-u0yq
-status: open
+status: closed
 deps: [git-cfli]
 links: []
 created: 2026-03-18T23:01:17Z
@@ -21,3 +21,9 @@ mutatePins always calls doMutatePins directly. The FIFO lock code path is remove
 
 mutatePins has no branching on state.sessionId. No code calls withFifoLock for pinned.yaml writes. Error message in resolvePin references session-scoped paths. deno check lib/gl.ts passes.
 
+
+## Notes
+
+**2026-03-19T04:30:08Z**
+
+Implementation already complete from prior session work (git-cfli/epic): mutatePins calls doMutatePins directly; resolvePin uses state.pinnedPath; withFifoLock has no callers; locking.ts JSDoc updated.
