@@ -1,6 +1,6 @@
 ---
 id: git-sv0g
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-18T23:01:44Z

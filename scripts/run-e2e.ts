@@ -15,7 +15,8 @@ const testDir = path.join(root, "tests", "e2e");
 
 function cleanupLeakedTestPins() {
   const glScript = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
-  const listResult = spawnSync(glScript, ["pin", "list", "--json"], {
+  const sessionArgs = ["--session-id", "_cli"];
+  const listResult = spawnSync(glScript, [...sessionArgs, "pin", "list", "--json"], {
     cwd: root,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -30,7 +31,7 @@ function cleanupLeakedTestPins() {
   for (const pin of pins) {
     if (pin.name && pin.name.includes(E2E_MARKER)) {
       console.error(`Cleaning up leaked test pin: ${pin.name}`);
-      spawnSync(glScript, ["pin", "remove", pin.name!], {
+      spawnSync(glScript, [...sessionArgs, "pin", "remove", pin.name!], {
         cwd: root,
         stdio: "inherit",
       });

@@ -37,6 +37,7 @@ import { clonePin, teardownPinData, updatePinSha, verifyCloneAtSha } from "./pin
 import { reconcile } from "./reconcile.ts";
 import {
   getSessionTtlMs,
+  isSafeSessionId,
   removeSessionData,
   scavengeStaleSessions,
   touchSession,
@@ -81,6 +82,11 @@ export function createServer(options?: CreateServerOptions): McpServer {
   });
 
   function resolveSessionId(extra: { sessionId?: string } | undefined): string {
+    /** When set (E2E / reference_client only), pin state uses this session dir instead of the transport id. */
+    const testFsSession = Deno.env.get("GITERLOPER_TEST_MCP_STATE_SESSION_ID")?.trim();
+    if (testFsSession && isSafeSessionId(testFsSession)) {
+      return testFsSession;
+    }
     return options?.getSessionId
       ? options.getSessionId(extra)
       : validateSessionId(extra?.sessionId);

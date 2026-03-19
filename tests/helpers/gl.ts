@@ -73,7 +73,7 @@ export function runGl(
 
 export function runGlJson(
   args: string[],
-  opts: { cwd?: string; stdin?: string | null } = {}
+  opts: { cwd?: string; stdin?: string | null; sessionId?: string } = {}
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
 }
@@ -114,6 +114,9 @@ export function runGlMaintenance(
   };
 }
 
-export function runGlMaintenanceJson(args: string[], opts: { cwd?: string } = {}): unknown {
+export function runGlMaintenanceJson(
+  args: string[],
+  opts: { cwd?: string; sessionId?: string } = {}
+): unknown {
   return runGlMaintenance(args, { ...opts, parseJson: true }).data;
 }

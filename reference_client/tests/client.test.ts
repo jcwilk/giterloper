@@ -3,6 +3,7 @@
  * Uses relative ../ paths to workspace. No lib/ imports.
  */
 import { assertEquals, assertExists, assertMatch } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import {
   addTestPin,
   cleanupTestRepo,
@@ -12,8 +13,6 @@ import {
   randomPin,
   startServer,
   waitForServer,
-  CLEAN_MAIN_SHA,
-  TEST_SOURCE,
 } from "../test_helpers.ts";
 import {
   createClient,
@@ -25,10 +24,12 @@ import {
   stateInspect,
 } from "../client.ts";
 
-const TEST_PORT = 3451;
+function randomPort(): number {
+  return 3450 + (randomBytes(2).readUInt16BE(0) % 500);
+}
 
-// Skip: addTestPin/ensurePinRemoved operate outside MCP session. Use session-driven MCP workflow test instead.
-Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
+Deno.test({ name: "state_inspect lists pins", fn: async () => {
+  const port = randomPort();
   const pinName = randomPin("inspect");
   const branch = `${pinName}-branch`;
   let server: ReturnType<typeof startServer> | null = null;
@@ -37,11 +38,12 @@ Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
     createRemoteBranch(branch, "knowledge/scratch.md", "# scratch");
     addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch");
 
-    server = startServer(TEST_PORT);
-    await waitForServer(TEST_PORT);
+    server = startServer(port);
+    await waitForServer(port);
 
     const client = await createClient({
-      url: `http://127.0.0.1:${TEST_PORT}/mcp`,
+      url: `http://127.0.0.1:${port}/mcp`,
+      requestTimeoutMs: 120000,
     });
     try {
       const result = await stateInspect(client);
@@ -60,46 +62,49 @@ Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
   }
 }});
 
-// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
+/** Requires `memsearch` on PATH (optional tool); not the old session-path skip. */
 Deno.test({
   name: "search returns results",
-  ignore: true,
+  ignore: !hasMemsearch(),
   fn: async () => {
-  const pinName = randomPin("search");
-  const branch = `${pinName}-branch`;
-  let server: ReturnType<typeof startServer> | null = null;
-  try {
-    cleanupTestRepo({ pinName, branchName: branch });
-    createRemoteBranch(branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
-    addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
-
-    server = startServer(TEST_PORT);
-    await waitForServer(TEST_PORT);
-
-    const client = await createClient({
-      url: `http://127.0.0.1:${TEST_PORT}/mcp`,
-    });
+    const port = randomPort();
+    const pinName = randomPin("search");
+    const branch = `${pinName}-branch`;
+    let server: ReturnType<typeof startServer> | null = null;
     try {
-      const result = await search(client, { pin: pinName, query: "search_test_xyz", limit: 5 });
-      assertEquals(result.ok, true);
-      assertEquals(result.pin, pinName);
-      assertExists(result.effectiveSha);
-      assertExists(result.results);
-      assertEquals(result.results.length >= 1, true);
-      const first = result.results[0] as { path?: string; snippet?: string };
-      assertMatch(first.path ?? "", /scratch|knowledge/);
-    } finally {
-      await client.close();
-    }
-  } finally {
-    server?.kill();
-    ensurePinRemoved(pinName);
-    cleanupTestRepo({ pinName, branchName: branch });
-  }
-}});
+      cleanupTestRepo({ pinName, branchName: branch });
+      createRemoteBranch(branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
+      addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
 
-// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
-Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () => {
+      server = startServer(port);
+      await waitForServer(port);
+
+      const client = await createClient({
+        url: `http://127.0.0.1:${port}/mcp`,
+        requestTimeoutMs: 120000,
+      });
+      try {
+        const result = await search(client, { pin: pinName, query: "search_test_xyz", limit: 5 });
+        assertEquals(result.ok, true);
+        assertEquals(result.pin, pinName);
+        assertExists(result.effectiveSha);
+        assertExists(result.results);
+        assertEquals(result.results.length >= 1, true);
+        const first = result.results[0] as { path?: string; snippet?: string };
+        assertMatch(first.path ?? "", /scratch|knowledge/);
+      } finally {
+        await client.close();
+      }
+    } finally {
+      server?.kill();
+      ensurePinRemoved(pinName);
+      cleanupTestRepo({ pinName, branchName: branch });
+    }
+  },
+});
+
+Deno.test({ name: "retrieve returns file content", fn: async () => {
+  const port = randomPort();
   const pinName = randomPin("retrieve");
   const branch = `${pinName}-branch`;
   const content = "# Test doc\n\nretrieve_content_marker_abc";
@@ -109,11 +114,12 @@ Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () =>
     createRemoteBranch(branch, "knowledge/scratch.md", content);
     addTestPin(pinName, branch, "knowledge/scratch.md", content);
 
-    server = startServer(TEST_PORT);
-    await waitForServer(TEST_PORT);
+    server = startServer(port);
+    await waitForServer(port);
 
     const client = await createClient({
-      url: `http://127.0.0.1:${TEST_PORT}/mcp`,
+      url: `http://127.0.0.1:${port}/mcp`,
+      requestTimeoutMs: 120000,
     });
     try {
       const result = await retrieve(client, {
@@ -133,8 +139,8 @@ Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () =>
   }
 }});
 
-// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
-Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn: async () => {
+Deno.test({ name: "insert_pending and reconcile_pending flow", fn: async () => {
+  const port = randomPort();
   const pinName = randomPin("insert");
   const branch = `${pinName}-branch`;
   let server: ReturnType<typeof startServer> | null = null;
@@ -143,11 +149,12 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn:
     createRemoteBranch(branch, "knowledge/scratch.md", "# scratch");
     addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch");
 
-    server = startServer(TEST_PORT);
-    await waitForServer(TEST_PORT);
+    server = startServer(port);
+    await waitForServer(port);
 
     const client = await createClient({
-      url: `http://127.0.0.1:${TEST_PORT}/mcp`,
+      url: `http://127.0.0.1:${port}/mcp`,
+      requestTimeoutMs: 120000,
     });
     try {
       const insertResult = await insertPending(client, {
@@ -175,8 +182,8 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn:
   }
 }});
 
-// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
-Deno.test({ name: "merge merges source into target", ignore: true, fn: async () => {
+Deno.test({ name: "merge merges source into target", fn: async () => {
+  const port = randomPort();
   const sourcePin = randomPin("merge-src");
   const targetPin = randomPin("merge-tgt");
   const sourceBranch = `${sourcePin}-branch`;
@@ -190,11 +197,12 @@ Deno.test({ name: "merge merges source into target", ignore: true, fn: async () 
     addTestPin(sourcePin, sourceBranch, "knowledge/src.md", "# source");
     addTestPin(targetPin, targetBranch, "knowledge/tgt.md", "# target");
 
-    server = startServer(TEST_PORT);
-    await waitForServer(TEST_PORT);
+    server = startServer(port);
+    await waitForServer(port);
 
     const client = await createClient({
-      url: `http://127.0.0.1:${TEST_PORT}/mcp`,
+      url: `http://127.0.0.1:${port}/mcp`,
+      requestTimeoutMs: 120000,
     });
     try {
       const result = await merge(client, {

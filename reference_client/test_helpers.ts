@@ -194,6 +194,8 @@ export function startServer(port: number): ServerHandle {
         ...Deno.env.toObject(),
         MCP_PORT: String(port),
         MCP_INSECURE: "true",
+        /** Align MCP tool pin state with CLI session used by addTestPin / ensurePinRemoved. */
+        GITERLOPER_TEST_MCP_STATE_SESSION_ID: E2E_CLI_SESSION,
       },
       stdio: ["ignore", "pipe", "pipe"],
     }
