@@ -1,7 +1,7 @@
 ---
 name: work-next
 description: Pick up the highest-priority available ticket and complete it with verifier-gated acceptance before persisting.
-model: composer-1.5
+model: composer-2-fast
 ---
 
 # /work-next Subagent

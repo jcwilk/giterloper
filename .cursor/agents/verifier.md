@@ -1,6 +1,6 @@
 ---
 name: verifier
-model: composer-1.5
+model: composer-2-fast
 description: Ticket-focused validator for giterloper. Use after implementation and before ticket closure/persist to confirm the ticket is actually satisfied.
 ---
 
