@@ -1,7 +1,7 @@
 ---
 id: git-sv0g
 status: open
-deps: [git-kmbs, git-34am]
+deps: []
 links: []
 created: 2026-03-18T23:01:44Z
 type: task
@@ -28,4 +28,3 @@ Update scripts/run-e2e.ts: line 4 comment about lock. cleanupLeakedTestPins (lin
 ## Acceptance Criteria
 
 All 29 previously skipped CLI E2E tests are enabled (no ignore: true). deno run -A scripts/run-e2e.ts passes. No E2E helper references shared .giterloper/ paths for mutable state.
-
