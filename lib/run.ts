@@ -2,9 +2,21 @@
  * Process execution: run, runSoft, isBranchNotFoundError.
  */
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 
 import { EXIT, fail } from "./errors.ts";
 import type { RunResult } from "./types.ts";
+
+/** Default cwd for child processes when the caller omits one. Avoids `getcwd() failed` if the process cwd was deleted. */
+function defaultSpawnCwd(): string {
+  try {
+    const dir = Deno.cwd();
+    if (existsSync(dir)) return dir;
+  } catch {
+    /* Deno.cwd() can throw when cwd no longer exists */
+  }
+  return "/";
+}
 
 export function run(
   cmd: string,
@@ -15,6 +27,7 @@ export function run(
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     ...opts,
+    cwd: opts.cwd ?? defaultSpawnCwd(),
   });
   if (result.error) {
     fail(`failed to run ${cmd}: ${result.error.message}`, EXIT.EXTERNAL);
@@ -37,6 +50,7 @@ export function runSoft(
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
     ...opts,
+    cwd: opts.cwd ?? defaultSpawnCwd(),
   });
   return {
     ok: !result.error && result.status === 0,

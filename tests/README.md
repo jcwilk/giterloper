@@ -35,14 +35,15 @@ Use this before persisting ticket work (e.g. verifier and work-next run it to va
 
 ### Parallel execution
 
-The unified runner and topic tasks use `deno test --parallel`, so **each test file** is a module that may run concurrently with others. Cap parallelism with the **`DENO_JOBS`** environment variable (integer); if unset, Deno defaults to the CPU count (`deno test --help`). Examples:
+`deno task test:core` and the first phase of `scripts/run-tests.ts` use `deno test --parallel` on **`tests/core/`** only. Cap worker count with **`DENO_JOBS`** (integer); if unset, Deno defaults to the CPU count (`deno test --help`). Example:
 
 ```bash
-DENO_JOBS=4 ./scripts/check_all.sh
-DENO_JOBS=8 deno task test:mcp
+DENO_JOBS=4 deno task test:core
 ```
 
-Tests inside a single file still run **one after another** (Deno’s runner does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules are written so **parallel files** stay isolated: distinct `sessionId` per CLI file, unique pin/branch names, and MCP tests that need a fresh app use `createMcpAppForTest()` instead of the singleton `mcpApp` where a second `initialize` would conflict. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient `could not reach remote` failures (shared GitHub load under high `DENO_JOBS`).
+**`tests/cli/` and `tests/mcp/` are not run with `--parallel`** in the unified runner or in `deno task test:cli` / `deno task test:mcp`. Parallel test modules share one OS process and a single `Deno.env`; MCP tests set `MCP_INSECURE`, `MCP_TOKEN`, and `KNOWLEDGE_STORE_REMOTE`, and integration tests share `.giterloper/` under the repo — concurrent integration files reliably flake (auth, missing pins, git cwd errors). Core tests avoid that.
+
+Tests inside a single file still run **one after another** (Deno does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules use distinct `sessionId` per CLI file, unique pin/branch names (`randomBytes`, not `Date.now()` alone on shared remotes), and `createMcpAppForTest()` where a fresh MCP app is required. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient `could not reach remote` failures.
 
 ### Layout and individual commands
 
@@ -55,8 +56,8 @@ Tests are grouped by **topic**, not by duration:
 | `tests/mcp/` | MCP server behavior, including HTTP client workflow tests |
 
 - **Typecheck:** `deno check lib/gl.ts` — required when touching TypeScript; run with test changes.
-- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs `tests/core/`, `tests/cli/`, and `tests/mcp/` in one invocation with **`--parallel`**, then cleans up leaked test pins (see below).
-- **Topic only:** `deno task test:core`, `deno task test:cli`, or `deno task test:mcp` (each uses `--parallel`).
+- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs `tests/core/` with **`--parallel`**, then `tests/cli/` and `tests/mcp/` sequentially, then cleans up leaked test pins (see below).
+- **Topic only:** `deno task test:core` (`--parallel`), `deno task test:cli`, or `deno task test:mcp` (integration tasks are serial across files).
 
 ## CLI / MCP integration tests: collision avoidance (CRITICAL)
 

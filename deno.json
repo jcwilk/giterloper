@@ -3,8 +3,8 @@
     "check": "./scripts/check_all.sh",
     "test": "deno run -A scripts/run-tests.ts",
     "test:core": "deno test -A --parallel tests/core/",
-    "test:cli": "deno test -A --parallel tests/cli/",
-    "test:mcp": "deno test -A --parallel tests/mcp/",
+    "test:cli": "deno test -A tests/cli/",
+    "test:mcp": "deno test -A tests/mcp/",
     "mcp:serve": "deno run -A lib/gl-mcp-server.ts",
     "mcp:serve-stdio": "deno run -A lib/gl-mcp-server-stdio.ts"
   },

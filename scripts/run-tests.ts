@@ -1,11 +1,12 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Runs all topic test suites (tests/core, tests/cli, tests/mcp) in one invocation.
- * Uses `deno test --parallel` so **test modules** (files) run concurrently. Worker count follows
- * `DENO_JOBS` when set, else CPU count (see `deno test --help`).
- * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts); parallel files do not contend on `_cli`.
- * Deno still runs tests **within** each file sequentially; integration modules that mutate `Deno.env` or use the
- * singleton `mcpApp` remain safe because they do not overlap with other files in the same isolate.
+ * Runs all topic test suites (tests/core, tests/cli, tests/mcp).
+ * - `tests/core/`: `deno test --parallel` (worker count from `DENO_JOBS` or CPU count; see `deno test --help`).
+ * - `tests/cli/` and `tests/mcp/`: **without** `--parallel`. Deno runs parallel test modules in the same OS process
+ *   with a shared `Deno.env`; MCP tests toggle `MCP_INSECURE`, `MCP_TOKEN`, and `KNOWLEDGE_STORE_REMOTE`, and CLI+MCP
+ *   integration tests share `.giterloper/` under the repo root — running those files concurrently causes flakes
+ *   (401 auth, missing pins, git cwd errors). Core unit tests do not hit that.
+ * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts).
  * cleanupLeakedTestPins() removes leaked integration-test pins (names containing E2E_MARKER / `gle2e_`) from every session under `.giterloper/sessions/`.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -16,9 +17,8 @@ import { fileURLToPath } from "node:url";
 import { E2E_MARKER } from "../tests/helpers/config.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const topicDirs = ["tests/core", "tests/cli", "tests/mcp"].map((d) =>
-  path.join(root, d)
-);
+const coreDir = path.join(root, "tests/core");
+const integrationDirs = ["tests/cli", "tests/mcp"].map((d) => path.join(root, d));
 
 const SESSION_ID_SAFE = /^[a-zA-Z0-9_-]+$/;
 
@@ -63,11 +63,20 @@ function cleanupLeakedTestPins() {
   }
 }
 
-const result = spawnSync(
-  "deno",
-  ["test", "-A", "--parallel", ...topicDirs],
-  { cwd: root, stdio: "inherit" }
-);
+function runDenoTest(args: string[]): number {
+  const result = spawnSync("deno", ["test", "-A", ...args], {
+    cwd: root,
+    stdio: "inherit",
+  });
+  return result.status ?? 1;
+}
 
+const coreStatus = runDenoTest(["--parallel", coreDir]);
+if (coreStatus !== 0) {
+  cleanupLeakedTestPins();
+  Deno.exit(coreStatus);
+}
+
+const intStatus = runDenoTest(integrationDirs);
 cleanupLeakedTestPins();
-Deno.exit(result.status ?? 1);
+Deno.exit(intStatus);
