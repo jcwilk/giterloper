@@ -1,6 +1,6 @@
 ---
 id: git-kmbs
-status: open
+status: closed
 deps: [git-cfli]
 links: []
 created: 2026-03-18T23:01:06Z
