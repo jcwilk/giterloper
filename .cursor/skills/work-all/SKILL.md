@@ -7,29 +7,23 @@ description: >-
 
 # /work-all — Batch-Process All Ready Tickets
 
-Process **all** ready tickets one by one. This is an orchestration workflow — for each ticket, spawn the `work-next` subagent and confirm the repo is left in a done state before moving on.
+Orchestration only: for each item **`./tk ready`** lists, spawn **`work-next` once** and verify the repo is done before the next iteration. Do **not** implement tickets, run verifier, persist, or mimic `.cursor/agents/work-next.md` in this turn—delegate that to **`work-next`**.
 
-**Important:** Do not snapshot the ready list once and iterate it. Closing a ticket can unblock others. **Before every ticket**, fetch the current ready set again so newly unblocked work is picked up.
+**Queue:** Work-all drains a queue that is already valid in the tracker. If **`./tk ready`** is empty (including on the first run), **stop** and report that there are no ready tickets (or no more, if you already finished some). You may add **one short** note if something looks wrong with the queue (e.g. open tickets all blocked) and **offer** to fix it **if the user wants**—do **not** edit ticket files, deps, or tk metadata unprompted to “create” ready work.
+
+**Re-fetch:** Before **each** new ticket, run `./tk ready` again; do not assume the previous list is still right.
 
 ## Procedure
 
-1. Run `./tk ready` to get the **current** full list of unblocked tickets.
-2. If none, report "No ready tickets" (or "No more ready tickets" if you already completed some) and stop.
-3. **Pick one ticket** from that list (use a stable choice, e.g. first in `./tk ready` output, or whatever ordering the project uses — but only one per iteration).
-4. **Spawn the `work-next` subagent** for that ticket ID only. Do not work on tickets inline yourself.
-5. **Confirm completion state** before the next iteration:
-   - `./tk show <id>` — status must be `closed`.
-   - `git status` — working tree must be clean.
-   - `git log -1 --oneline` — confirm a recent commit exists for this work.
-   - Ensure changes are pushed (if ahead of remote, run `git push`).
-6. **If state checks fail**: Stop. Do not proceed. Fix the state yourself — commit/push pending ticket changes and close the ticket if appropriate — then resume the loop from step 1. If unresolvable (merge conflicts, user intervention needed), report and stop.
-7. **Go back to step 1** — run `./tk ready` again and continue until step 2 applies (empty list). Then summarize what was completed across the session.
+1. `./tk ready`
+2. If **none** → stop per **Queue** above.
+3. Pick **one** ticket (stable order, e.g. first line).
+4. **Spawn `work-next`:** Cursor **Task** tool, `subagent_type: work-next`; prompt includes the ticket id and `.cursor/agents/work-next.md`.
+5. Confirm: `./tk show <id>` closed, `git status` clean, recent commit, pushed if ahead. If that fails, **stop**; clean up only fallout from **that** subagent run (commit/close/push as needed), then resume from step 1, or report if stuck.
+6. Go to step 1. When step 2 stops you, summarize what completed.
 
 ## Rules
 
-- **Re-fetch ready tickets every iteration**: After each closed ticket (and clean push), run `./tk ready` again before choosing the next ticket — never assume the initial list is still complete.
-- **Subagents required**: One `work-next` subagent run per ticket. Do not work on tickets inline.
-- **Sequential only**: Do not run multiple ticket workers in parallel.
-- **Orchestrator responsibility**: If a subagent leaves incomplete state, clean it up before moving on.
-- **Every ticket must end closed with a clean working tree** before the next one starts.
-- **Do not call the `verifier` subagent from `work-all`**; `work-next` handles that step.
+- **Sequential only**; one `work-next` per ticket, no parallel workers.
+- **Do not call `verifier`** here; `work-next` owns it.
+- **Orchestrator cleanup** is for after a subagent run left bad git/ticket state—not for an empty `ready` list before any subagent ran.
