@@ -13,7 +13,7 @@ import {
   CLEAN_MAIN_SHA,
   TEST_MAIN_REF,
   toRemoteUrl,
-} from "./config.ts";
+} from "../helpers/config.ts";
 
 import {
   giterloperSessionRoot,

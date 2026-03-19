@@ -11,7 +11,7 @@ import {
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
-} from "./config.ts";
+} from "../helpers/config.ts";
 import {
   giterloperSessionRoot,
   newTestCliSessionId,

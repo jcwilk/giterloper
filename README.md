@@ -38,16 +38,20 @@ Production deploys use the Docker image on Fly.io. To run the MCP server in Dock
 
 ## Tests
 
-E2E tests use random pin/branch names per run:
+Run the full suite (typecheck + all topic tests + leaked-pin cleanup):
 
 ```bash
-deno run -A scripts/run-e2e.ts
+./scripts/check_all.sh
+# or: deno task check
 ```
 
-Unit tests:
+Run only automated tests (same suites as CI, including cleanup after):
 
 ```bash
-deno test -A tests/unit/
+deno run -A scripts/run-tests.ts
+# or: deno task test
 ```
+
+Topic-only slices: `deno task test:core`, `deno task test:cli`, `deno task test:mcp`.
 
 See `tests/README.md` for collision-avoidance and test strategy guidance.

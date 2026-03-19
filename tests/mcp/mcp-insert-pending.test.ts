@@ -1,6 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import { createMcpAppForTest, validateInsertContent } from "../../lib/gl-mcp-server.ts";
-import { TEST_SOURCE } from "../e2e/config.ts";
+import { TEST_SOURCE } from "../helpers/config.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";

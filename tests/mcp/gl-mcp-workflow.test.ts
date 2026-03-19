@@ -8,7 +8,7 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 
-import { TEST_SOURCE, toRemoteUrl } from "./config.ts";
+import { TEST_SOURCE, toRemoteUrl } from "../helpers/config.ts";
 import {
   createClient,
   insertPending,

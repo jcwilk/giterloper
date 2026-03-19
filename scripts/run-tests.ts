@@ -1,18 +1,20 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Runs e2e tests. Random pin/branch names (RUN_ID) avoid collisions.
- * CLI E2E tests use a unique `--session-id` per test file (see tests/helpers/gl.ts); parallel files do not contend on `_cli`.
- * cleanupLeakedTestPins() removes leaked E2E pins from every session directory under `.giterloper/sessions/`.
+ * Runs all topic test suites (tests/core, tests/cli, tests/mcp) in one invocation.
+ * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts); parallel files do not contend on `_cli`.
+ * cleanupLeakedTestPins() removes leaked test pins (names containing E2E_MARKER) from every session under `.giterloper/sessions/`.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { E2E_MARKER } from "../tests/e2e/config.ts";
+import { E2E_MARKER } from "../tests/helpers/config.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const testDir = path.join(root, "tests", "e2e");
+const topicDirs = ["tests/core", "tests/cli", "tests/mcp"].map((d) =>
+  path.join(root, d)
+);
 
 const SESSION_ID_SAFE = /^[a-zA-Z0-9_-]+$/;
 
@@ -59,7 +61,7 @@ function cleanupLeakedTestPins() {
 
 const result = spawnSync(
   "deno",
-  ["test", "-A", testDir],
+  ["test", "-A", ...topicDirs],
   { cwd: root, stdio: "inherit" }
 );
 

@@ -12,7 +12,7 @@ import type { GlState } from "../../lib/types.ts";
 import { SESSION_PIN_NAME } from "../../lib/pinned.ts";
 import { updatePinSha } from "../../lib/pin-lifecycle.ts";
 import { readPins } from "../../lib/pinned.ts";
-import { CLEAN_MAIN_SHA, TEST_SOURCE } from "../e2e/config.ts";
+import { CLEAN_MAIN_SHA, TEST_SOURCE } from "../helpers/config.ts";
 
 function makeState(root: string): GlState {
   return {

@@ -35,10 +35,8 @@ When invoked, do the following:
 2. Read each ticket details and acceptance criteria (`./tk show <id>`).
    - Identify and read the authoritative markdown spec(s) that govern this ticket's behavior.
 3. Run the full check suite (required):
-   - Typecheck: `deno check lib/gl.ts` (or run `./scripts/check_all.sh` which includes this).
-   - Unit tests: `deno test -A tests/unit/`
-   - E2E tests: `deno run -A scripts/run-e2e.ts`
-   - Prefer running `./scripts/check_all.sh` so all of the above run in the canonical order; stop on first failure.
+   - Prefer `./scripts/check_all.sh` (typecheck + `deno run -A scripts/run-tests.ts` over `tests/core/`, `tests/cli/`, `tests/mcp/` with post-run leak cleanup); stop on first failure.
+   - Equivalent pieces: `deno check lib/gl.ts`, then `deno run -A scripts/run-tests.ts`.
    - Treat any failing test or typecheck as caused by the changes under review, unless you can definitely confirm flakiness (e.g. same test passes on immediate re-run with no code change). If flakiness is confirmed, report it to the parent so it can be raised in the eventual debrief; still treat the run as failing for the purpose of your verdict (REJECTED until the parent addresses flakiness or the failure).
    - If a failing test appears to conflict with authoritative markdown behavior, explicitly flag it as a spec-vs-test mismatch and require the parent to align tests/implementation to the markdown spec.
 4. Inspect implementation evidence:

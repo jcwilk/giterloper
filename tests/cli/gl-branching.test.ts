@@ -12,7 +12,7 @@ import {
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
-} from "./config.ts";
+} from "../helpers/config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import {
   giterloperSessionRoot,

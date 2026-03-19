@@ -1,6 +1,6 @@
 ---
 id: skr-jx74
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-19T20:46:18Z
@@ -16,4 +16,11 @@ Replace type-centric layout (tests/unit vs tests/e2e) with topic-oriented direct
 ## Acceptance Criteria
 
 grep/docs show no stale tests/e2e-only CI path as the primary gate; deno task or check script runs all topic suites; file tree matches agreed naming; README documents how to run the full suite locally.
+
+## Closure
+
+- Tests live under `tests/core/`, `tests/cli/`, and `tests/mcp/`; shared remote/test constants moved to `tests/helpers/config.ts` (formerly `tests/e2e/config.ts`).
+- `scripts/run-e2e.ts` replaced by `scripts/run-tests.ts`: one `deno test -A` over the three topic directories, then existing leaked-pin cleanup across `.giterloper/sessions/*`.
+- `scripts/check_all.sh` and `deno task check` run typecheck + `run-tests`; `deno.json` adds `test` and `test:core|cli|mcp`. Updated `AGENTS.md`, root `README.md`, `tests/README.md`, and `.cursor/agents/verifier.md`.
+- Verified: `./scripts/check_all.sh` (127 passed); `reference_client` `deno test -A tests/`.
 
