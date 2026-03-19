@@ -1,7 +1,7 @@
 ---
 id: git-e805
-status: open
-deps: [git-u0yq, git-kmbs]
+status: closed
+deps: []
 links: []
 created: 2026-03-18T23:02:01Z
 type: task
