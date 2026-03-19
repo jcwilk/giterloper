@@ -1,6 +1,6 @@
 ---
 id: skr-gbqe
-status: open
+status: closed
 deps: [skr-vakd]
 links: []
 created: 2026-03-19T20:46:24Z

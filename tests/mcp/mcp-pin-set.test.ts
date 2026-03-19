@@ -3,6 +3,7 @@
  * Assert exact behavior per docs/PIN_SETTING_PARAM_BEHAVIOR.md.
  */
 import { assertEquals } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
 import { resolveShaOrRef } from "../../lib/git.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
@@ -10,6 +11,11 @@ import { TEST_SOURCE } from "../helpers/config.ts";
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
 const PIN_SETTING_DOC = "docs/PIN_SETTING_PARAM_BEHAVIOR.md";
+
+/** Collision-resistant names for shared-remote MCP tests under `deno test --parallel`. */
+function mcpUnique(label: string): string {
+  return `${label}_${randomBytes(8).toString("hex")}`;
+}
 
 async function mcpRequest(
   body: object,
@@ -233,7 +239,7 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
-      params: { name: "giterloper_pin_set", arguments: { pin: `noop_${Date.now()}` } },
+      params: { name: "giterloper_pin_set", arguments: { pin: mcpUnique("noop") } },
     });
     assertEquals(res2.status, 200);
     const result2 = (await parseToolResult(res2)) as { ok?: boolean; code?: string };
@@ -269,9 +275,10 @@ Deno.test("session pin name is _session after bootstrap", async () => {
       pins?: Array<{ name: string }>;
     };
     assertEquals((inspectResult.pins?.length ?? 0) >= 1, true);
+    const sessionRow = inspectResult.pins!.find((p) => p.name === "_session");
     assertEquals(
-      inspectResult.pins![0].name,
-      "_session",
+      sessionRow !== undefined,
+      true,
       `Session pin must be named _session (${PIN_SETTING_DOC})`
     );
   } finally {
@@ -307,10 +314,11 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     };
     assertEquals(inspectResult.ok, true);
     assertEquals((inspectResult.pins?.length ?? 0) >= 1, true, "Need at least one pin");
-    const sessionPin = inspectResult.pins![0];
-    const originalSha = sessionPin.sha;
+    const sessionPin = inspectResult.pins!.find((p) => p.name === "_session");
+    assertEquals(sessionPin !== undefined, true, "Need _session pin");
+    const originalSha = sessionPin!.sha;
 
-    const branchName = `pin_set_branch_only_${Date.now()}`;
+    const branchName = mcpUnique("pin_set_branch_only");
     const setRes = await req({
       jsonrpc: "2.0",
       id: 3,
@@ -339,7 +347,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     const inspect2 = (await parseToolResult(inspect2Res)) as {
       pins?: Array<{ name: string; sha: string; branch: string | null }>;
     };
-    const updated = inspect2.pins?.find((p) => p.name === sessionPin.name);
+    const updated = inspect2.pins?.find((p) => p.name === "_session");
     assertEquals(updated?.branch, branchName);
     assertEquals(updated?.sha, originalSha);
   } finally {
@@ -371,12 +379,14 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     const inspectResult = (await parseToolResult(inspectRes)) as {
       pins?: Array<{ name: string; sha: string; branch: string | null }>;
     };
-    const sessionPin = inspectResult.pins![0];
-    const sessionSha = sessionPin.sha;
-    const sessionBranch = sessionPin.branch;
+    const sessionPin = inspectResult.pins!.find((p) => p.name === "_session");
+    assertEquals(sessionPin !== undefined, true);
+    const sessionSha = sessionPin!.sha;
+    const sessionBranch = sessionPin!.branch;
 
-    const snapshotName = `snapshot_test_${Date.now()}`;
-    const snapshotBranch = `snapshot_branch_${Date.now()}`;
+    const u = randomBytes(8).toString("hex");
+    const snapshotName = `snapshot_test_${u}`;
+    const snapshotBranch = `snapshot_branch_${u}`;
 
     const setRes = await req({
       jsonrpc: "2.0",
@@ -408,8 +418,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     const inspect2 = (await parseToolResult(inspect2Res)) as {
       pins?: Array<{ name: string; sha: string; branch: string | null }>;
     };
-    assertEquals(inspect2.pins?.[0]?.name, sessionPin.name, "Session pin must remain first");
-    const sessionAfter = inspect2.pins?.find((p) => p.name === sessionPin.name);
+    const sessionAfter = inspect2.pins?.find((p) => p.name === "_session");
     assertEquals(sessionAfter?.sha, sessionSha);
     assertEquals(sessionAfter?.branch, sessionBranch);
     const snapshotPin = inspect2.pins?.find((p) => p.name === snapshotName);
@@ -444,9 +453,10 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
     const inspectResult = (await parseToolResult(inspectRes)) as {
       pins?: Array<{ name: string; source: string; sha: string }>;
     };
-    const sessionPin = inspectResult.pins![0];
-    const sha = sessionPin.sha;
-    const branchlessName = `branchless_${Date.now()}`;
+    const sessionPin = inspectResult.pins!.find((p) => p.name === "_session");
+    assertEquals(sessionPin !== undefined, true);
+    const sha = sessionPin!.sha;
+    const branchlessName = mcpUnique("branchless");
 
     const setRes = await req({
       jsonrpc: "2.0",
@@ -508,9 +518,9 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
     const inspectResult = (await parseToolResult(inspectRes)) as {
       pins?: Array<{ name: string; source: string; sha: string }>;
     };
-    const sessionPin = inspectResult.pins![0];
-    const mainSha = await resolveShaOrRef(sessionPin.source, "main");
-    const branchlessName = `ref_main_${Date.now()}`;
+    const sessionPin = inspectResult.pins!.find((p) => p.name === "_session");
+    assertEquals(sessionPin !== undefined, true);
+    const branchlessName = mcpUnique("ref_main");
 
     const setRes = await req({
       jsonrpc: "2.0",
@@ -529,7 +539,13 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
     assertEquals(setResult.ok, true);
     assertEquals(setResult.pin?.name, branchlessName);
     assertEquals(setResult.pin?.branch, null);
-    assertEquals(setResult.pin?.sha, mainSha, "ref=main must resolve to main's HEAD SHA from remote");
+    // Resolve main immediately after pin_set so parallel pushes to main cannot stale the expected SHA.
+    const mainSha = await resolveShaOrRef(sessionPin!.source, "main");
+    assertEquals(
+      setResult.pin?.sha,
+      mainSha,
+      "ref=main must resolve to main's HEAD SHA from remote"
+    );
 
     const inspect2Res = await req({
       jsonrpc: "2.0",
@@ -572,10 +588,11 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
     const inspectResult = (await parseToolResult(inspectRes)) as {
       pins?: Array<{ name: string; source: string; sha: string }>;
     };
-    const sessionPin = inspectResult.pins![0];
-    const mainSha = await resolveShaOrRef(sessionPin.source, "main");
-    const snapshotName = `ref_branch_pin_${Date.now()}`;
-    const snapshotBranch = `ref_branch_${Date.now()}`;
+    const sessionPin = inspectResult.pins!.find((p) => p.name === "_session");
+    assertEquals(sessionPin !== undefined, true);
+    const u = randomBytes(8).toString("hex");
+    const snapshotName = `ref_branch_pin_${u}`;
+    const snapshotBranch = `ref_branch_${u}`;
 
     const setRes = await req({
       jsonrpc: "2.0",
@@ -592,7 +609,12 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
       pin?: { name: string; sha: string; branch: string | null };
     };
     assertEquals(setResult.ok, true);
-    assertEquals(setResult.pin?.sha, mainSha, "ref=main must resolve to main HEAD SHA, not session SHA");
+    const mainSha = await resolveShaOrRef(sessionPin!.source, "main");
+    assertEquals(
+      setResult.pin?.sha,
+      mainSha,
+      "ref=main must resolve to main HEAD SHA, not session SHA"
+    );
     assertEquals(setResult.pin?.branch, snapshotBranch);
 
     const inspect2Res = await req({

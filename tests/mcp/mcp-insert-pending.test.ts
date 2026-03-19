@@ -1,4 +1,5 @@
 import { assertEquals } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { createMcpAppForTest, validateInsertContent } from "../../lib/gl-mcp-server.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
 
@@ -68,7 +69,7 @@ Deno.test("insert_pending with content only uses session pin", async () => {
     assertEquals(sessionId !== null && sessionId.length > 0, true);
     const headers = { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" };
 
-    const branchName = `insert_pin_omit_${Date.now()}`;
+    const branchName = `insert_pin_omit_${randomBytes(8).toString("hex")}`;
     await mcpRequest(
       {
         jsonrpc: "2.0",

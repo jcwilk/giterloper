@@ -33,6 +33,17 @@ Or via Deno: `deno task check`
 
 Use this before persisting ticket work (e.g. verifier and work-next run it to validate changes).
 
+### Parallel execution
+
+The unified runner and topic tasks use `deno test --parallel`, so **each test file** is a module that may run concurrently with others. Cap parallelism with the **`DENO_JOBS`** environment variable (integer); if unset, Deno defaults to the CPU count (`deno test --help`). Examples:
+
+```bash
+DENO_JOBS=4 ./scripts/check_all.sh
+DENO_JOBS=8 deno task test:mcp
+```
+
+Tests inside a single file still run **one after another** (Deno’s runner does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules are written so **parallel files** stay isolated: distinct `sessionId` per CLI file, unique pin/branch names, and MCP tests that need a fresh app use `createMcpAppForTest()` instead of the singleton `mcpApp` where a second `initialize` would conflict. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient `could not reach remote` failures (shared GitHub load under high `DENO_JOBS`).
+
 ### Layout and individual commands
 
 Tests are grouped by **topic**, not by duration:
@@ -44,8 +55,8 @@ Tests are grouped by **topic**, not by duration:
 | `tests/mcp/` | MCP server behavior, including HTTP client workflow tests |
 
 - **Typecheck:** `deno check lib/gl.ts` — required when touching TypeScript; run with test changes.
-- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs `tests/core/`, `tests/cli/`, and `tests/mcp/` in one invocation, then cleans up leaked test pins (see below).
-- **Topic only:** `deno task test:core`, `deno task test:cli`, or `deno task test:mcp`.
+- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs `tests/core/`, `tests/cli/`, and `tests/mcp/` in one invocation with **`--parallel`**, then cleans up leaked test pins (see below).
+- **Topic only:** `deno task test:core`, `deno task test:cli`, or `deno task test:mcp` (each uses `--parallel`).
 
 ## CLI / MCP integration tests: collision avoidance (CRITICAL)
 

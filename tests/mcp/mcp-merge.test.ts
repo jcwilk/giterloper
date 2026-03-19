@@ -3,6 +3,7 @@
  * Assert pin-name behavior per docs/PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception.
  */
 import { assertEquals } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
 
@@ -134,8 +135,9 @@ Deno.test("merge with same sourcePin and targetPin fails", async () => {
     const sessionId = initRes.headers.get("mcp-session-id");
     const headers = { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" };
 
-    const mergeTestBranch = `merge_same_${Date.now()}`;
-    const mergeTestPin = `merge_same_pin_${Date.now()}`;
+    const u = randomBytes(8).toString("hex");
+    const mergeTestBranch = `merge_same_${u}`;
+    const mergeTestPin = `merge_same_pin_${u}`;
     await mcpRequest(
       {
         jsonrpc: "2.0",

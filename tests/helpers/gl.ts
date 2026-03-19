@@ -26,6 +26,16 @@ export type GlCliRunOpts = {
 const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE_SCRIPT = path.join(root, "scripts", "gl-maintenance");
 
+/** Block the isolate for `ms` (for sync retry backoff in tests). */
+function sleepSyncMs(ms: number): void {
+  const buf = new SharedArrayBuffer(4);
+  const arr = new Int32Array(buf);
+  Atomics.wait(arr, 0, 0, ms);
+}
+
+/** GitHub/network flake seen under parallel test load. */
+const REMOTE_TRANSIENT = /could not reach remote/i;
+
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
   const text = stdout.trim();
@@ -42,48 +52,56 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
   const cliArgs = ["--json", "--session-id", opts.sessionId, ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
-  // When stdin provided, use temp file + redirect - avoids spawnSync input quirks in Deno test context
-  let result;
-  if (opts.stdin != null && opts.stdin !== "") {
-    const tmp = mkdtempSync(path.join(tmpdir(), "gl-stdin-"));
-    const stdinFile = path.join(tmp, "stdin.txt");
-    try {
-      writeFileSync(stdinFile, opts.stdin, "utf8");
-      result = spawnSync("sh", ["-c", `"${GL_SCRIPT}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
+  const maxAttempts = 3;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let result;
+    if (opts.stdin != null && opts.stdin !== "") {
+      const tmp = mkdtempSync(path.join(tmpdir(), "gl-stdin-"));
+      const stdinFile = path.join(tmp, "stdin.txt");
+      try {
+        writeFileSync(stdinFile, opts.stdin, "utf8");
+        result = spawnSync("sh", ["-c", `"${GL_SCRIPT}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+          env,
+        });
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    } else {
+      result = spawnSync(GL_SCRIPT, cliArgs, {
         cwd,
         encoding: "utf8",
         stdio: ["pipe", "pipe", "pipe"],
         env,
       });
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
     }
-  } else {
-    result = spawnSync(GL_SCRIPT, cliArgs, {
-      cwd,
-      encoding: "utf8",
-      stdio: ["pipe", "pipe", "pipe"],
-      env,
-    });
-  }
 
-  if (result.error) {
-    throw new Error(`Failed to launch gl: ${result.error.message}`);
-  }
+    if (result.error) {
+      throw new Error(`Failed to launch gl: ${result.error.message}`);
+    }
 
-  const stdout = result.stdout || "";
-  const stderr = result.stderr || "";
-  if (result.status !== 0) {
+    const stdout = result.stdout || "";
+    const stderr = result.stderr || "";
+    if (result.status === 0) {
+      return {
+        status: result.status,
+        stdout,
+        stderr,
+        data: normalizeOutput(stdout, parseJson),
+      };
+    }
+
     const detail = (stderr || stdout || "gl command failed").trim();
+    if (attempt < maxAttempts - 1 && REMOTE_TRANSIENT.test(detail)) {
+      sleepSyncMs(2000);
+      continue;
+    }
     throw new Error(detail);
   }
-
-  return {
-    status: result.status,
-    stdout,
-    stderr,
-    data: normalizeOutput(stdout, parseJson),
-  };
+  throw new Error("gl: unreachable retry loop exit");
 }
 
 export function runGlJson(
@@ -100,30 +118,39 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
-  const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {
-    cwd,
-    encoding: "utf8",
-    stdio: ["pipe", "pipe", "pipe"],
-    env,
-  });
+  const maxAttempts = 3;
 
-  if (result.error) {
-    throw new Error(`Failed to launch gl-maintenance: ${result.error.message}`);
-  }
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["pipe", "pipe", "pipe"],
+      env,
+    });
 
-  const stdout = result.stdout || "";
-  const stderr = result.stderr || "";
-  if (result.status !== 0) {
+    if (result.error) {
+      throw new Error(`Failed to launch gl-maintenance: ${result.error.message}`);
+    }
+
+    const stdout = result.stdout || "";
+    const stderr = result.stderr || "";
+    if (result.status === 0) {
+      return {
+        status: result.status,
+        stdout,
+        stderr,
+        data: normalizeOutput(stdout, parseJson),
+      };
+    }
+
     const detail = (stderr || stdout || "gl-maintenance command failed").trim();
+    if (attempt < maxAttempts - 1 && REMOTE_TRANSIENT.test(detail)) {
+      sleepSyncMs(2000);
+      continue;
+    }
     throw new Error(detail);
   }
-
-  return {
-    status: result.status,
-    stdout,
-    stderr,
-    data: normalizeOutput(stdout, parseJson),
-  };
+  throw new Error("gl-maintenance: unreachable retry loop exit");
 }
 
 export function runGlMaintenanceJson(

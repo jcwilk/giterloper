@@ -1,7 +1,11 @@
 #!/usr/bin/env -S deno run -A
 /**
  * Runs all topic test suites (tests/core, tests/cli, tests/mcp) in one invocation.
+ * Uses `deno test --parallel` so **test modules** (files) run concurrently. Worker count follows
+ * `DENO_JOBS` when set, else CPU count (see `deno test --help`).
  * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts); parallel files do not contend on `_cli`.
+ * Deno still runs tests **within** each file sequentially; integration modules that mutate `Deno.env` or use the
+ * singleton `mcpApp` remain safe because they do not overlap with other files in the same isolate.
  * cleanupLeakedTestPins() removes leaked integration-test pins (names containing E2E_MARKER / `gle2e_`) from every session under `.giterloper/sessions/`.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -61,7 +65,7 @@ function cleanupLeakedTestPins() {
 
 const result = spawnSync(
   "deno",
-  ["test", "-A", ...topicDirs],
+  ["test", "-A", "--parallel", ...topicDirs],
   { cwd: root, stdio: "inherit" }
 );
 
