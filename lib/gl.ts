@@ -68,11 +68,11 @@ async function cmdPinAdd(state: GlState, args: string[]) {
     "Usage: gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]",
     "",
     "Adds a pin. Semantics:",
-    "  Branch only (--branch X):  Resolve SHA from that branch, pin to both, clone from SHA.",
-    "  SHA only (--ref <sha>):   Pin to SHA only (no branch), clone from SHA. Short SHAs (7+ hex chars) are expanded.",
-    "  Branch + SHA (--ref <sha> --branch X): Pin both; use the SHA you passed (not derived), clone from SHA.",
+    "  Branch only (--branch X):  Resolve SHA from that branch on the remote, pin to branch + SHA, clone at SHA.",
+    "  Ref/SHA only (--ref <sha-or-ref>): Pin to resolved SHA only (no branch), clone at SHA. Short SHAs (7+ hex chars) are expanded.",
+    "  Branch + ref (--ref <sha-or-ref> --branch X): Resolve SHA from --ref on the remote, store branch for writes, clone at that SHA.",
     "",
-    "Branch is stored for write ops (add, promote). Clone always uses the SHA.",
+    "Branch is stored for write ops (insert, reconcile, merge, etc.). Clone always uses the stored SHA.",
   ].join("\n");
   ensureHelpNotRequested(args, helpText);
   if (args.length < 2) fail("usage: gl pin add <name> <source> [--ref <ref|sha>] [--branch <branch>]", EXIT.USER);

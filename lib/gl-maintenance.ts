@@ -32,7 +32,10 @@ import { clonePin, removeStagedDir, teardownPinData, updatePinSha, verifyCloneAt
 function cmdVerify(state: GlState, args: string[], cmdName: string = "verify") {
   ensureHelpNotRequested(
     args,
-    [`Usage: gl-maintenance ${cmdName} [--pin <name>] [--json]`, "Verifies pin and clone health, and branch freshness."].join("\n")
+    [
+      `Usage: gl-maintenance ${cmdName} [--pin <name>] [--json]`,
+      "Verifies pin and clone health, and branch freshness.",
+    ].join("\n")
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -80,7 +83,7 @@ function cmdVerify(state: GlState, args: string[], cmdName: string = "verify") {
 function cmdStatus(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl status [--json]", "Shows pin and clone state."].join("\n")
+    ["Usage: gl-maintenance status [--json]", "Shows pin and clone state."].join("\n")
   );
   ensureGiterloperRoot(state);
   const pins = readPins(state);
@@ -111,7 +114,7 @@ function cmdClone(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
-      "Usage: gl clone [--pin <name> | --all]",
+      "Usage: gl-maintenance clone [--pin <name> | --all]",
       "Clones pinned version(s) into .giterloper/sessions/<sessionId>/versions/<name>/<sha>/.",
     ].join("\n")
   );
@@ -128,8 +131,11 @@ function cmdClone(state: GlState, args: string[]) {
 }
 
 function cmdTeardown(state: GlState, args: string[]) {
-  ensureHelpNotRequested(args, ["Usage: gl teardown <name>", "Tears down pin and clone."].join("\n"));
-  if (args.length !== 1) fail("usage: gl teardown <name>", EXIT.USER);
+  ensureHelpNotRequested(
+    args,
+    ["Usage: gl-maintenance teardown <name>", "Tears down pin and clone."].join("\n")
+  );
+  if (args.length !== 1) fail("usage: gl-maintenance teardown <name>", EXIT.USER);
   const name = args[0];
   validatePinName(name);
   const pins = readPins(state);
@@ -144,7 +150,10 @@ function cmdTeardown(state: GlState, args: string[]) {
 function cmdStage(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl stage [branch] [--pin <name>]", "Creates staged working clone on a branch."].join("\n")
+    [
+      "Usage: gl-maintenance stage [branch] [--pin <name>]",
+      "Creates staged working clone on a branch.",
+    ].join("\n")
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -152,7 +161,7 @@ function cmdStage(state: GlState, args: string[]) {
   if (rest.length > 1) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
   const branch = rest[0] || pin.branch;
-  if (!branch) fail("usage: gl stage <branch> [--pin <name>]", EXIT.USER);
+  if (!branch) fail("usage: gl-maintenance stage <branch> [--pin <name>]", EXIT.USER);
   const dir = stagedDir(state, pin.name, branch);
   if (existsSync(dir)) {
     commandOutput({ staged: dir, branch, pin: pin.name, created: false }, state.globalJson);
@@ -169,7 +178,7 @@ function cmdPromote(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
     [
-      "Usage: gl promote [--pin <name>]",
+      "Usage: gl-maintenance promote [--pin <name>]",
       "Commits staged clone (if dirty), pushes tracked pin branch, clones new SHA, updates pin.",
     ].join("\n")
   );
@@ -192,7 +201,10 @@ function cmdPromote(state: GlState, args: string[]) {
 function cmdStageCleanup(state: GlState, args: string[]) {
   ensureHelpNotRequested(
     args,
-    ["Usage: gl stage-cleanup [branch] [--pin <name>]", "Deletes staged clone without promoting."].join("\n")
+    [
+      "Usage: gl-maintenance stage-cleanup [branch] [--pin <name>]",
+      "Deletes staged clone without promoting.",
+    ].join("\n")
   );
   let rest = [...args];
   const pinParsed = parseFlag(rest, "--pin");
@@ -200,7 +212,7 @@ function cmdStageCleanup(state: GlState, args: string[]) {
   if (rest.length > 1) fail(`unexpected arguments: ${rest.join(" ")}`, EXIT.USER);
   const pin = resolvePin(state, pinParsed.found ? pinParsed.value : null);
   const branch = rest[0] || pin.branch;
-  if (!branch) fail("usage: gl stage-cleanup <branch> [--pin <name>]", EXIT.USER);
+  if (!branch) fail("usage: gl-maintenance stage-cleanup <branch> [--pin <name>]", EXIT.USER);
   const dir = stagedDir(state, pin.name, branch);
   removeStagedDir(state, pin.name, branch);
   commandOutput({ cleaned: true, path: dir }, state.globalJson);

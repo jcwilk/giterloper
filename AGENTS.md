@@ -134,9 +134,9 @@ See [tests/README.md](./tests/README.md) for canonical test execution commands a
 
 ### MCP server
 
-The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, schemas, error codes, and the dual-transport parity contract. Tools that omit the `pin` parameter resolve through the session pin (_session). Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, error shape, and the dual-transport parity contract. Omitting the `pin` argument targets the **session pin** (stored as `_session`); do not pass `_session` as the pin name—it is reserved. Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
-**Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `docs/MEMSEARCH_ADAPTER.md`.
+**Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `lib/memsearch-adapter.ts`.
 
 **Run (native; default for dev):**
 ```bash

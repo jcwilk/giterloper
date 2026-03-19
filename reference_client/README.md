@@ -83,7 +83,7 @@ deno test -A reference_client/tests/
 | Tool | Purpose |
 |------|---------|
 | `giterloper_state_inspect` | List pins, verify clone health |
-| `giterloper_pin_set` | Configure pins and session pin (_session); no pin = view/configure session pin; pin name = upsert named pin (session pin unchanged); branch-only = update session pin's branch; branch + pin = create snapshot |
+| `giterloper_pin_set` | Configure pins per `docs/PIN_SETTING_PARAM_BEHAVIOR.md`: omit `pin` for session pin (never pass literal `_session`); named pin + branch/ref per contract |
 | `giterloper_search` | Search knowledge at pinned version |
 | `giterloper_retrieve` | Retrieve content by path |
 | `giterloper_insert_pending` | Queue knowledge into `knowledge/_pending/` |
@@ -92,4 +92,4 @@ deno test -A reference_client/tests/
 
 **Migration:** `giterloper_reconcile` was renamed to `giterloper_merge` to avoid confusion with `giterloper_reconcile_pending`. Update callers to use `giterloper_merge`.
 
-See `docs/MCP_API_CONTRACT.md` in the giterloper repo for full schemas.
+See [`MCP.md`](../MCP.md) in the giterloper repo for transport parity, tool list, and pointers to pin semantics.

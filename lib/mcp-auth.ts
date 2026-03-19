@@ -1,7 +1,7 @@
 /**
  * MCP authentication and authorization baseline.
  * Token-based identity with policy hooks for read vs write tools.
- * See docs/MCP_API_CONTRACT.md, AGENTS.md § MCP server.
+ * See MCP.md (repo root) and AGENTS.md § MCP server.
  */
 import type { Context, Next } from "hono";
 import { mcpCodeToHttpStatus } from "./mcp-error-mapping.ts";
