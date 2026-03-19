@@ -1,6 +1,6 @@
 ---
 id: skr-s5lu
-status: open
+status: closed
 deps: [skr-nx83]
 links: []
 created: 2026-03-19T20:46:17Z

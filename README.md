@@ -28,7 +28,7 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
 
-See `AGENTS.md` for contributor and agent guidance.
+See [AGENTS.md](./AGENTS.md) for contributor and agent guidance (including [source-of-truth precedence](./AGENTS.md#source-of-truth-precedence-critical) when docs, tests, and code disagree).
 
 **Run environment:** Development and tests use **native Deno** (and git) on the host for fast feedback. **Docker** is for production (Fly.io) and optional local run when you want to match the container environment.
 

@@ -4,16 +4,23 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 ## Source-of-truth precedence (CRITICAL)
 
-When requirements conflict, follow this precedence order:
+When requirements conflict, follow this **numbered** precedence order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
 
-1. **Authoritative markdown specs** (highest), especially documents that define exact behavior with words like "MUST", "exact", or "single source of truth" (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`).
-2. **Tests** (next): tests are executable checks, but they are not allowed to redefine behavior that authoritative markdown already specifies.
-3. **Current code** (lowest): code may drift and must be updated to match the higher-priority sources.
+1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md) for `pin_set` semantics and [MCP.md](./MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
+2. **Tests** (middle): tests override **current implementation** when the two disagree, but tests **do not** override (1). Tests are executable checks; they must not redefine a contract already fixed by (1).
+3. **Current implementation** (lowest): code may drift; update it to match (1) and keep (2) aligned with the same contract.
+
+**Changing (1)** (editing authoritative docs, revising CLI/MCP-facing contract text, or implementing behavior that contradicts them) requires **explicit user direction**—do not "fix" drift by silently rewriting the contract.
+
+**Conflict resolution (examples):**
+- Spec says X, test expects Y, code does Z → align **code and tests** to the spec (and any CLI/MCP contract in (1)); do not change the spec without the user.
+- Test says X, code does Y, nothing in (1) settles it → treat the test as the intended behavior; fix **code** (or, if the test is wrong, fix the test—still without contradicting (1)).
+- Two markdown docs disagree → the more **authoritative / behavior-normative** doc wins (e.g. a "single source of truth" doc over informal notes); if unclear, ask the user before persisting.
 
 Required behavior for agents:
-- If tests conflict with authoritative markdown, treat the tests as stale and propose/implement updates that restore alignment with markdown specs.
-- If code conflicts with tests and markdown, align code to markdown first, then align tests to the same contract.
-- Never file or execute work that moves behavior away from authoritative markdown unless the user explicitly requests a spec change.
+- If tests conflict with (1), treat the tests as stale and propose/implement updates that restore alignment with the normative contracts.
+- If code conflicts with tests and (1), align code to (1) first, then align tests to the same contract.
+- Never file or execute work that moves behavior away from (1) unless the user explicitly requests that contract change.
 
 ## Task Tracking
 
