@@ -1,6 +1,6 @@
 /**
  * MCP E2E workflow: session-driven, minimal setup.
- * Uses KNOWLEDGE_STORE_REMOTE for session auto-bootstrap. No CLI, no global pinned.yaml.
+ * Uses KNOWLEDGE_STORE_REMOTE for session auto-bootstrap. No CLI; session-scoped state only.
  * Verifies SHA chain and snapshot isolation via MCP tools only.
  */
 import { assertEquals, assertExists } from "jsr:@std/assert";

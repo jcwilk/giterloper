@@ -1,6 +1,6 @@
 ---
 id: git-s2pb
-status: open
+status: closed
 deps: [git-05bw, git-70li]
 links: []
 created: 2026-03-19T02:54:32Z

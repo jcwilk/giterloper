@@ -30,7 +30,7 @@ export function ensureSessionDir(state: GlState): void {
 
 /**
  * Lazily creates _session pin when KNOWLEDGE_STORE_REMOTE is set and no _session pin exists.
- * Session pin starts at main branch with remote main's SHA. No shared pinned.yaml.
+ * Session pin starts at main branch with remote main's SHA.
  */
 export function autoInitSessionPin(state: GlState): void {
   const pins = readPins(state);

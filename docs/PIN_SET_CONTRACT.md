@@ -30,7 +30,7 @@ Implementation MUST evolve to match the documented contract. Tests and docs are 
 
 ### 2.2 Bootstrap
 
-- **MCP sessions:** When `KNOWLEDGE_STORE_REMOTE` is set, new sessions auto-create the `_session` pin at remote `main` HEAD. No shared `pinned.yaml` is copied.
+- **MCP sessions:** When `KNOWLEDGE_STORE_REMOTE` is set, new sessions auto-create the `_session` pin at remote `main` HEAD.
 - **Empty state:** If no pins exist and `pin` is omitted, **FAIL** with `missing_pin`. To create the first pin, the caller must provide `source` and either `ref` or `branch`; with omitted `pin`, this creates the `_session` pin (implementation in git-8vrv).
 
 ### 2.3 Terminology

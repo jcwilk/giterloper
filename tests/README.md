@@ -57,7 +57,7 @@ Every collision-prone name must include `RUN_ID` (or equivalent entropy):
 
 | Resource | Pattern | Why |
 |----------|---------|-----|
-| Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/versions/<name>/`, `pinned.yaml` |
+| Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/sessions/<sessionId>/versions/<name>/`, `pinned.yaml` |
 | Branches (remote) | `${RUN_ID}` or `${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
 | Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel tests; `Date.now()` alone can collide |
 | File paths in remote | `knowledge/e2e_${RUN_ID}_${randomBytes(4)}.md` | Avoid overwrites between runs |

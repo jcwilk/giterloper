@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A
 /**
  * Runs e2e tests. Random pin/branch names (RUN_ID) avoid collisions.
- * CLI E2E tests share session _cli; run serially to avoid concurrent pinned.yaml writes.
+ * CLI E2E tests share session _cli; run serially to avoid concurrent session-scoped pinned.yaml writes.
  * cleanupLeakedTestPins() removes leaked E2E pins after tests.
  */
 import { spawnSync } from "node:child_process";

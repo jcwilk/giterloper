@@ -16,44 +16,47 @@ Deno.test("ensureDir creates directory when missing", () => {
 });
 
 Deno.test("cloneDir returns versionsDir/name/sha", () => {
+  const sessionRoot = "/proj/.giterloper/sessions/test";
   const state = {
     projectRoot: "/proj",
-    rootDir: "/proj/.giterloper",
-    versionsDir: "/proj/.giterloper/versions",
-    stagedRoot: "/proj/.giterloper/staged",
-    pinnedPath: "/proj/.giterloper/pinned.yaml",
+    rootDir: sessionRoot,
+    versionsDir: `${sessionRoot}/versions`,
+    stagedRoot: `${sessionRoot}/staged`,
+    pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
   };
   const pin = { name: "p1", source: "x", sha: "abc123" };
-  assertEquals(cloneDir(state, pin), "/proj/.giterloper/versions/p1/abc123");
+  assertEquals(cloneDir(state, pin), "/proj/.giterloper/sessions/test/versions/p1/abc123");
 });
 
 Deno.test("stagedDir returns stagedRoot/pinName/branchName", () => {
+  const sessionRoot = "/proj/.giterloper/sessions/test";
   const state = {
     projectRoot: "/proj",
-    rootDir: "/proj/.giterloper",
+    rootDir: sessionRoot,
     versionsDir: "/x",
-    stagedRoot: "/proj/.giterloper/staged",
-    pinnedPath: "/proj/.giterloper/pinned.yaml",
+    stagedRoot: `${sessionRoot}/staged`,
+    pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
   };
-  assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/staged/p1/main");
+  assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/sessions/test/staged/p1/main");
 });
 
 Deno.test("indexDir returns rootDir/indexes/pinName/sha", () => {
+  const sessionRoot = "/proj/.giterloper/sessions/test";
   const state = {
     projectRoot: "/proj",
-    rootDir: "/proj/.giterloper",
+    rootDir: sessionRoot,
     versionsDir: "/x",
     stagedRoot: "/x",
-    pinnedPath: "/x/pinned.yaml",
+    pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
   };
   assertEquals(
     indexDir(state, "knowledge", "abcd1234".repeat(5)),
-    "/proj/.giterloper/indexes/knowledge/abcd1234abcd1234abcd1234abcd1234abcd1234"
+    "/proj/.giterloper/sessions/test/indexes/knowledge/abcd1234abcd1234abcd1234abcd1234abcd1234"
   );
 });

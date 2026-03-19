@@ -42,7 +42,7 @@ Deno.test("mapErrorToMcp maps pin not found to missing_pin", () => {
 });
 
 Deno.test("mapErrorToMcp maps no pins to missing_pin", () => {
-  const err = new GlError("no pins configured in .giterloper/pinned.yaml", 2);
+  const err = new GlError("no pins configured (session pin is _session; set KNOWLEDGE_STORE_REMOTE for MCP)", 2);
   const result = mapErrorToMcp(err);
   assertEquals(result.ok, false);
   assertEquals(result.code, "missing_pin");
