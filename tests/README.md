@@ -43,7 +43,7 @@ DENO_JOBS=4 deno task test:core
 
 **`tests/cli/` and `tests/mcp/` are not run with `--parallel`** in the unified runner or in `deno task test:cli` / `deno task test:mcp`. Parallel test modules share one OS process and a single `Deno.env`; MCP tests set `MCP_INSECURE`, `MCP_TOKEN`, and `KNOWLEDGE_STORE_REMOTE`, and integration tests share `.giterloper/` under the repo — concurrent integration files reliably flake (auth, missing pins, git cwd errors). Core tests avoid that.
 
-Tests inside a single file still run **one after another** (Deno does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules use distinct `sessionId` per CLI file, unique pin/branch names (`randomBytes`, not `Date.now()` alone on shared remotes), and `createMcpAppForTest()` where a fresh MCP app is required. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient `could not reach remote` failures.
+Tests inside a single file still run **one after another** (Deno does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules use distinct `sessionId` per CLI file, unique pin/branch names (`randomBytes`, not `Date.now()` alone on shared remotes), and `createMcpAppForTest()` where a fresh MCP app is required. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient remote/cwd/git subprocess failures (see `REMOTE_TRANSIENT` in `tests/helpers/gl.ts`).
 
 ### Layout and individual commands
 
@@ -121,3 +121,5 @@ CLI and MCP tests that mutate the shared test repo require push access to `githu
 
 - In Cursor Cloud, assume `GITERLOPER_GH_TOKEN` is set.
 - Locally, use `GITERLOPER_GH_TOKEN` or authenticate with `gh auth login`.
+
+Optional future work to reduce live GitHub traffic in MCP tests is outlined in [docs/MCP_TEST_REMOTE_MOCKING.md](../docs/MCP_TEST_REMOTE_MOCKING.md).

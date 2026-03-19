@@ -33,8 +33,9 @@ function sleepSyncMs(ms: number): void {
   Atomics.wait(arr, 0, 0, ms);
 }
 
-/** GitHub/network flake seen under parallel test load. */
-const REMOTE_TRANSIENT = /could not reach remote/i;
+/** Transient failures from shared remote, git, or subprocess cwd (see lib/run.ts defaultSpawnCwd). */
+const REMOTE_TRANSIENT =
+  /could not reach remote|getcwd\(\) failed|unable to get current working directory|the remote may be unreachable|try again later|rate limit/i;
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;

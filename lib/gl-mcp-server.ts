@@ -398,6 +398,16 @@ export function createServer(options?: CreateServerOptions): McpServer {
             details: {},
           };
         }
+        const srcTrim = effSource?.trim() ?? "";
+        const tgtTrim = effTarget?.trim() ?? "";
+        if (srcTrim !== "" && srcTrim === tgtTrim) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: "Cannot merge a pin into itself.",
+            details: {},
+          };
+        }
         const source = resolvePin(state, effSource);
         const target = resolvePin(state, effTarget);
         if (source.name === target.name) {
