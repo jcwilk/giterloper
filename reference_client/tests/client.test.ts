@@ -10,10 +10,14 @@ import {
   createRemoteBranch,
   ensurePinRemoved,
   hasMemsearch,
+  newTestCliSessionId,
   randomPin,
   startServer,
   waitForServer,
 } from "../test_helpers.ts";
+
+/** One session per test file — avoids `_cli` contention when `deno test` runs files in parallel. */
+const RC_SESSION = newTestCliSessionId();
 import {
   createClient,
   insertPending,
@@ -34,11 +38,11 @@ Deno.test({ name: "state_inspect lists pins", fn: async () => {
   const branch = `${pinName}-branch`;
   let server: ReturnType<typeof startServer> | null = null;
   try {
-    cleanupTestRepo({ pinName, branchName: branch });
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
     createRemoteBranch(branch, "knowledge/scratch.md", "# scratch");
-    addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch");
+    addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch", RC_SESSION);
 
-    server = startServer(port);
+    server = startServer(port, RC_SESSION);
     await waitForServer(port);
 
     const client = await createClient({
@@ -57,8 +61,8 @@ Deno.test({ name: "state_inspect lists pins", fn: async () => {
     }
   } finally {
     server?.kill();
-    ensurePinRemoved(pinName);
-    cleanupTestRepo({ pinName, branchName: branch });
+    ensurePinRemoved(pinName, RC_SESSION);
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
   }
 }});
 
@@ -72,11 +76,11 @@ Deno.test({
     const branch = `${pinName}-branch`;
     let server: ReturnType<typeof startServer> | null = null;
     try {
-      cleanupTestRepo({ pinName, branchName: branch });
+      cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
       createRemoteBranch(branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
-      addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz");
+      addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch\n\nContains marker search_test_xyz", RC_SESSION);
 
-      server = startServer(port);
+      server = startServer(port, RC_SESSION);
       await waitForServer(port);
 
       const client = await createClient({
@@ -97,8 +101,8 @@ Deno.test({
       }
     } finally {
       server?.kill();
-      ensurePinRemoved(pinName);
-      cleanupTestRepo({ pinName, branchName: branch });
+      ensurePinRemoved(pinName, RC_SESSION);
+      cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
     }
   },
 });
@@ -110,11 +114,11 @@ Deno.test({ name: "retrieve returns file content", fn: async () => {
   const content = "# Test doc\n\nretrieve_content_marker_abc";
   let server: ReturnType<typeof startServer> | null = null;
   try {
-    cleanupTestRepo({ pinName, branchName: branch });
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
     createRemoteBranch(branch, "knowledge/scratch.md", content);
-    addTestPin(pinName, branch, "knowledge/scratch.md", content);
+    addTestPin(pinName, branch, "knowledge/scratch.md", content, RC_SESSION);
 
-    server = startServer(port);
+    server = startServer(port, RC_SESSION);
     await waitForServer(port);
 
     const client = await createClient({
@@ -134,8 +138,8 @@ Deno.test({ name: "retrieve returns file content", fn: async () => {
     }
   } finally {
     server?.kill();
-    ensurePinRemoved(pinName);
-    cleanupTestRepo({ pinName, branchName: branch });
+    ensurePinRemoved(pinName, RC_SESSION);
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
   }
 }});
 
@@ -145,11 +149,11 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", fn: async () => {
   const branch = `${pinName}-branch`;
   let server: ReturnType<typeof startServer> | null = null;
   try {
-    cleanupTestRepo({ pinName, branchName: branch });
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
     createRemoteBranch(branch, "knowledge/scratch.md", "# scratch");
-    addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch");
+    addTestPin(pinName, branch, "knowledge/scratch.md", "# scratch", RC_SESSION);
 
-    server = startServer(port);
+    server = startServer(port, RC_SESSION);
     await waitForServer(port);
 
     const client = await createClient({
@@ -177,8 +181,8 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", fn: async () => {
     }
   } finally {
     server?.kill();
-    ensurePinRemoved(pinName);
-    cleanupTestRepo({ pinName, branchName: branch });
+    ensurePinRemoved(pinName, RC_SESSION);
+    cleanupTestRepo({ pinName, branchName: branch, sessionId: RC_SESSION });
   }
 }});
 
@@ -190,14 +194,14 @@ Deno.test({ name: "merge merges source into target", fn: async () => {
   const targetBranch = `${targetPin}-branch`;
   let server: ReturnType<typeof startServer> | null = null;
   try {
-    cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch });
-    cleanupTestRepo({ pinName: targetPin, branchName: targetBranch });
+    cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch, sessionId: RC_SESSION });
+    cleanupTestRepo({ pinName: targetPin, branchName: targetBranch, sessionId: RC_SESSION });
     createRemoteBranch(sourceBranch, "knowledge/src.md", "# source");
     createRemoteBranch(targetBranch, "knowledge/tgt.md", "# target");
-    addTestPin(sourcePin, sourceBranch, "knowledge/src.md", "# source");
-    addTestPin(targetPin, targetBranch, "knowledge/tgt.md", "# target");
+    addTestPin(sourcePin, sourceBranch, "knowledge/src.md", "# source", RC_SESSION);
+    addTestPin(targetPin, targetBranch, "knowledge/tgt.md", "# target", RC_SESSION);
 
-    server = startServer(port);
+    server = startServer(port, RC_SESSION);
     await waitForServer(port);
 
     const client = await createClient({
@@ -220,9 +224,9 @@ Deno.test({ name: "merge merges source into target", fn: async () => {
     }
   } finally {
     server?.kill();
-    ensurePinRemoved(sourcePin);
-    ensurePinRemoved(targetPin);
-    cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch });
-    cleanupTestRepo({ pinName: targetPin, branchName: targetBranch });
+    ensurePinRemoved(sourcePin, RC_SESSION);
+    ensurePinRemoved(targetPin, RC_SESSION);
+    cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch, sessionId: RC_SESSION });
+    cleanupTestRepo({ pinName: targetPin, branchName: targetBranch, sessionId: RC_SESSION });
   }
 }});

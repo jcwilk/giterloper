@@ -41,7 +41,7 @@ Use this before persisting ticket work (e.g. verifier and work-next run it to va
 
 ## E2E Tests: Collision Avoidance (CRITICAL)
 
-E2E tests use a shared remote repository (`giterloper_test_knowledge`) and session-scoped local state. CLI E2E tests use session `_cli` by default (`.giterloper/sessions/_cli/`). Avoid collisions using the rules below.
+E2E tests use a shared remote repository (`giterloper_test_knowledge`) and session-scoped local state. **CLI and gl-maintenance tests must not rely on the implicit `_cli` session** (that would make parallel `deno test` flake on `pinned.yaml`). Use a per–test-file id from `newTestCliSessionId()` in `tests/helpers/gl.ts` and pass `{ sessionId }` into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson`, or use the same id in thin local wrappers (`glj` / `glm`). Assert paths under `giterloperSessionRoot(Deno.cwd(), sessionId)` (or equivalent) instead of hardcoding `.giterloper/sessions/_cli`. When calling `cleanupTestKnowledgeRepo` with a `pinName`, include `sessionId` so local `versions/` and `staged/` cleanup targets the correct session.
 
 ### 1) Randomize all collision-prone names
 
@@ -73,13 +73,12 @@ Every test must be self-contained. No test may depend on another test's side eff
 
 ### 3) Session-isolated state
 
-- CLI E2E tests use session `_cli`; state lives under `.giterloper/sessions/_cli/`.
-- With unique pin names, tests do not collide.
-- `.giterloper/sessions/_cli/versions/` and `staged/` are keyed by pin name, so unique names isolate runs.
+- Each CLI E2E **file** uses its own `sessionId` (see `newTestCliSessionId()`); state lives under `.giterloper/sessions/<sessionId>/`.
+- Unique session ids prevent parallel test **files** from contending on the same `pinned.yaml`; unique pin names still isolate resources within the remote and under that session’s `versions/` and `staged/`.
 
 ### 4) Cleanup and branch isolation
 
-`cleanupTestKnowledgeRepo(source, sha, { pinName, branchName })` supports:
+`cleanupTestKnowledgeRepo(source, sha, { pinName, branchName, sessionId })` supports (`sessionId` required when `pinName` is set):
 
 - Legacy (`pinName` string): deletes all remote branches except `main`; use only when no concurrent run can exist.
 - Parallel-safe (`{ pinName, branchName }` object): deletes only this run's branch, force-pushes `main`, recreates this run's branch from `main`.

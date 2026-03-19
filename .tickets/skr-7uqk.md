@@ -1,6 +1,6 @@
 ---
 id: skr-7uqk
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-19T20:46:19Z
@@ -17,3 +17,9 @@ Eliminate shared _cli session contention so Deno can run CLI- and maintenance-ba
 
 No production test relies on implicit _cli for isolation; parallel deno test with multiple CLI tests does not flake pinned.yaml; README states the session-id convention.
 
+
+## Notes
+
+**2026-03-19T21:19:51Z**
+
+Required sessionId in tests/helpers/runGl*; newTestCliSessionId + giterloperSessionRoot. E2e files use per-file TEST_SESSION + glj/glm wrappers. cleanupTestKnowledgeRepo requires sessionId when pinName set. run-e2e leak cleanup scans all .giterloper/sessions/*. reference_client test_helpers + client.test pass RC_SESSION. tests/README documents convention. Verified: deno test unit, run-e2e, reference_client tests, deno test tests/e2e --parallel.

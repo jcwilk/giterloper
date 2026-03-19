@@ -16,6 +16,9 @@ export const WORKSPACE_ROOT = path.join(_dirname, "..");
 const GL_SCRIPT = path.join(WORKSPACE_ROOT, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE = path.join(WORKSPACE_ROOT, "scripts", "gl-maintenance");
 
+/** Re-export for reference_client tests: one id per test file avoids `_cli` contention under parallel `deno test`. */
+export { newTestCliSessionId } from "../tests/helpers/gl.ts";
+
 export const E2E_MARKER = "rc2e_";
 export const TEST_SOURCE = "github.com/jcwilk/giterloper_test_knowledge";
 export const CLEAN_MAIN_SHA = "8ff8196117fd5b5ad70a16f1c40df8ed1c760179";
@@ -47,10 +50,8 @@ function runGit(args: string[], opts: { cwd?: string; silent?: boolean } = {}): 
   return (result.stdout || "").trim();
 }
 
-const E2E_CLI_SESSION = "_cli";
-
-function runGlJson(args: string[]): unknown {
-  const result = spawnSync(GL_SCRIPT, ["--json", "--session-id", E2E_CLI_SESSION, ...args], {
+function runGlJson(args: string[], sessionId: string): unknown {
+  const result = spawnSync(GL_SCRIPT, ["--json", "--session-id", sessionId, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -63,8 +64,8 @@ function runGlJson(args: string[]): unknown {
   return JSON.parse((result.stdout || "null").trim() || "null");
 }
 
-function runGlMaintenanceJson(args: string[]): unknown {
-  const result = spawnSync(GL_MAINTENANCE, ["--json", "--session-id", E2E_CLI_SESSION, ...args], {
+function runGlMaintenanceJson(args: string[], sessionId: string): unknown {
+  const result = spawnSync(GL_MAINTENANCE, ["--json", "--session-id", sessionId, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -84,14 +85,14 @@ function getPin(list: unknown, name: string): { name?: string; sha?: string } | 
     | undefined;
 }
 
-export function ensurePinRemoved(name: string): void {
-  const pins = runGlJson(["pin", "list"]) as { name?: string }[];
-  if (getPin(pins, name)) runGlJson(["pin", "remove", name]);
+export function ensurePinRemoved(name: string, sessionId: string): void {
+  const pins = runGlJson(["pin", "list"], sessionId) as { name?: string }[];
+  if (getPin(pins, name)) runGlJson(["pin", "remove", name], sessionId);
 }
 
-function cleanupLocalCopies(pinName: string): void {
-  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "versions", pinName);
-  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName);
+function cleanupLocalCopies(pinName: string, sessionId: string): void {
+  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "versions", pinName);
+  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "staged", pinName);
   try {
     rmSync(versionsDir, { recursive: true, force: true });
   } catch {
@@ -104,8 +105,8 @@ function cleanupLocalCopies(pinName: string): void {
   }
 }
 
-export function cleanupTestRepo(opts: { pinName: string; branchName?: string }): void {
-  cleanupLocalCopies(opts.pinName);
+export function cleanupTestRepo(opts: { pinName: string; branchName?: string; sessionId: string }): void {
+  cleanupLocalCopies(opts.pinName, opts.sessionId);
   const url = toRemoteUrl(TEST_SOURCE);
   const remoteHeads = runGit(["ls-remote", "--heads", url]);
   const branches = remoteHeads
@@ -130,7 +131,7 @@ export function cleanupTestRepo(opts: { pinName: string; branchName?: string }):
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
-  cleanupLocalCopies(opts.pinName);
+  cleanupLocalCopies(opts.pinName, opts.sessionId);
 }
 
 export function createRemoteBranch(
@@ -162,19 +163,20 @@ export function addTestPin(
   pinName: string,
   branch: string,
   initialContentPath: string,
-  initialContent: string
+  initialContent: string,
+  sessionId: string
 ): void {
-  runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-  runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
+  runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch], sessionId);
+  runGlMaintenanceJson(["stage", branch, "--pin", pinName], sessionId);
+  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "staged", pinName, branch);
   if (!existsSync(stagedPath)) {
     throw new Error(`Stage failed: ${stagedPath} does not exist`);
   }
   const filePath = path.join(stagedPath, initialContentPath);
   mkdirSync(path.dirname(filePath), { recursive: true });
   writeFileSync(filePath, initialContent, "utf8");
-  runGlMaintenanceJson(["promote", "--pin", pinName]);
-  runGlJson(["pin", "load", "--pin", pinName]);
+  runGlMaintenanceJson(["promote", "--pin", pinName], sessionId);
+  runGlJson(["pin", "load", "--pin", pinName], sessionId);
 }
 
 export interface ServerHandle {
@@ -184,7 +186,7 @@ export interface ServerHandle {
 }
 
 /** Start giterloper MCP server on a given port. Uses relative path to lib/gl-mcp-server.ts. */
-export function startServer(port: number): ServerHandle {
+export function startServer(port: number, sessionId: string): ServerHandle {
   const proc = spawn(
     "deno",
     ["run", "-A", path.join(WORKSPACE_ROOT, "lib", "gl-mcp-server.ts")],
@@ -195,7 +197,7 @@ export function startServer(port: number): ServerHandle {
         MCP_PORT: String(port),
         MCP_INSECURE: "true",
         /** Align MCP tool pin state with CLI session used by addTestPin / ensurePinRemoved. */
-        GITERLOPER_TEST_MCP_STATE_SESSION_ID: E2E_CLI_SESSION,
+        GITERLOPER_TEST_MCP_STATE_SESSION_ID: sessionId,
       },
       stdio: ["ignore", "pipe", "pipe"],
     }

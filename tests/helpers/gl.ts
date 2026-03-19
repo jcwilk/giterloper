@@ -1,10 +1,28 @@
 import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+/** Random CLI session id (valid for `validateSessionId`). Use one per test file so parallel `deno test` does not contend on `_cli`. */
+export function newTestCliSessionId(): string {
+  return `e2e_${randomBytes(16).toString("hex")}`;
+}
+
+/** `.giterloper/sessions/<sessionId>` under cwd (for assertions and path checks). */
+export function giterloperSessionRoot(cwd: string, sessionId: string): string {
+  return path.join(cwd, ".giterloper", "sessions", sessionId);
+}
+
+export type GlCliRunOpts = {
+  sessionId: string;
+  parseJson?: boolean;
+  cwd?: string;
+  stdin?: string | null;
+};
 const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE_SCRIPT = path.join(root, "scripts", "gl-maintenance");
 
@@ -19,12 +37,9 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   }
 }
 
-export function runGl(
-  args: string[],
-  opts: { parseJson?: boolean; cwd?: string; stdin?: string | null; sessionId?: string } = {}
-) {
+export function runGl(args: string[], opts: GlCliRunOpts) {
   const parseJson = opts.parseJson ?? true;
-  const cliArgs = ["--json", ...(opts.sessionId ? ["--session-id", opts.sessionId] : []), ...args];
+  const cliArgs = ["--json", "--session-id", opts.sessionId, ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
   // When stdin provided, use temp file + redirect - avoids spawnSync input quirks in Deno test context
@@ -73,18 +88,15 @@ export function runGl(
 
 export function runGlJson(
   args: string[],
-  opts: { cwd?: string; stdin?: string | null; sessionId?: string } = {}
+  opts: { sessionId: string; cwd?: string; stdin?: string | null }
 ): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
 }
 
 /** Run gl-maintenance commands (status, verify, clone, teardown, stage, stage-cleanup, promote). */
-export function runGlMaintenance(
-  args: string[],
-  opts: { parseJson?: boolean; cwd?: string; sessionId?: string } = {}
-) {
+export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const parseJson = opts.parseJson ?? true;
-  const sessionArgs = opts.sessionId ? ["--session-id", opts.sessionId] : [];
+  const sessionArgs = ["--session-id", opts.sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
@@ -116,7 +128,7 @@ export function runGlMaintenance(
 
 export function runGlMaintenanceJson(
   args: string[],
-  opts: { cwd?: string; sessionId?: string } = {}
+  opts: { sessionId: string; cwd?: string }
 ): unknown {
   return runGlMaintenance(args, { ...opts, parseJson: true }).data;
 }

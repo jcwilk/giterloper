@@ -33,9 +33,7 @@ function runGit(
   return (result.stdout || "").trim();
 }
 
-const E2E_CLI_SESSION = "_cli";
-
-function cleanupLocalCopies(pinName: string | null, sessionId = E2E_CLI_SESSION): void {
+function cleanupLocalCopies(pinName: string | null, sessionId: string): void {
   if (!pinName) return;
 
   const root = Deno.cwd();
@@ -54,20 +52,29 @@ function cleanupLocalCopies(pinName: string | null, sessionId = E2E_CLI_SESSION)
   }
 }
 
-interface CleanupOpts {
+export interface CleanupOpts {
   pinName?: string | null;
   branchName?: string | null;
+  /** Required when `pinName` is set (local `.giterloper/sessions/<sessionId>/` cleanup). */
+  sessionId?: string;
 }
 
 export function cleanupTestKnowledgeRepo(
   remoteSource: string,
   cleanMainSha: string,
-  opts: string | CleanupOpts | null = null
+  opts: CleanupOpts | null = null
 ): void {
-  const pinName = typeof opts === "string" ? opts : opts?.pinName ?? null;
-  const branchName = typeof opts === "object" && opts?.branchName ? opts.branchName : null;
+  const pinName = opts?.pinName ?? null;
+  const branchName = opts?.branchName ? opts.branchName : null;
+  const sessionId = opts?.sessionId;
 
-  cleanupLocalCopies(pinName);
+  if (pinName && !sessionId) {
+    throw new Error("cleanupTestKnowledgeRepo: sessionId is required when pinName is set");
+  }
+
+  if (pinName && sessionId) {
+    cleanupLocalCopies(pinName, sessionId);
+  }
 
   const remoteUrl = toRemoteUrl(remoteSource);
 
@@ -108,5 +115,7 @@ export function cleanupTestKnowledgeRepo(
     rmSync(tempRoot, { recursive: true, force: true });
   }
 
-  cleanupLocalCopies(pinName);
+  if (pinName && sessionId) {
+    cleanupLocalCopies(pinName, sessionId);
+  }
 }

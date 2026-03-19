@@ -12,7 +12,12 @@ import {
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
-import { runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
+import {
+  giterloperSessionRoot,
+  newTestCliSessionId,
+  runGlJson,
+  runGlMaintenanceJson,
+} from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -20,10 +25,18 @@ function randomPin(prefix: string): string {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
-const E2E_CLI_SESSION = "_cli";
+const TEST_SESSION = newTestCliSessionId();
+
+function glj(args: string[], o: { cwd?: string; stdin?: string | null } = {}) {
+  return runGlJson(args, { sessionId: TEST_SESSION, ...o });
+}
+
+function glm(args: string[], o: { cwd?: string } = {}) {
+  return runGlMaintenanceJson(args, { sessionId: TEST_SESSION, ...o });
+}
 
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
+  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -44,8 +57,8 @@ function pinByName(list: { name?: string }[], name: string): { name?: string; sh
 }
 
 function ensurePinRemoved(name: string): void {
-  const pins = runGlJson(["pin", "list"]) as { name?: string }[];
-  if (pinByName(pins, name)) runGlJson(["pin", "remove", name]);
+  const pins = glj(["pin", "list"]) as { name?: string }[];
+  if (pinByName(pins, name)) glj(["pin", "remove", name]);
 }
 
 function createRemoteBranchFromMain(
@@ -78,17 +91,17 @@ Deno.test("insert queues content in knowledge/_pending and advances pin sha", ()
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = runGlJson(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glm(["stage", branch, "--pin", pinName]);
+    const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const result = glj(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;
     };
     assertEquals(result.action, "inserted");
     const filePath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", result.file!);
     assertEquals(existsSync(filePath), true);
-    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);
   } finally {
     ensurePinRemoved(pinName);
@@ -100,9 +113,9 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = runGlJson(["install-remote", pinName]) as {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const result = glj(["install-remote", pinName]) as {
       action?: string;
       file?: string;
       sha?: string;
@@ -115,7 +128,7 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
     const expected = readFileSync(constitutionPath, "utf8");
     const actual = readFileSync(destPath, "utf8");
     assertEquals(actual, expected);
-    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);
   } finally {
     ensurePinRemoved(pinName);
@@ -128,10 +141,10 @@ Deno.test("reconcile processes _pending into topic files and deletes pending", (
   try {
     const pendingContent = "# Reconcile Test Topic\n\nContent with marker `reconcile-e2e-marker`.";
     createRemoteBranchFromMain(branch, "knowledge/_pending/reconcile-test.md", pendingContent);
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const before = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = runGlJson(["reconcile", "--pin", pinName]) as {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glm(["stage", branch, "--pin", pinName]);
+    const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const result = glj(["reconcile", "--pin", pinName]) as {
       action?: string;
       oldSha?: string;
       newSha?: string;
@@ -148,7 +161,7 @@ Deno.test("reconcile processes _pending into topic files and deletes pending", (
     assertEquals(topicBody.includes("## Sources"), true);
     const pendingPath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", "reconcile-test.md");
     assertEquals(existsSync(pendingPath), false);
-    const after = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(after!.sha !== before!.sha, true);
   } finally {
     ensurePinRemoved(pinName);
@@ -160,9 +173,9 @@ Deno.test("insert with --name uses requested file name", () => {
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const result = runGlJson(["insert", "--pin", pinName, "--name", "named-entry"], {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glm(["stage", branch, "--pin", pinName]);
+    const result = glj(["insert", "--pin", pinName, "--name", "named-entry"], {
       stdin: "hello",
     }) as { file?: string };
     assertEquals(result.file, "named-entry.md");

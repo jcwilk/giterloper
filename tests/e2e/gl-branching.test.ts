@@ -14,7 +14,14 @@ import {
   toRemoteUrl,
 } from "./config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
-import { runGl, runGlMaintenance, runGlMaintenanceJson, runGlJson } from "../helpers/gl.ts";
+import {
+  giterloperSessionRoot,
+  newTestCliSessionId,
+  runGl,
+  runGlMaintenance,
+  runGlJson,
+  runGlMaintenanceJson,
+} from "../helpers/gl.ts";
 
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
@@ -22,10 +29,18 @@ function randomPin(prefix: string): string {
   return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
-const E2E_CLI_SESSION = "_cli";
+const TEST_SESSION = newTestCliSessionId();
+
+function glj(args: string[], o: { cwd?: string; stdin?: string | null } = {}) {
+  return runGlJson(args, { sessionId: TEST_SESSION, ...o });
+}
+
+function glm(args: string[], o: { cwd?: string } = {}) {
+  return runGlMaintenanceJson(args, { sessionId: TEST_SESSION, ...o });
+}
 
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(Deno.cwd(), ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName, branch);
+  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -46,8 +61,8 @@ function pinByName(list: { name?: string; sha?: string }[] | null | undefined, n
 }
 
 function ensurePinRemoved(name: string): void {
-  const pins = (runGlJson(["pin", "list"]) ?? []) as { name?: string }[];
-  if (pinByName(pins, name)) runGlJson(["pin", "remove", name]);
+  const pins = (glj(["pin", "list"]) ?? []) as { name?: string }[];
+  if (pinByName(pins, name)) glj(["pin", "remove", name]);
 }
 
 function createRemoteBranchFromMain(
@@ -101,9 +116,9 @@ function pushCommitToBranch(
 Deno.test("insert fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
-    runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
+    glj(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGl(["insert", "--pin", branchlessPin], { stdin: "x" }),
+      () => runGl(["insert", "--pin", branchlessPin], { sessionId: TEST_SESSION, stdin: "x" }),
       Error,
       "has no branch"
     );
@@ -115,9 +130,9 @@ Deno.test("insert fails for branchless pin", () => {
 Deno.test("promote fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
-    runGlJson(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
+    glj(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGlMaintenance(["promote", "--pin", branchlessPin]),
+      () => runGlMaintenance(["promote", "--pin", branchlessPin], { sessionId: TEST_SESSION }),
       Error,
       "has no branch"
     );
@@ -130,7 +145,7 @@ Deno.test("pin add with non-existent branch creates pin and clones from ref", ()
   const pinName = randomPin("create-branch");
   const branch = `${pinName}-branch`;
   try {
-    const result = runGlJson([
+    const result = glj([
       "pin",
       "add",
       pinName,
@@ -144,7 +159,7 @@ Deno.test("pin add with non-existent branch creates pin and clones from ref", ()
     assertEquals(result.branch, branch);
     assertEquals(result.ref, TEST_MAIN_REF);
     assertEquals(/^[0-9a-f]{40}$/i.test(result.sha ?? ""), true, "pin sha should be 40-char hex");
-    const pin = pinByName(runGlJson(["pin", "list"]) as { name?: string }[], pinName);
+    const pin = pinByName(glj(["pin", "list"]) as { name?: string }[], pinName);
     assertEquals(!!pin, true, "pin should exist after add");
   } finally {
     ensurePinRemoved(pinName);
@@ -155,13 +170,13 @@ Deno.test("insert on newly created branch creates remote branch on first push", 
   const pinName = randomPin("create-on-push");
   const branch = `${pinName}-branch`;
   try {
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
-    const insertResult = runGlJson(["insert", "--pin", pinName, "--name", "first-push"], {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
+    const insertResult = glj(["insert", "--pin", pinName, "--name", "first-push"], {
       stdin: "# first",
     }) as { action?: string; sha?: string };
     assertEquals(insertResult.action, "inserted");
     assertEquals(!!insertResult.sha, true, "insert should advance pin sha");
-    const pin = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const pin = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
     assertEquals(pin!.sha, insertResult.sha);
   } finally {
     ensurePinRemoved(pinName);
@@ -175,7 +190,7 @@ Deno.test("pin add fails when branch exists on remote at different SHA", () => {
     createRemoteBranchFromMain(branch, `knowledge/e2e_${RUN_ID}_${randomBytes(4).toString("hex")}.md`, "# exists");
     assertThrows(
       () =>
-        runGlJson([
+        glj([
           "pin",
           "add",
           pinName,
@@ -188,7 +203,7 @@ Deno.test("pin add fails when branch exists on remote at different SHA", () => {
       Error,
       "does not match"
     );
-    const pins = (runGlJson(["pin", "list"]) ?? []) as { name?: string }[];
+    const pins = (glj(["pin", "list"]) ?? []) as { name?: string }[];
     assertEquals(pinByName(pins, pinName), undefined, "pin must not be added on mismatch");
   } finally {
     ensurePinRemoved(pinName);
@@ -200,14 +215,14 @@ Deno.test("insert fails before staged copy when branch exists and pin SHA mismat
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     pushCommitToBranch(
       branch,
       `knowledge/stale_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
       `# stale marker\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGl(["insert", "--pin", pinName], { stdin: "should fail" }),
+      () => runGl(["insert", "--pin", pinName], { sessionId: TEST_SESSION, stdin: "should fail" }),
       Error,
       "does not match"
     );
@@ -223,14 +238,14 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     pushCommitToBranch(
       branch,
       `knowledge/stale_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
       `# stale\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGlMaintenance(["stage", branch, "--pin", pinName]),
+      () => runGlMaintenance(["stage", branch, "--pin", pinName], { sessionId: TEST_SESSION }),
       Error,
       "does not match"
     );
@@ -244,9 +259,9 @@ Deno.test("insert succeeds when branch exists and pin SHA matches remote", () =>
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
-    runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    runGlMaintenanceJson(["stage", branch, "--pin", pinName]);
-    const result = runGlJson(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
+    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
+    glm(["stage", branch, "--pin", pinName]);
+    const result = glj(["insert", "--pin", pinName], { stdin: TEST_ADD_CONTENT }) as {
       action?: string;
       file?: string;
     };
@@ -274,11 +289,11 @@ Deno.test("merge merges source pin branch into target via GitHub API", () => {
       `knowledge/e2e_${RUN_ID}_merge_tgt.md`,
       `# Merge target\n\nmerge-tgt-marker-${RUN_ID}`
     );
-    runGlJson(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
-    runGlJson(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
-    const beforeTgt = pinByName(runGlJson(["pin", "list"]) as { name?: string; sha?: string }[], tgtPin);
+    glj(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
+    glj(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
+    const beforeTgt = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], tgtPin);
     assertEquals(!!beforeTgt?.sha, true);
-    const mergeResult = runGlJson(["merge", srcPin, tgtPin]) as {
+    const mergeResult = glj(["merge", srcPin, tgtPin]) as {
       action?: string;
       target?: { pin?: string; oldSha?: string; newSha?: string };
     };
