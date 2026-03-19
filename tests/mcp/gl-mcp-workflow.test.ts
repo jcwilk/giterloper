@@ -1,5 +1,5 @@
 /**
- * MCP E2E workflow: session-driven, minimal setup.
+ * MCP integration workflow: session-driven, minimal setup (higher-level agent path).
  * Uses KNOWLEDGE_STORE_REMOTE for session auto-bootstrap. No CLI; session-scoped state only.
  * Verifies SHA chain and snapshot isolation via MCP tools only.
  */

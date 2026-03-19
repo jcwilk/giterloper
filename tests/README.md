@@ -59,7 +59,7 @@ Each test file should generate a unique `RUN_ID` at load time:
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ```
 
-(`E2E_MARKER` is `"gle2e_"` from `tests/helpers/config.ts`. `scripts/run-tests.ts` removes pins whose names include this marker from every `.giterloper/sessions/*` after the suite finishes.)
+(`E2E_MARKER` in `tests/helpers/config.ts` is the `"gle2e_"` prefix for scratch pin names—kept under that export name for leak cleanup and older references; CLI/MCP remote scenarios are **topic integration tests**, not a separate “e2e” suite. `scripts/run-tests.ts` removes pins whose names include this marker from every `.giterloper/sessions/*` after the suite finishes.)
 
 Every collision-prone name must include `RUN_ID` (or equivalent entropy):
 

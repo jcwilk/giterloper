@@ -52,9 +52,9 @@ See [CONVENTIONS.md](./CONVENTIONS.md) for type-safety, interface/type usage, an
 
 A rigorous, thoughtfully designed test suite is essential for agentic coding. It is the clearest way to verify that implemented behavior matches intended behavior.
 
-E2E tests are especially important because they act as executable workflow documentation for both humans and agents. Keep E2E tests high-signal and intentionally scoped: less is more. Avoid overlapping coverage and competing sources of truth.
+Topic integration tests—especially MCP workflow tests against a live remote—are especially valuable as executable workflow documentation for both humans and agents. Keep that coverage high-signal and intentionally scoped: less is more. Avoid overlapping scenarios and competing sources of truth. CLI-facing behavior lives in `tests/cli/` (real `gl` / `gl-maintenance`); higher-level agent paths live in `tests/mcp/`.
 
-Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, E2E collision avoidance, independence, and cleanup rules).
+Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, and cleanup rules).
 
 ## Gl Script Notes
 
@@ -103,11 +103,11 @@ Branchless pins are read-only.
 
 **Local:** Either set GITERLOPER_GH_TOKEN or use session-based auth (`gh auth login` for merge API; git credential helper for clone/push).
 
-When GITERLOPER_GH_TOKEN is set, gl and the E2E test helpers embed it in HTTPS URLs — no gitconfig changes required. When not set, git operations use credential helper (e.g. `gh auth git-credential`), and the merge API uses `gh auth token`. The token provides:
+When GITERLOPER_GH_TOKEN is set, gl and the integration test helpers embed it in HTTPS URLs — no gitconfig changes required. When not set, git operations use credential helper (e.g. `gh auth git-credential`), and the merge API uses `gh auth token`. The token provides:
 - **Read** access to `jcwilk/giterloper_knowledge` (for clone, e.g. via `gl pin add` or `gl-maintenance clone`)
-- **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for E2E tests)
+- **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for CLI/MCP integration tests)
 
-E2E tests will run successfully in this environment.
+CLI and MCP integration tests will run successfully in this environment when the token is available.
 
 ### Running the CLI
 
@@ -137,7 +137,7 @@ deno run -A lib/gl-maintenance.ts <command>
 
 ### Running tests
 
-See [tests/README.md](./tests/README.md) for canonical test execution commands and E2E prerequisites.
+See [tests/README.md](./tests/README.md) for canonical test execution commands and integration-test prerequisites (shared test repo, auth).
 
 ### MCP server
 

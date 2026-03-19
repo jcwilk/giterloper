@@ -2,7 +2,7 @@
 /**
  * Runs all topic test suites (tests/core, tests/cli, tests/mcp) in one invocation.
  * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts); parallel files do not contend on `_cli`.
- * cleanupLeakedTestPins() removes leaked test pins (names containing E2E_MARKER) from every session under `.giterloper/sessions/`.
+ * cleanupLeakedTestPins() removes leaked integration-test pins (names containing E2E_MARKER / `gle2e_`) from every session under `.giterloper/sessions/`.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
