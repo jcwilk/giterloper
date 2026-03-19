@@ -89,8 +89,6 @@ export function ensurePinRemoved(name: string): void {
   if (getPin(pins, name)) runGlJson(["pin", "remove", name]);
 }
 
-const E2E_CLI_SESSION = "_cli";
-
 function cleanupLocalCopies(pinName: string): void {
   const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "versions", pinName);
   const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", E2E_CLI_SESSION, "staged", pinName);
