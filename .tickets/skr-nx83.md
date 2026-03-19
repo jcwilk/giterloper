@@ -1,6 +1,6 @@
 ---
 id: skr-nx83
-status: in_progress
+status: closed
 deps: []
 links: []
 created: 2026-03-19T20:46:15Z
