@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Giterloper MCP server over HTTP/SSE (Streamable HTTP).
- * No stdio transport. See docs/MCP_API_CONTRACT.md.
+ * Giterloper MCP: registers tools in `createServer()` and, when this file is the program
+ * entrypoint, serves them over HTTP/SSE (`/health`, `/mcp`) via `Deno.serve`.
  */
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
