@@ -405,7 +405,6 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     };
     assertEquals(setResult.ok, true);
     assertEquals(setResult.pin?.name, snapshotName);
-    assertEquals(setResult.pin?.sha, sessionSha, "Named pin must use session pin SHA");
     assertEquals(setResult.pin?.branch, snapshotBranch);
     assertEquals(setResult.created, true);
 
@@ -419,10 +418,17 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
       pins?: Array<{ name: string; sha: string; branch: string | null }>;
     };
     const sessionAfter = inspect2.pins?.find((p) => p.name === "_session");
-    assertEquals(sessionAfter?.sha, sessionSha);
-    assertEquals(sessionAfter?.branch, sessionBranch);
     const snapshotPin = inspect2.pins?.find((p) => p.name === snapshotName);
-    assertEquals(snapshotPin?.sha, sessionSha);
+    assertEquals(sessionAfter !== undefined, true);
+    assertEquals(snapshotPin !== undefined, true);
+    assertEquals(
+      snapshotPin!.sha,
+      sessionAfter!.sha,
+      "Named pin must inherit session pin SHA (single inspect after pin_set)"
+    );
+    assertEquals(setResult.pin?.sha, snapshotPin!.sha, "Tool output matches pinned.yaml");
+    assertEquals(sessionAfter?.sha, sessionSha, "Session pin SHA unchanged");
+    assertEquals(sessionAfter?.branch, sessionBranch, "Session pin branch unchanged");
     assertEquals(snapshotPin?.branch, snapshotBranch);
   } finally {
     if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
