@@ -27,7 +27,7 @@ import {
 
 const TEST_PORT = 3451;
 
-// Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved. Use session-driven MCP workflow test instead.
+// Skip: addTestPin/ensurePinRemoved operate outside MCP session. Use session-driven MCP workflow test instead.
 Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
   const pinName = randomPin("inspect");
   const branch = `${pinName}-branch`;
@@ -58,9 +58,9 @@ Deno.test({ name: "state_inspect lists pins", ignore: true, fn: async () => {
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-});
+}});
 
-// Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
+// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
 Deno.test({
   name: "search returns results",
   ignore: true,
@@ -96,9 +96,9 @@ Deno.test({
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-});
+}});
 
-// Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
+// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
 Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () => {
   const pinName = randomPin("retrieve");
   const branch = `${pinName}-branch`;
@@ -131,9 +131,9 @@ Deno.test({ name: "retrieve returns file content", ignore: true, fn: async () =>
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-});
+}});
 
-// Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
+// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
 Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn: async () => {
   const pinName = randomPin("insert");
   const branch = `${pinName}-branch`;
@@ -173,9 +173,9 @@ Deno.test({ name: "insert_pending and reconcile_pending flow", ignore: true, fn:
     ensurePinRemoved(pinName);
     cleanupTestRepo({ pinName, branchName: branch });
   }
-});
+}});
 
-// Skip: depends on global pinned.yaml via addTestPin/ensurePinRemoved.
+// Skip: addTestPin/ensurePinRemoved operate outside MCP session.
 Deno.test({ name: "merge merges source into target", ignore: true, fn: async () => {
   const sourcePin = randomPin("merge-src");
   const targetPin = randomPin("merge-tgt");
@@ -217,4 +217,4 @@ Deno.test({ name: "merge merges source into target", ignore: true, fn: async () 
     cleanupTestRepo({ pinName: sourcePin, branchName: sourceBranch });
     cleanupTestRepo({ pinName: targetPin, branchName: targetBranch });
   }
-});
+}});

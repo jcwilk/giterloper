@@ -98,7 +98,7 @@ function pushCommitToBranch(
   }
 }
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("insert fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
@@ -113,7 +113,7 @@ Deno.test("insert fails for branchless pin", () => {
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("promote fails for branchless pin", () => {
   const branchlessPin = randomPin("branchless");
   try {
@@ -128,7 +128,7 @@ Deno.test("promote fails for branchless pin", () => {
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("pin add with non-existent branch creates pin and clones from ref", () => {
   const pinName = randomPin("create-branch");
   const branch = `${pinName}-branch`;
@@ -154,7 +154,7 @@ Deno.test("pin add with non-existent branch creates pin and clones from ref", ()
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("insert on newly created branch creates remote branch on first push", () => {
   const pinName = randomPin("create-on-push");
   const branch = `${pinName}-branch`;
@@ -172,7 +172,7 @@ Deno.test("insert on newly created branch creates remote branch on first push", 
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("pin add fails when branch exists on remote at different SHA", () => {
   const pinName = randomPin("add-fail-mismatch");
   const branch = `${pinName}-branch`;
@@ -200,7 +200,7 @@ Deno.test("pin add fails when branch exists on remote at different SHA", () => {
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("insert fails before staged copy when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("fail-fast");
   const branch = `${pinName}-branch`;
@@ -224,7 +224,7 @@ Deno.test("insert fails before staged copy when branch exists and pin SHA mismat
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("stage fails before clone when branch exists and pin SHA mismatches remote", () => {
   const pinName = randomPin("stage-fail-fast");
   const branch = `${pinName}-branch`;
@@ -246,7 +246,7 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("insert succeeds when branch exists and pin SHA matches remote", () => {
   const pinName = randomPin("match-flow");
   const branch = `${pinName}-branch`;
@@ -266,7 +266,7 @@ Deno.test("insert succeeds when branch exists and pin SHA matches remote", () =>
   }
 });
 
-// Skip: depends on global pinned.yaml, skip until CLI sessionized
+// Skip: skip until CLI pin operations are session-scoped
 Deno.test("merge merges source pin branch into target via GitHub API", () => {
   const srcBranch = `${RUN_ID}_merge_src`;
   const tgtBranch = `${RUN_ID}_merge_tgt`;
