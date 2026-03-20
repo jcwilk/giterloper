@@ -5,6 +5,7 @@ import {
   isWriteTool,
   MCP_READ_TOOLS,
   MCP_WRITE_TOOLS,
+  type McpAuthRuntime,
   UNAUTHORIZED_ENVELOPE,
   validateAuth,
 } from "../../lib/mcp-auth.ts";
@@ -51,51 +52,21 @@ Deno.test("UNAUTHORIZED_ENVELOPE has deterministic shape", () => {
   assertEquals(UNAUTHORIZED_ENVELOPE.details, {});
 });
 
-Deno.test("validateAuth allows when MCP_INSECURE=true", async () => {
-  const orig = Deno.env.get("MCP_INSECURE");
-  const origToken = Deno.env.get("MCP_TOKEN");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.delete("MCP_TOKEN");
-    assertEquals(validateAuth(undefined), true);
-    assertEquals(validateAuth("Bearer wrong"), true);
-  } finally {
-    if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origToken !== undefined) Deno.env.set("MCP_TOKEN", origToken);
-    else Deno.env.delete("MCP_TOKEN");
-  }
+Deno.test("validateAuth allows when insecure mode", () => {
+  const rt: McpAuthRuntime = { insecure: true, expectedToken: null };
+  assertEquals(validateAuth(undefined, rt), true);
+  assertEquals(validateAuth("Bearer wrong", rt), true);
 });
 
-Deno.test("validateAuth requires token when MCP_TOKEN set", async () => {
-  const orig = Deno.env.get("MCP_INSECURE");
-  const origToken = Deno.env.get("MCP_TOKEN");
-  try {
-    Deno.env.delete("MCP_INSECURE");
-    Deno.env.set("MCP_TOKEN", "secret123");
-    assertEquals(validateAuth(undefined), false);
-    assertEquals(validateAuth("Bearer wrong"), false);
-    assertEquals(validateAuth("Bearer secret123"), true);
-  } finally {
-    if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origToken !== undefined) Deno.env.set("MCP_TOKEN", origToken);
-    else Deno.env.delete("MCP_TOKEN");
-  }
+Deno.test("validateAuth requires token when expectedToken set", () => {
+  const rt: McpAuthRuntime = { insecure: false, expectedToken: "secret123" };
+  assertEquals(validateAuth(undefined, rt), false);
+  assertEquals(validateAuth("Bearer wrong", rt), false);
+  assertEquals(validateAuth("Bearer secret123", rt), true);
 });
 
-Deno.test("validateAuth denies when neither MCP_INSECURE nor MCP_TOKEN", async () => {
-  const orig = Deno.env.get("MCP_INSECURE");
-  const origToken = Deno.env.get("MCP_TOKEN");
-  try {
-    Deno.env.delete("MCP_INSECURE");
-    Deno.env.delete("MCP_TOKEN");
-    assertEquals(validateAuth(undefined), false);
-    assertEquals(validateAuth("Bearer anything"), false);
-  } finally {
-    if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origToken !== undefined) Deno.env.set("MCP_TOKEN", origToken);
-    else Deno.env.delete("MCP_TOKEN");
-  }
+Deno.test("validateAuth denies when not insecure and no expectedToken", () => {
+  const rt: McpAuthRuntime = { insecure: false, expectedToken: null };
+  assertEquals(validateAuth(undefined, rt), false);
+  assertEquals(validateAuth("Bearer anything", rt), false);
 });

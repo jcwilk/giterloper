@@ -6,6 +6,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
+import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
@@ -53,10 +54,10 @@ async function parseToolResult(res: Response): Promise<unknown> {
  * PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception: Both omitted → merge into itself → FAIL.
  */
 Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
-  const orig = Deno.env.get("MCP_INSECURE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: null,
+    });
     const initRes = await mcpRequest(
       {
         jsonrpc: "2.0",
@@ -100,10 +101,6 @@ Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
       true,
       `Expected "cannot merge a pin into itself" or similar (${PIN_SETTING_DOC})`
     );
-  } finally {
-    if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-    else Deno.env.delete("MCP_INSECURE");
-  }
 });
 
 /**
@@ -111,12 +108,10 @@ Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
  * Use a named pin (not _session) since _session is rejected before the merge handler.
  */
 Deno.test("merge with same sourcePin and targetPin fails", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const initRes = await mcpRequest(
       {
         jsonrpc: "2.0",
@@ -175,10 +170,4 @@ Deno.test("merge with same sourcePin and targetPin fails", async () => {
       true,
       `Expected "cannot merge a pin into itself" or similar (${PIN_SETTING_DOC})`
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });

@@ -1,6 +1,6 @@
 ---
 id: git-xgv2
-status: open
+status: closed
 deps: [git-tmna]
 links: []
 created: 2026-03-20T01:18:28Z

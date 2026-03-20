@@ -29,14 +29,26 @@ export function ensureSessionDir(state: GlState): void {
 }
 
 /**
- * Lazily creates _session pin when KNOWLEDGE_STORE_REMOTE is set and no _session pin exists.
+ * Lazily creates _session pin when a bootstrap remote is configured and no _session pin exists.
  * Session pin starts at main branch with remote main's SHA.
+ *
+ * @param knowledgeStoreRemoteOverride `undefined` → use `KNOWLEDGE_STORE_REMOTE` env; `null` → do not bootstrap; string → use as source (trimmed; empty skips)
  */
-export function autoInitSessionPin(state: GlState): void {
+export function autoInitSessionPin(
+  state: GlState,
+  knowledgeStoreRemoteOverride?: string | null
+): void {
   const pins = readPins(state);
   if (pins.some((p) => p.name === SESSION_PIN_NAME)) return;
 
-  const source = Deno.env.get(KNOWLEDGE_STORE_REMOTE)?.trim();
+  let source: string | undefined;
+  if (knowledgeStoreRemoteOverride === null) {
+    source = undefined;
+  } else if (knowledgeStoreRemoteOverride !== undefined) {
+    source = knowledgeStoreRemoteOverride.trim() || undefined;
+  } else {
+    source = Deno.env.get(KNOWLEDGE_STORE_REMOTE)?.trim();
+  }
   if (!source) return;
 
   const sha = resolveSha(source, "HEAD");

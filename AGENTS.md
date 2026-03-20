@@ -40,7 +40,7 @@ Ticket operations are typically induced by user-invoked skills/subagents such as
 
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
 - **MCP server:** `deno task mcp:serve` or `deno run -A lib/gl-mcp-server.ts` from workspace root.
-- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: logical test cases are scheduled with a **bounded worker pool** that backfills as cases finish (concurrency cap via **`DENO_JOBS`** or the harness equivalent—see `tests/README.md`). Target design: **no** serial split between `tests/core/`, `tests/cli/`, and `tests/mcp/` for isolation reasons; integration tests use per-case temp `cwd`, **`.giterloper/<sessionId>/`** state, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). **No** suite-wide leak cleanup on the default happy path. Typecheck: `deno check lib/gl.ts`.
+- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: each logical case is a separate `deno test` subprocess (see `tests/test-case-manifest.json`, regenerated via `deno task gen:test-manifest`). A **bounded worker pool** backfills from the queue (worker count from **`DENO_JOBS`**, default 8). Cases under **`tests/cli/`** and **`tests/mcp/`** share a **separate concurrency cap** for the shared test remote (`GITERLOPER_REMOTE_TEST_CONCURRENCY`, default **1**); `tests/core/` uses the full worker budget. Integration tests use per-case temp `cwd`, **`.giterloper/<sessionId>/`** state, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). **No** suite-wide leak cleanup on the default happy path. Typecheck: `deno check lib/gl.ts`.
 
 **Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
 
@@ -68,7 +68,7 @@ Use [tests/README.md](./tests/README.md) as the canonical source for all test-sp
 - **`lib/`** — TypeScript source for the gl CLI (paths, add-queue, pinned, git, etc.)
 - **`.cursor/skills/gl/scripts/gl`** — Executable shell script; run from workspace root
 - **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`** — topic-based tests; full suite: `deno run -A scripts/run-tests.ts` or `deno task check`
-- **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo)
+- **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo), `mcp-test-auth.ts` (in-process MCP HTTP test auth defaults)
 
 ## pinned.yaml Format
 

@@ -1,6 +1,7 @@
 {
   "tasks": {
     "check": "./scripts/check_all.sh",
+    "gen:test-manifest": "deno run -A scripts/build-test-case-manifest.ts",
     "test": "deno run -A scripts/run-tests.ts",
     "test:core": "deno test -A --parallel tests/core/",
     "test:cli": "deno test -A tests/cli/",

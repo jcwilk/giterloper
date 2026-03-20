@@ -73,10 +73,9 @@ context --> cleanup[ScopedCleanup]
 
 ## Definition of done
 
-- `deno task test` is one bounded fully parallel suite (no core/integration serial split for isolation reasons).
+- `deno task test` is one bounded worker pool over **logical cases** (no phase barrier such as “all core then all integration”). Cases are scheduled via `scripts/run-tests.ts` and `tests/test-case-manifest.json`.
 - `.giterloper/` has only session-id directories (no `sessions/` wrapper).
-- Every logical case gets its own session id and isolated cwd/state root automatically.
-- MCP tests do not use mutable process-global env for setup.
-- Cleanup only affects resources created by the current test.
-- No documented exception keeping `tests/cli/` or `tests/mcp/` serial.
+- Every logical case gets its own session id and isolated cwd/state root automatically (CLI/integration helpers); MCP in-process tests inject auth/bootstrap via `createMcpAppForTest` / server options instead of mutating `Deno.env`.
+- Cleanup only affects resources created by the current test; the default harness does not sweep unrelated sessions.
+- Optional: `tests/cli/` + `tests/mcp/` subprocesses may be capped separately (`GITERLOPER_REMOTE_TEST_CONCURRENCY`, default 1) for shared-remote stability; this is not an isolation-driven serial split.
 - `tests/README.md` and `AGENTS.md` describe the final behavior accurately.

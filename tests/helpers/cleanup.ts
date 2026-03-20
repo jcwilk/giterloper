@@ -96,12 +96,8 @@ export function cleanupTestKnowledgeRepo(
     if (branches.includes(branchName)) {
       runGit(["push", remoteUrl, "--delete", branchName]);
     }
-  } else {
-    for (const branch of branches) {
-      if (branch === "main") continue;
-      runGit(["push", remoteUrl, "--delete", branch]);
-    }
   }
+  // Intentionally no "delete all non-main branches" path: incompatible with parallel suites.
 
   const tempRoot = mkdtempSync(path.join(tmpdir(), "giterloper-test-"));
   try {

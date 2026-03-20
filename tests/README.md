@@ -14,11 +14,12 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 
 ### Runner and parallelism
 
-- **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The target shape is:
-  - **one** bounded worker pool that schedules **logical test cases** (not a “parallel core, then serial cli/mcp” split);
-  - workers **backfill** from a queue as cases finish (concurrency cap via **`DENO_JOBS`** or the harness’s documented equivalent);
-  - because Deno does not run multiple `Deno.test(...)` blocks in the same file in parallel, logical cases are exposed as **separate generated modules** (one runnable file per case) so the pool can run them concurrently.
-- There is **no** documented exception that keeps `tests/cli/` or `tests/mcp/` serial for parallelism reasons once isolation is correct.
+- **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
+  - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
+  - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
+  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **8** if unset);
+  - applies an extra semaphore for **`tests/cli/`** and **`tests/mcp/`** so at most **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** of those subprocesses run at once (default **1**), reducing contention on the shared test knowledge remote and heavy git work; **`tests/core/`** cases use the full worker budget.
+- There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue with the caps above.
 
 ### Isolation and helpers
 
@@ -64,8 +65,9 @@ Use this before persisting ticket work (e.g. verifier and work-next use it to va
 
 ### Parallel execution
 
-- Cap worker count with **`DENO_JOBS`** (integer) where the harness respects it (`deno test --help` for Deno’s behavior when subprocesses invoke `deno test`).
-- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules in the target design: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases.
+- Cap overall subprocess concurrency with **`DENO_JOBS`** (integer; default 8 in the harness).
+- Optional: raise integration overlap with **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** (integer ≥ 1); default **1** keeps `tests/cli/` + `tests/mcp/` cases from hitting the shared remote concurrently.
+- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext`; MCP uses injected `createMcpAppForTest` options).
 
 ### Layout and individual commands
 

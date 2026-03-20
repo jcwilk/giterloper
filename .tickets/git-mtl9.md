@@ -1,6 +1,6 @@
 ---
 id: git-mtl9
-status: open
+status: closed
 deps: [git-ftwq]
 links: []
 created: 2026-03-20T01:18:24Z

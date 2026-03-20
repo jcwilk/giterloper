@@ -2,6 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
 import { createMcpAppForTest, validateInsertContent } from "../../lib/gl-mcp-server.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
+import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
@@ -44,12 +45,10 @@ async function parseToolResult(res: Response): Promise<unknown> {
 
 /** insert_pending with omitted pin uses session pin and advances SHA. Per spec: omit pin targets session pin; updatePinSha no longer rejects _session on internal lifecycle path. */
 Deno.test("insert_pending with content only uses session pin", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const initRes = await mcpRequest(
       {
         jsonrpc: "2.0",
@@ -98,12 +97,6 @@ Deno.test("insert_pending with content only uses session pin", async () => {
     const result = (await parseToolResult(insertRes)) as { ok?: boolean; action?: string };
     assertEquals(result.ok, true, `insert_pending with omitted pin should succeed, got: ${JSON.stringify(result)}`);
     assertEquals(result.action, "inserted");
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 Deno.test("validateInsertContent rejects empty string", () => {
@@ -138,12 +131,10 @@ Deno.test("validateInsertContent rejects null", () => {
 
 /** insert_pending with explicit pin "_session" must fail. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md. */
 Deno.test("insert_pending with pin _session is rejected", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", "github.com/jcwilk/giterloper_test_knowledge");
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: "github.com/jcwilk/giterloper_test_knowledge",
+    });
     const initRes = await mcpRequest(
       {
         jsonrpc: "2.0",
@@ -186,12 +177,6 @@ Deno.test("insert_pending with pin _session is rejected", async () => {
       true,
       "Must include corrective guidance"
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 Deno.test("validateInsertContent rejects undefined", () => {

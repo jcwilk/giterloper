@@ -5,8 +5,9 @@
  */
 import { assertEquals } from "jsr:@std/assert";
 import { existsSync } from "node:fs";
-import { createMcpAppForTest, mcpApp } from "../../lib/gl-mcp-server.ts";
+import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
 import { sessionDir, touchSession } from "../../lib/mcp-session-store.ts";
+import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
@@ -30,7 +31,7 @@ async function parseMcpResponse(res: Response): Promise<unknown> {
 async function mcpRequest(
   body: object,
   headers: Record<string, string> = {},
-  app: { request: (req: Request) => Response | Promise<Response> } = mcpApp
+  app: { request: (req: Request) => Response | Promise<Response> }
 ): Promise<Response> {
   const res = await Promise.resolve(
     app.request(
@@ -52,10 +53,12 @@ async function mcpRequest(
 Deno.test(
   "MCP session lifecycle: initialize returns mcp-session-id header and session reuse succeeds",
   async () => {
-    const orig = Deno.env.get("MCP_INSECURE");
-    try {
-      Deno.env.set("MCP_INSECURE", "true");
-      const initRes = await mcpRequest({
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: null,
+    });
+    const initRes = await mcpRequest(
+      {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
@@ -64,54 +67,53 @@ Deno.test(
           capabilities: {},
           clientInfo: { name: "test", version: "1.0.0" },
         },
-      });
-      assertEquals(initRes.status, 200);
-      const sessionId = initRes.headers.get("mcp-session-id");
-      assertEquals(sessionId !== null && sessionId.length > 0, true);
+      },
+      {},
+      app
+    );
+    assertEquals(initRes.status, 200);
+    const sessionId = initRes.headers.get("mcp-session-id");
+    assertEquals(sessionId !== null && sessionId.length > 0, true);
 
-      // Session reuse: tool call with mcp-session-id header succeeds
-      const toolRes = await mcpRequest(
-        {
-          jsonrpc: "2.0",
-          id: 2,
-          method: "tools/list",
-          params: {},
-        },
-        { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" }
-      );
-      assertEquals(toolRes.status, 200);
-    } finally {
-      if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-      else Deno.env.delete("MCP_INSECURE");
-    }
+    const toolRes = await mcpRequest(
+      {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/list",
+        params: {},
+      },
+      { "mcp-session-id": sessionId!, "mcp-protocol-version": "2024-11-05" },
+      app
+    );
+    assertEquals(toolRes.status, 200);
   }
 );
 
 Deno.test(
   "MCP session lifecycle: tool call without session fails with actionable guidance",
   async () => {
-    const orig = Deno.env.get("MCP_INSECURE");
-    try {
-      Deno.env.set("MCP_INSECURE", "true");
-      // Tool call WITHOUT mcp-session-id header - should fail with 400
-      const res = await mcpRequest({
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: null,
+    });
+    const res = await mcpRequest(
+      {
         jsonrpc: "2.0",
         id: 1,
         method: "tools/list",
         params: {},
-      });
-      assertEquals(res.status, 400);
-      const body = await res.json();
-      const msg = (body.error?.message ?? "").toLowerCase();
-      assertEquals(
-        msg.includes("mcp-session-id") || msg.includes("not initialized"),
-        true,
-        `Expected actionable guidance, got: ${body.error?.message}`
-      );
-    } finally {
-      if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-      else Deno.env.delete("MCP_INSECURE");
-    }
+      },
+      {},
+      app
+    );
+    assertEquals(res.status, 400);
+    const body = await res.json();
+    const msg = (body.error?.message ?? "").toLowerCase();
+    assertEquals(
+      msg.includes("mcp-session-id") || msg.includes("not initialized"),
+      true,
+      `Expected actionable guidance, got: ${body.error?.message}`
+    );
   }
 );
 
@@ -119,10 +121,10 @@ Deno.test(
 Deno.test(
   "MCP session lifecycle: giterloper_session_end removes session data",
   async () => {
-    const orig = Deno.env.get("MCP_INSECURE");
-    try {
-      Deno.env.set("MCP_INSECURE", "true");
-      const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: null,
+    });
       const req = (body: object, headers: Record<string, string> = {}) =>
         mcpRequest(body, headers, app);
 
@@ -178,20 +180,16 @@ Deno.test(
       assertEquals(parsed.ok, true);
       assertEquals(parsed.action, "session_ended");
       assertEquals(parsed.sessionId, sessionId);
-    } finally {
-      if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-      else Deno.env.delete("MCP_INSECURE");
-    }
   }
 );
 
 Deno.test(
   "MCP session lifecycle: DELETE /mcp triggers session cleanup",
   async () => {
-    const orig = Deno.env.get("MCP_INSECURE");
-    try {
-      Deno.env.set("MCP_INSECURE", "true");
-      const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: null,
+    });
       const req = (body: object, headers: Record<string, string> = {}) =>
         mcpRequest(body, headers, app);
 
@@ -226,9 +224,5 @@ Deno.test(
       );
       // Our cleanup ran; session dir should be gone.
       assertEquals(existsSync(dirBefore), false);
-    } finally {
-      if (orig !== undefined) Deno.env.set("MCP_INSECURE", orig);
-      else Deno.env.delete("MCP_INSECURE");
-    }
   }
 );

@@ -20,7 +20,11 @@ import { makeQueueFilename, safeName } from "./add-queue.ts";
 import { search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { mapErrorToMcp } from "./mcp-error-mapping.ts";
-import { isInsecureMode, mcpAuthMiddleware } from "./mcp-auth.ts";
+import {
+  createMcpAuthMiddleware,
+  readMcpAuthFromEnv,
+  type McpAuthRuntime,
+} from "./mcp-auth.ts";
 import { retrieveFileContent } from "./read-tools.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import { run } from "./run.ts";
@@ -69,6 +73,16 @@ const HOST = Deno.env.get("MCP_HOST") ?? "127.0.0.1";
 export interface CreateServerOptions {
   /** Resolve session id from transport context. Default: validateSessionId(extra?.sessionId). */
   getSessionId?: (extra: { sessionId?: string } | undefined) => string;
+  /**
+   * When set (integration tests), MCP tool state uses this session directory instead of the transport id.
+   * Otherwise `GITERLOPER_TEST_MCP_STATE_SESSION_ID` env is honored for spawned servers.
+   */
+  testFsSessionId?: string;
+  /**
+   * Session bootstrap remote for `_session` pin when unset: `undefined` → read `KNOWLEDGE_STORE_REMOTE` env;
+   * `null` → do not auto-bootstrap; non-empty string → use as source.
+   */
+  knowledgeStoreRemote?: string | null;
 }
 
 /**
@@ -76,14 +90,19 @@ export interface CreateServerOptions {
  * Options.getSessionId allows transport-specific session identity (e.g. stdio: process-scoped id).
  */
 export function createServer(options?: CreateServerOptions): McpServer {
+  const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
+  const testFsSessionOpt = options?.testFsSessionId;
+
   const server = new McpServer({
     name: "giterloper",
     version: "1.0.0",
   });
 
   function resolveSessionId(extra: { sessionId?: string } | undefined): string {
-    /** When set (integration tests / reference client only), pin state uses this session dir instead of the transport id. */
-    const testFsSession = Deno.env.get("GITERLOPER_TEST_MCP_STATE_SESSION_ID")?.trim();
+    const fromOpt = testFsSessionOpt?.trim();
+    const testFsSession = fromOpt && isSafeSessionId(fromOpt)
+      ? fromOpt
+      : Deno.env.get("GITERLOPER_TEST_MCP_STATE_SESSION_ID")?.trim();
     if (testFsSession && isSafeSessionId(testFsSession)) {
       return testFsSession;
     }
@@ -131,7 +150,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     const sessionId = resolveSessionId(extra);
     const state = makeState(sessionId);
     ensureSessionDir(state);
-    autoInitSessionPin(state);
+    autoInitSessionPin(state, knowledgeRemoteOpt);
     touchSession(sessionId);
     return state;
   }
@@ -901,7 +920,10 @@ interface HttpMcpTransport {
  * Builds the Hono app for MCP over HTTP/SSE: CORS, /health, /mcp with auth.
  * Caller creates transport and server, connects them, then passes transport here.
  */
-export function createHttpMcpApp(transport: HttpMcpTransport): Hono {
+export function createHttpMcpApp(
+  transport: HttpMcpTransport,
+  authRuntime: McpAuthRuntime = readMcpAuthFromEnv()
+): Hono {
   const app = new Hono();
   app.use(
     "*",
@@ -925,7 +947,7 @@ export function createHttpMcpApp(transport: HttpMcpTransport): Hono {
       version: "1.0.0",
     })
   );
-  app.use("/mcp", mcpAuthMiddleware);
+  app.use("/mcp", createMcpAuthMiddleware(authRuntime));
   app.all("/mcp", async (c) => {
     if (c.req.method === "DELETE") {
       const sessionId = c.req.header("mcp-session-id");
@@ -942,27 +964,36 @@ const mcpTransport = new WebStandardStreamableHTTPServerTransport({
 });
 const mcpServer = createServer();
 await mcpServer.connect(mcpTransport);
-const app = createHttpMcpApp(mcpTransport);
+const mcpAuthAtLoad = readMcpAuthFromEnv();
+const app = createHttpMcpApp(mcpTransport, mcpAuthAtLoad);
 
-/** Exported for session lifecycle tests. */
+/** Exported for ad-hoc use; prefer `createMcpAppForTest` in tests (injected auth/bootstrap). */
 export { app as mcpApp };
 
 /**
  * Creates a fresh MCP app with its own transport and server. Use in tests that need
  * an independent initialize (the shared mcpApp rejects a second initialize).
  */
-export async function createMcpAppForTest(): Promise<ReturnType<typeof createHttpMcpApp>> {
+export type CreateMcpAppForTestOptions = CreateServerOptions & {
+  auth?: McpAuthRuntime;
+};
+
+export async function createMcpAppForTest(
+  opts?: CreateMcpAppForTestOptions
+): Promise<ReturnType<typeof createHttpMcpApp>> {
+  const { auth: authOpt, ...serverOpts } = opts ?? {};
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
-  const server = createServer();
+  const server = createServer(serverOpts);
   await server.connect(transport);
-  return createHttpMcpApp(transport);
+  const authRuntime = authOpt ?? readMcpAuthFromEnv();
+  return createHttpMcpApp(transport, authRuntime);
 }
 
 if (import.meta.main) {
-  const insecure = isInsecureMode();
-  const hasToken = !!Deno.env.get("MCP_TOKEN");
+  const { insecure, expectedToken } = readMcpAuthFromEnv();
+  const hasToken = !!expectedToken;
   const ttlMs = getSessionTtlMs();
   if (ttlMs > 0) {
     const intervalMs = Math.min(ttlMs / 4, 15 * 60 * 1000);

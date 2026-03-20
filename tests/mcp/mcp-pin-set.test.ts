@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
 import { resolveShaOrRef } from "../../lib/git.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
+import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
@@ -92,12 +93,10 @@ async function setupSession(
  * PIN_SETTING_PARAM_BEHAVIOR.md § Summary: inputSchema must include branch and ref.
  */
 Deno.test("pin_set inputSchema includes branch and ref parameters", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const listRes = await req(
@@ -121,24 +120,16 @@ Deno.test("pin_set inputSchema includes branch and ref parameters", async () => 
       true,
       `pin_set must have ref param (${PIN_SETTING_DOC}); got: ${JSON.stringify(props)}`
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * pin_set rejects unknown arguments (per git-8vrv: enforce argument validation).
  */
 Deno.test("pin_set rejects unknown arguments", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const res = await req({
@@ -163,22 +154,14 @@ Deno.test("pin_set rejects unknown arguments", async () => {
       true,
       `Expected rejection message for unknown args; got: ${msg.slice(0, 100)}`
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /** pin_set with pin _session is rejected; omit pin to target session pin. Per PIN_SETTING_PARAM_BEHAVIOR.md. */
 Deno.test("pin_set with pin _session is rejected", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const res = await req({
@@ -199,24 +182,16 @@ Deno.test("pin_set with pin _session is rejected", async () => {
       (result.message ?? "").includes("reserved") || (result.message ?? "").includes("omit"),
       true
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md: No pin + no modifiers = view session pin. Named pin + no branch/ref = FAIL.
  */
 Deno.test("pin_set with no branch and no ref fails", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     // No pin, no branch, no sha — view session pin (succeeds when _session exists)
@@ -245,24 +220,16 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
     const result2 = (await parseToolResult(res2)) as { ok?: boolean; code?: string };
     assertEquals(result2.ok, false, "pin_set with pin but no branch/ref must fail");
     assertEquals(result2.code, "invalid_argument");
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md § Pin Storage: session pin's name is always _session.
  */
 Deno.test("session pin name is _session after bootstrap", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -281,24 +248,16 @@ Deno.test("session pin name is _session after bootstrap", async () => {
       true,
       `Session pin must be named _session (${PIN_SETTING_DOC})`
     );
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md §1: Branch specified, ref not — use session pin SHA, update branch.
  */
 Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -350,24 +309,16 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     const updated = inspect2.pins?.find((p) => p.name === "_session");
     assertEquals(updated?.branch, branchName);
     assertEquals(updated?.sha, originalSha);
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md §1 + Pin Name: Branch + pin name — copy session SHA to named pin with branch.
  */
 Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unchanged", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -430,24 +381,16 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     assertEquals(sessionAfter?.sha, sessionSha, "Session pin SHA unchanged");
     assertEquals(sessionAfter?.branch, sessionBranch, "Session pin branch unchanged");
     assertEquals(snapshotPin?.branch, snapshotBranch);
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md §2: ref specified, branch not — set pin branchlessly (read-only).
  */
 Deno.test("pin_set ref-only sets pin branchlessly", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -495,24 +438,16 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
     const branchlessPin = inspect2.pins?.find((p) => p.name === branchlessName);
     assertEquals(branchlessPin?.sha, sha);
     assertEquals(branchlessPin?.branch, null);
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md §2: ref may be a branch name; we resolve it to SHA from remote.
  */
 Deno.test("pin_set ref as branch name resolves to SHA", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -565,24 +500,16 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
     const pin = inspect2.pins?.find((p) => p.name === branchlessName);
     assertEquals(pin?.sha, mainSha);
     assertEquals(pin?.branch, null);
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });
 
 /**
  * PIN_SETTING_PARAM_BEHAVIOR.md §3: Both ref and branch — use resolved ref SHA, not session SHA.
  */
 Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
-  const origInsecure = Deno.env.get("MCP_INSECURE");
-  const origRemote = Deno.env.get("KNOWLEDGE_STORE_REMOTE");
-  try {
-    Deno.env.set("MCP_INSECURE", "true");
-    Deno.env.set("KNOWLEDGE_STORE_REMOTE", TEST_SOURCE);
-    const app = await createMcpAppForTest();
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
     const { req } = await setupSession(app);
 
     const inspectRes = await req({
@@ -635,10 +562,4 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
     const pin = inspect2.pins?.find((p) => p.name === snapshotName);
     assertEquals(pin?.sha, mainSha);
     assertEquals(pin?.branch, snapshotBranch);
-  } finally {
-    if (origInsecure !== undefined) Deno.env.set("MCP_INSECURE", origInsecure);
-    else Deno.env.delete("MCP_INSECURE");
-    if (origRemote !== undefined) Deno.env.set("KNOWLEDGE_STORE_REMOTE", origRemote);
-    else Deno.env.delete("KNOWLEDGE_STORE_REMOTE");
-  }
 });

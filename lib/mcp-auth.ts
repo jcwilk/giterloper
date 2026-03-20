@@ -32,13 +32,29 @@ export function isWriteTool(name: string): name is McpWriteTool {
   return (MCP_WRITE_TOOLS as readonly string[]).includes(name);
 }
 
-export function isInsecureMode(): boolean {
-  const v = Deno.env.get("MCP_INSECURE");
-  return v === "true" || v === "1";
+/** Auth policy for MCP HTTP requests (explicit in tests; production reads env once via `readMcpAuthFromEnv`). */
+export interface McpAuthRuntime {
+  insecure: boolean;
+  expectedToken: string | null;
 }
 
+export function readMcpAuthFromEnv(): McpAuthRuntime {
+  const v = Deno.env.get("MCP_INSECURE");
+  const insecure = v === "true" || v === "1";
+  return {
+    insecure,
+    expectedToken: Deno.env.get("MCP_TOKEN") ?? null,
+  };
+}
+
+/** @deprecated Prefer `readMcpAuthFromEnv().insecure` */
+export function isInsecureMode(): boolean {
+  return readMcpAuthFromEnv().insecure;
+}
+
+/** @deprecated Prefer `readMcpAuthFromEnv().expectedToken` */
 export function getExpectedToken(): string | null {
-  return Deno.env.get("MCP_TOKEN") ?? null;
+  return readMcpAuthFromEnv().expectedToken;
 }
 
 /**
@@ -55,15 +71,18 @@ export function extractBearerToken(authHeader: string | undefined): string | nul
 
 /**
  * Validates request auth. Returns true if allowed.
- * - MCP_INSECURE=true: allow all (local dev)
- * - MCP_TOKEN set: require Bearer token match
+ * - insecure: allow all (local dev)
+ * - expectedToken set: require Bearer token match
  * - Otherwise: deny
  */
-export function validateAuth(authHeader: string | undefined): boolean {
-  if (isInsecureMode()) {
+export function validateAuth(
+  authHeader: string | undefined,
+  runtime: McpAuthRuntime
+): boolean {
+  if (runtime.insecure) {
     return true;
   }
-  const expected = getExpectedToken();
+  const expected = runtime.expectedToken;
   if (!expected) {
     return false;
   }
@@ -80,13 +99,15 @@ export const UNAUTHORIZED_ENVELOPE = {
 };
 
 /**
- * Hono middleware: requires valid auth for MCP requests.
+ * Hono middleware factory: requires valid auth for MCP requests.
  * Returns 401 JSON with deterministic envelope on failure.
  */
-export async function mcpAuthMiddleware(c: Context, next: Next): Promise<Response | void> {
-  if (validateAuth(c.req.header("Authorization"))) {
-    return next();
-  }
-  const status = mcpCodeToHttpStatus("unauthorized");
-  return c.json(UNAUTHORIZED_ENVELOPE, status as 401);
+export function createMcpAuthMiddleware(runtime: McpAuthRuntime) {
+  return async function mcpAuthMiddleware(c: Context, next: Next): Promise<Response | void> {
+    if (validateAuth(c.req.header("Authorization"), runtime)) {
+      return next();
+    }
+    const status = mcpCodeToHttpStatus("unauthorized");
+    return c.json(UNAUTHORIZED_ENVELOPE, status as 401);
+  };
 }
