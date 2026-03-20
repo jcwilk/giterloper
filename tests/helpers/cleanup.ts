@@ -55,7 +55,7 @@ function cleanupLocalCopies(pinName: string | null, sessionId: string): void {
 export interface CleanupOpts {
   pinName?: string | null;
   branchName?: string | null;
-  /** Required when `pinName` is set (local `.giterloper/sessions/<sessionId>/` cleanup). */
+  /** Required when `pinName` is set (local session tree cleanup). Target: `.giterloper/<sessionId>/`; implementation may still use `.giterloper/sessions/<sessionId>/` until the layout migration — see `tests/README.md`. */
   sessionId?: string;
 }
 

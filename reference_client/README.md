@@ -66,7 +66,7 @@ await client.close();
 
 ## Tests
 
-Tests spawn the giterloper MCP server via subprocess and use `giterloper_test_knowledge` for E2E scenarios.
+Tests spawn the giterloper MCP server via subprocess and use `giterloper_test_knowledge` for integration scenarios. Isolation rules (session id, collision-resistant names, target on-disk layout **`.giterloper/<sessionId>/`**) match [tests/README.md](../tests/README.md); use a dedicated session id per test file or per logical case as that doc specifies.
 
 ```bash
 # From reference_client/

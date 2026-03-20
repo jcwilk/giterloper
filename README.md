@@ -10,7 +10,7 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 ## Knowledge stores
 
-Knowledge lives in separate repositories. The default store is [giterloper_knowledge](https://github.com/jcwilk/giterloper_knowledge). Store connections are defined per session in `.giterloper/sessions/<sessionId>/pinned.yaml`:
+Knowledge lives in separate repositories. The default store is [giterloper_knowledge](https://github.com/jcwilk/giterloper_knowledge). Store connections are defined per session in `.giterloper/<sessionId>/pinned.yaml`:
 
 ```yaml
 my_pin:
@@ -19,7 +19,7 @@ my_pin:
   branch: optional-branch-name # omit for read-only pin
 ```
 
-Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override with `--session-id`). Cloned stores live under `.giterloper/sessions/<sessionId>/versions/<name>/<sha>/`. Temporary write clones use `.giterloper/sessions/<sessionId>/staged/<name>/<branch>/`.
+Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override with `--session-id`). Cloned stores live under `.giterloper/<sessionId>/versions/<name>/<sha>/`. Temporary write clones use `.giterloper/<sessionId>/staged/<name>/<branch>/`.
 
 ## Quick start
 
@@ -38,14 +38,14 @@ Production deploys use the Docker image on Fly.io. To run the MCP server in Dock
 
 ## Tests
 
-Run the full suite (typecheck + all topic tests + leaked-pin cleanup):
+Run the full suite (typecheck + unified test harness):
 
 ```bash
 ./scripts/check_all.sh
 # or: deno task check
 ```
 
-Run only automated tests (same suites as CI, including cleanup after):
+Run only automated tests (same harness as CI):
 
 ```bash
 deno run -A scripts/run-tests.ts
@@ -54,4 +54,4 @@ deno run -A scripts/run-tests.ts
 
 Topic-only slices: `deno task test:core`, `deno task test:cli`, `deno task test:mcp`.
 
-See `tests/README.md` for collision-avoidance and test strategy guidance.
+See `tests/README.md` for the target runner (bounded parallel logical cases, flattened `.giterloper/<sessionId>/` layout, test-scoped cleanup) and collision-avoidance rules.

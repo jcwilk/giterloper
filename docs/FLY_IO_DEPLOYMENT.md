@@ -2,7 +2,7 @@
 
 This document covers **production deployment** (Fly.io) and **optional local Docker run** when you want to match the container environment. For day-to-day development and tests, use **native Deno** on the host; see [README.md](../README.md) and [AGENTS.md](../AGENTS.md).
 
-Research note for deploying the giterloper MCP server (Deno + git + Python memsearch + persistent `.giterloper/`) on Fly.io under the constraints in [DEPLOYMENT_REQUIREMENTS.md](./DEPLOYMENT_REQUIREMENTS.md): persistent disk, one Machine, inbound HTTP, outbound HTTPS, &lt;$20/month.
+Research note for deploying the giterloper MCP server (Deno + git + Python memsearch + persistent `.giterloper/`) on Fly.io under the constraints in [DEPLOYMENT_REQUIREMENTS.md](./DEPLOYMENT_REQUIREMENTS.md): persistent disk, one Machine, inbound HTTP, outbound HTTPS, &lt;$20/month. On-disk session layout under `.giterloper/` is **`<sessionId>/` directories only** (no `sessions/` wrapper)—see that doc for the full tree.
 
 ---
 

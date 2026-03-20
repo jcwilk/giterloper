@@ -40,7 +40,7 @@ Ticket operations are typically induced by user-invoked skills/subagents such as
 
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
 - **MCP server:** `deno task mcp:serve` or `deno run -A lib/gl-mcp-server.ts` from workspace root.
-- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs `tests/core/` with `deno test --parallel`, then `tests/cli/` and `tests/mcp/` serially (shared `Deno.env` / `.giterloper` make full-file parallel unsafe for integration); optional **`DENO_JOBS`** affects the core phase only (see `tests/README.md`); post-run leak cleanup; typecheck: `deno check lib/gl.ts`.
+- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: logical test cases are scheduled with a **bounded worker pool** that backfills as cases finish (concurrency cap via **`DENO_JOBS`** or the harness equivalent—see `tests/README.md`). Target design: **no** serial split between `tests/core/`, `tests/cli/`, and `tests/mcp/` for isolation reasons; integration tests use per-case temp `cwd`, **`.giterloper/<sessionId>/`** state, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). **No** suite-wide leak cleanup on the default happy path. Typecheck: `deno check lib/gl.ts`.
 
 **Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
 
@@ -54,11 +54,11 @@ A rigorous, thoughtfully designed test suite is essential for agentic coding. It
 
 Topic integration tests—especially MCP workflow tests against a live remote—are especially valuable as executable workflow documentation for both humans and agents. Keep that coverage high-signal and intentionally scoped: less is more. Avoid overlapping scenarios and competing sources of truth. CLI-facing behavior lives in `tests/cli/` (real `gl` / `gl-maintenance`); higher-level agent paths live in `tests/mcp/`.
 
-Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, and cleanup rules).
+Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, and cleanup rules). The target end state for the test harness and flattened `.giterloper/<sessionId>/` layout is spelled out in [docs/TEST_PARALLELISM_PLAN.md](./docs/TEST_PARALLELISM_PLAN.md); `tests/README.md` is kept aligned with that plan as the implementation lands.
 
 ## Gl Script Notes
 
-- **pinned.yaml** — All writes go through `mutatePins()`. Each session has its own pinned.yaml under `.giterloper/sessions/<sessionId>/`; no cross-session locking.
+- **pinned.yaml** — All writes go through `mutatePins()`. Each session has its own pinned.yaml under `.giterloper/<sessionId>/`; no cross-session locking.
 - **`verifyCloneAtSha`** uses `runSoft` (not `run`) so corrupt/empty clones return `false` instead of throwing. Allows `clonePin` to remove bad dirs and retry.
 - **Branched vs branchless pins:** Write ops (`insert`, `promote`, `merge`) require a pin with `branch`. Use `requirePinBranch`.
 - **Stale detection:** `assertBranchFresh` fails when local HEAD ≠ remote branch HEAD (ahead or behind). Sync with `gl pin update <name>` or `git -C <staged-dir> pull --rebase`.
@@ -72,7 +72,7 @@ Use [tests/README.md](./tests/README.md) as the canonical source for all test-sp
 
 ## pinned.yaml Format
 
-State is session-scoped: `.giterloper/sessions/<sessionId>/pinned.yaml`. CLI defaults to session `_cli`; use `--session-id <id>` to override. MCP uses per-connection session ids. The session pin is always named `_session`; omit the `pin` parameter in MCP tools to target it.
+State is session-scoped: `.giterloper/<sessionId>/pinned.yaml`. CLI defaults to session `_cli`; use `--session-id <id>` to override. MCP uses per-connection session ids. The session pin is always named `_session`; omit the `pin` parameter in MCP tools to target it.
 
 ```yaml
 _session:

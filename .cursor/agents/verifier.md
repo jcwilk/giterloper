@@ -35,7 +35,7 @@ When invoked, do the following:
 2. Read each ticket details and acceptance criteria (`./tk show <id>`).
    - Identify and read the authoritative markdown spec(s) that govern this ticket's behavior.
 3. Run the full check suite (required):
-   - Prefer `./scripts/check_all.sh` (typecheck + `deno run -A scripts/run-tests.ts` over `tests/core/`, `tests/cli/`, `tests/mcp/` with post-run leak cleanup); stop on first failure.
+   - Prefer `./scripts/check_all.sh` (typecheck + `deno run -A scripts/run-tests.ts`); stop on first failure. Runner shape and isolation rules are defined in [tests/README.md](../../tests/README.md) (bounded parallel logical cases, flattened `.giterloper/<sessionId>/`, test-scoped cleanup).
    - Equivalent pieces: `deno check lib/gl.ts`, then `deno run -A scripts/run-tests.ts`.
    - Treat any failing test or typecheck as caused by the changes under review, unless you can definitely confirm flakiness (e.g. same test passes on immediate re-run with no code change). If flakiness is confirmed, report it to the parent so it can be raised in the eventual debrief; still treat the run as failing for the purpose of your verdict (REJECTED until the parent addresses flakiness or the failure).
    - If a failing test appears to conflict with authoritative markdown behavior, explicitly flag it as a spec-vs-test mismatch and require the parent to align tests/implementation to the markdown spec.

@@ -4,7 +4,7 @@ This note captures **design options and suggested acceptance** for a future chan
 
 ## Problem
 
-`tests/mcp/` (and related CLI integration tests) exercise **real Git remotes** such as `github.com/jcwilk/giterloper_test_knowledge`. That implies network I/O, authentication, GitHub rate limits, and occasional flake from `could not reach remote`. After the topic-based layout and parallel **core** suite are stable, we may want a **faster, less externally dependent** path for day-to-day MCP test iteration—without abandoning high-signal live-remote workflows.
+`tests/mcp/` (and related CLI integration tests) exercise **real Git remotes** such as `github.com/jcwilk/giterloper_test_knowledge`. That implies network I/O, authentication, GitHub rate limits, and occasional flake from `could not reach remote`. After the unified **bounded parallel** harness and **per-case isolation** (temp `cwd`, `.giterloper/<sessionId>/`, injected MCP config) are stable, we may want a **faster, less externally dependent** path for day-to-day MCP test iteration—without abandoning high-signal live-remote workflows.
 
 ## Non-goals
 
@@ -15,7 +15,7 @@ This note captures **design options and suggested acceptance** for a future chan
 
 ### 1. Local bare repositories (good first prototype)
 
-Use `git init --bare` under a temp or cached directory, seed commits and branches, and point session setup (`KNOWLEDGE_STORE_REMOTE`, pin `repo` URLs, or helpers) at `file://` or another **locally controlled** remote.
+Use `git init --bare` under a temp or cached directory, seed commits and branches, and point session setup (pin `repo` URLs, injected bootstrap config, or helpers) at `file://` or another **locally controlled** remote.
 
 - **Pros:** Real git object graph, fetch/push/SHA semantics match production git paths.
 - **Cons:** Anything that depends on **GitHub HTTP APIs** (for example merge flows via `gh`) still needs real credentials, stubs, or narrowed test scope.
@@ -41,11 +41,11 @@ Default PR job uses mocks for most MCP modules; a **scheduled or manual** job ke
 - **Pros:** Clear speed win for most commits; retains periodic confidence.
 - **Cons:** Two configurations to maintain; failures may surface late unless the split is documented and enforced.
 
-## Constraints from current layout
+## Constraints from the target test layout
 
-- [tests/README.md](../tests/README.md): MCP and CLI integration files run **serially** across files (shared `Deno.env`, `.giterloper/`). Mock setup must not assume cross-file parallelism unless that runner contract changes.
-- Collision rules (**`RUN_ID`**, per-file `sessionId`, branch/pin naming) still apply when multiple tests share a mock remote.
-- Cleanup helpers (`cleanupTestKnowledgeRepo`, leak cleanup in `scripts/run-tests.ts`) may need **mock-aware** variants if branches/remotes are not on GitHub.
+- [tests/README.md](../tests/README.md): Logical cases run under a **bounded parallel** harness; mock setup must respect **per-case** `cwd`, **`.giterloper/<sessionId>/`**, and **no cross-test reliance on mutable `Deno.env`** for MCP/server configuration (inject config instead).
+- Collision rules (**`RUN_ID`**, per-case `sessionId`, branch/pin naming) still apply when multiple tests share a mock remote.
+- Cleanup helpers (`cleanupTestKnowledgeRepo`, etc.) must remain **test-scoped**; mock remotes may need adapter behavior where GitHub-specific steps differ.
 
 ## Suggested acceptance criteria for a future PR
 
@@ -60,4 +60,4 @@ Use these as a checklist when implementing optional mocking; adjust if product o
 
 ## Related
 
-- Integration test strategy and env: [tests/README.md](../tests/README.md) (parallelism, `KNOWLEDGE_STORE_REMOTE`, auth).
+- Integration test strategy: [tests/README.md](../tests/README.md) (runner, parallelism, layout, auth).

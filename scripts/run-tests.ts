@@ -1,13 +1,13 @@
 #!/usr/bin/env -S deno run -A
 /**
  * Runs all topic test suites (tests/core, tests/cli, tests/mcp).
- * - `tests/core/`: `deno test --parallel` (worker count from `DENO_JOBS` or CPU count; see `deno test --help`).
- * - `tests/cli/` and `tests/mcp/`: **without** `--parallel`. Deno runs parallel test modules in the same OS process
- *   with a shared `Deno.env`; MCP tests toggle `MCP_INSECURE`, `MCP_TOKEN`, and `KNOWLEDGE_STORE_REMOTE`, and CLI+MCP
- *   integration tests share `.giterloper/` under the repo root — running those files concurrently causes flakes
- *   (401 auth, missing pins, git cwd errors). Core unit tests do not hit that.
- * CLI tests use a unique `--session-id` per file (see tests/helpers/gl.ts).
- * cleanupLeakedTestPins() removes leaked integration-test pins (names containing E2E_MARKER / `gle2e_`) from every session under `.giterloper/sessions/`.
+ *
+ * **Target behavior** (canonical): one bounded worker pool over **logical test cases**, per-case isolation (temp cwd,
+ * `.giterloper/<sessionId>/`), no suite-wide cleanup on the happy path, MCP/config injection in tests instead of
+ * mutating `Deno.env`. See `tests/README.md` and `docs/TEST_PARALLELISM_PLAN.md`.
+ *
+ * **Current implementation** (until that migration lands): `tests/core/` with `deno test --parallel`, then `tests/cli/`
+ * and `tests/mcp/` in one serial `deno test` invocation; `cleanupLeakedTestPins()` sweeps `.giterloper/sessions/*`.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";

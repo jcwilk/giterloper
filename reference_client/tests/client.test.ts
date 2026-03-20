@@ -16,7 +16,7 @@ import {
   waitForServer,
 } from "../test_helpers.ts";
 
-/** One session per test file — avoids `_cli` contention when `deno test` runs files in parallel. */
+/** One session id per test file — avoids `_cli` contention when `deno test` runs multiple files in parallel; see `tests/README.md` for full-suite concurrency and `.giterloper/<sessionId>/` target layout. */
 const RC_SESSION = newTestCliSessionId();
 import {
   createClient,

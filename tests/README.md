@@ -4,6 +4,37 @@ This document is the canonical reference for test strategy, test execution, and 
 
 It is **not** the canonical source for product behavior semantics. Behavior semantics are defined by authoritative markdown specs (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`). If tests conflict with those specs, update tests (and code) to match the authoritative markdown contract.
 
+## Target architecture (canonical)
+
+The repository is converging on the layout and runner described in [docs/TEST_PARALLELISM_PLAN.md](../docs/TEST_PARALLELISM_PLAN.md). Treat the following as the **contract** for new test and product work:
+
+### On-disk session layout
+
+- Under the process working directory, **all** giterloper session state lives at **`.giterloper/<sessionId>/`** (for example `pinned.yaml`, `versions/`, `staged/`, indexes, and any session-local locks).
+- There is **no** `.giterloper/sessions/` directory in the target layout—only directories **named by session id** sit directly under `.giterloper/`.
+- Until the migration is complete, some sources may still use the legacy path `.giterloper/sessions/<sessionId>/`. **New code and tests should implement the flattened layout** and update adjacent call sites when touched.
+
+### Runner and parallelism
+
+- **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The target shape is:
+  - **one** bounded worker pool that schedules **logical test cases** (not a “parallel core, then serial cli/mcp” split);
+  - workers **backfill** from a queue as cases finish (concurrency cap via **`DENO_JOBS`** or the harness’s documented equivalent);
+  - because Deno does not run multiple `Deno.test(...)` blocks in the same file in parallel, logical cases are exposed as **separate generated modules** (one runnable file per case) so the pool can run them concurrently.
+- There is **no** documented exception that keeps `tests/cli/` or `tests/mcp/` serial for parallelism reasons once isolation is correct.
+
+### Isolation and helpers
+
+- Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
+- **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Helpers should default **`cwd`** and **`sessionId`** from that context (wrappers that always pass `--session-id` are encouraged).
+- **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env.
+
+### Cleanup
+
+- Cleanup is **scoped to the current test**: branches, pins, temp dirs, and session dirs that **that test** created.
+- The default runner path does **not** perform suite-wide sweeps across all sessions or unrelated remote branches. A separate **debug-only** leak cleaner may exist for manual recovery; it is not part of the parallel happy path.
+
+---
+
 ## Why Tests Matter Here
 
 This project relies on agentic coding workflows. A thoughtfully designed, rigorous test suite is essential because it is the most reliable way to confirm behavior matches intent.
@@ -23,7 +54,7 @@ Use native Deno for development and tests.
 
 ### Running all checks
 
-From the repository root, run every check (typecheck, then all topic test suites) in the canonical order; the script exits on first failure:
+From the repository root, run every check (typecheck, then the full test harness) in the canonical order; the script exits on first failure:
 
 ```bash
 ./scripts/check_all.sh
@@ -31,19 +62,12 @@ From the repository root, run every check (typecheck, then all topic test suites
 
 Or via Deno: `deno task check`
 
-Use this before persisting ticket work (e.g. verifier and work-next run it to validate changes).
+Use this before persisting ticket work (e.g. verifier and work-next use it to validate changes).
 
 ### Parallel execution
 
-`deno task test:core` and the first phase of `scripts/run-tests.ts` use `deno test --parallel` on **`tests/core/`** only. Cap worker count with **`DENO_JOBS`** (integer); if unset, Deno defaults to the CPU count (`deno test --help`). Example:
-
-```bash
-DENO_JOBS=4 deno task test:core
-```
-
-**`tests/cli/` and `tests/mcp/` are not run with `--parallel`** in the unified runner or in `deno task test:cli` / `deno task test:mcp`. Parallel test modules share one OS process and a single `Deno.env`; MCP tests set `MCP_INSECURE`, `MCP_TOKEN`, and `KNOWLEDGE_STORE_REMOTE`, and integration tests share `.giterloper/` under the repo — concurrent integration files reliably flake (auth, missing pins, git cwd errors). Core tests avoid that.
-
-Tests inside a single file still run **one after another** (Deno does not run individual `Deno.test` cases in parallel in stable 2.x). Integration modules use distinct `sessionId` per CLI file, unique pin/branch names (`randomBytes`, not `Date.now()` alone on shared remotes), and `createMcpAppForTest()` where a fresh MCP app is required. `runGl` / `runGlJson` and `runGlMaintenance` / `runGlMaintenanceJson` retry up to three times on transient remote/cwd/git subprocess failures (see `REMOTE_TRANSIENT` in `tests/helpers/gl.ts`).
+- Cap worker count with **`DENO_JOBS`** (integer) where the harness respects it (`deno test --help` for Deno’s behavior when subprocesses invoke `deno test`).
+- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules in the target design: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases.
 
 ### Layout and individual commands
 
@@ -56,52 +80,58 @@ Tests are grouped by **topic**, not by duration:
 | `tests/mcp/` | MCP server behavior, including HTTP client workflow tests |
 
 - **Typecheck:** `deno check lib/gl.ts` — required when touching TypeScript; run with test changes.
-- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs `tests/core/` with **`--parallel`**, then `tests/cli/` and `tests/mcp/` sequentially, then cleans up leaked test pins (see below).
-- **Topic only:** `deno task test:core` (`--parallel`), `deno task test:cli`, or `deno task test:mcp` (integration tasks are serial across files).
+- **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs the unified harness (bounded parallel case execution per target architecture above).
+- **Topic only:** `deno task test:core`, `deno task test:cli`, or `deno task test:mcp` — scoped runs under `tests/core/`, `tests/cli/`, or `tests/mcp/` for fast feedback; same isolation expectations as the full suite.
 
 ## CLI / MCP integration tests: collision avoidance (CRITICAL)
 
-Tests that hit `giterloper_test_knowledge` use a shared remote repository and session-scoped local state. **CLI and gl-maintenance tests must not rely on the implicit `_cli` session** (that would make parallel `deno test` flake on `pinned.yaml`). Use a per–test-file id from `newTestCliSessionId()` in `tests/helpers/gl.ts` and pass `{ sessionId }` into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson`, or use the same id in thin local wrappers (`glj` / `glm`). Assert paths under `giterloperSessionRoot(Deno.cwd(), sessionId)` (or equivalent) instead of hardcoding `.giterloper/sessions/_cli`. When calling `cleanupTestKnowledgeRepo` with a `pinName`, include `sessionId` so local `versions/` and `staged/` cleanup targets the correct session.
+Tests that hit `giterloper_test_knowledge` use a shared remote repository. Local state must remain **per session** and **per test case** under **`<cwd>/.giterloper/<sessionId>/`**.
+
+Use the shared helpers (`tests/helpers/gl.ts`, `tests/helpers/cleanup.ts`, and the forthcoming test runtime context) so every case gets:
+
+- a unique **`sessionId`** for the whole case (not shared across cases in the same file unless the file is a single case);
+- a unique **`RUN_ID`** (or equivalent) embedded in pin names, branches, and remote file paths;
+- **`cleanupTestKnowledgeRepo(...)`** (or successors) in **branch- and pin-scoped** modes only—never legacy “delete all branches” modes while any parallel run can exist.
 
 ### 1) Randomize all collision-prone names
 
-Each test file should generate a unique `RUN_ID` at load time:
+Each logical test case should have a unique `RUN_ID` (or derive it from the test context):
 
 ```js
 const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 ```
 
-(`E2E_MARKER` in `tests/helpers/config.ts` is the `"gle2e_"` prefix for scratch pin names—kept under that export name for leak cleanup and older references; CLI/MCP remote scenarios are **topic integration tests**, not a separate “e2e” suite. `scripts/run-tests.ts` removes pins whose names include this marker from every `.giterloper/sessions/*` after the suite finishes.)
+(`E2E_MARKER` in `tests/helpers/config.ts` is the `"gle2e_"` prefix for scratch pin names—kept under that export name for leak cleanup and older references; CLI/MCP remote scenarios are **topic integration tests**, not a separate “e2e” suite.)
 
 Every collision-prone name must include `RUN_ID` (or equivalent entropy):
 
 | Resource | Pattern | Why |
 |----------|---------|-----|
-| Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/sessions/<sessionId>/versions/<name>/`, `pinned.yaml` |
+| Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/<sessionId>/versions/<name>/`, `pinned.yaml` |
 | Branches (remote) | `${RUN_ID}` or `${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
-| Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel tests; `Date.now()` alone can collide |
+| Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel cases; `Date.now()` alone can collide |
 | File paths in remote | `knowledge/e2e_${RUN_ID}_${randomBytes(4)}.md` | Avoid overwrites between runs |
 
-Assume tests can run in parallel within a file. Use `crypto.randomBytes` for entropy; `Date.now()` is insufficient.
+Assume **logical cases** can run in parallel with any other case. Use `crypto.randomBytes` for entropy; `Date.now()` is insufficient.
 
 ### 2) Test independence (CRITICAL)
 
 Every test must be self-contained. No test may depend on another test's side effects.
 
 - Tests that write should create their own scratch pins with unique branches.
-- Do not use `concurrency: 1` or shared mutable state between tests.
+- Do not use shared mutable state between tests (including shared `Deno.env` mutation).
 
 ### 3) Session-isolated state
 
-- Each CLI integration **file** uses its own `sessionId` (see `newTestCliSessionId()`); state lives under `.giterloper/sessions/<sessionId>/`.
-- Unique session ids prevent parallel test **files** from contending on the same `pinned.yaml`; unique pin names still isolate resources within the remote and under that session’s `versions/` and `staged/`.
+- Each logical case has its own `sessionId` and cwd; state lives under **`.giterloper/<sessionId>/`** beneath that cwd.
+- Unique session ids prevent contention on the same `pinned.yaml`; unique pin names isolate resources on the shared remote and under `versions/` and `staged/`.
 
 ### 4) Cleanup and branch isolation
 
 `cleanupTestKnowledgeRepo(source, sha, { pinName, branchName, sessionId })` supports (`sessionId` required when `pinName` is set):
 
-- Legacy (`pinName` string): deletes all remote branches except `main`; use only when no concurrent run can exist.
-- Parallel-safe (`{ pinName, branchName }` object): deletes only this run's branch, force-pushes `main`, recreates this run's branch from `main`.
+- **Scoped (`{ pinName, branchName }`):** deletes only this run's branch, reconciles `main` only as defined by the helper’s contract for that test—safe for parallel cases when each case uses distinct branch names.
+- **Legacy broad modes** (e.g. deleting all non-`main` branches) are **not** compatible with parallel execution; do not use them in the default suite.
 
 ### 5) Pin lifecycle and cloning
 

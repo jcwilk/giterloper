@@ -7,12 +7,16 @@ import { fileURLToPath } from "node:url";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** Random CLI session id (valid for `validateSessionId`). Use one per test file so parallel `deno test` does not contend on `_cli`. */
+/** Random CLI session id (valid for `validateSessionId`). Use one per logical test case (or per file until cases are split) so concurrent runs do not contend on `_cli`. Target on-disk layout: `.giterloper/<sessionId>/` (see tests/README.md). */
 export function newTestCliSessionId(): string {
   return `e2e_${randomBytes(16).toString("hex")}`;
 }
 
-/** `.giterloper/sessions/<sessionId>` under cwd (for assertions and path checks). */
+/**
+ * Session state directory under `cwd`.
+ * **Target (canonical):** `.giterloper/<sessionId>/` — see `tests/README.md`.
+ * **Current implementation** still uses `.giterloper/sessions/<sessionId>/` until the flattened layout migration lands; update this helper when paths are moved.
+ */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
   return path.join(cwd, ".giterloper", "sessions", sessionId);
 }

@@ -16,7 +16,7 @@ export const WORKSPACE_ROOT = path.join(_dirname, "..");
 const GL_SCRIPT = path.join(WORKSPACE_ROOT, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE = path.join(WORKSPACE_ROOT, "scripts", "gl-maintenance");
 
-/** Re-export for reference_client tests: one id per test file avoids `_cli` contention under parallel `deno test`. */
+/** Re-export for reference_client tests: one id per test file (or per logical case) avoids `_cli` contention when `deno test` runs multiple files in parallel; full-suite concurrency is defined in tests/README.md. */
 export { newTestCliSessionId } from "../tests/helpers/gl.ts";
 
 export const E2E_MARKER = "rc2e_";

@@ -4,7 +4,7 @@ Giterloper exposes the same tools over **Streamable HTTP** (`GET|POST /mcp`) and
 
 ## Session and pins
 
-- State lives under `.giterloper/sessions/<sessionId>/` (see `AGENTS.md`).
+- State lives under `.giterloper/<sessionId>/` (see `AGENTS.md`).
 - **Session pin:** internal name is always `_session`. Callers target it by **omitting** the `pin` / `sourcePin` / `targetPin` argument where the tool allows—**never** pass the literal string `_session` as a pin name; it is reserved and rejected. Full rules for `giterloper_pin_set` (branch/ref matrix, merge exception) are in [`docs/PIN_SETTING_PARAM_BEHAVIOR.md`](docs/PIN_SETTING_PARAM_BEHAVIOR.md) and the overview in [`docs/PIN_SET_CONTRACT.md`](docs/PIN_SET_CONTRACT.md).
 
 ## Tools

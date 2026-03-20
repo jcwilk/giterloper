@@ -8,8 +8,8 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 
 ## 1. File storage requirements
 
-- **Root:** All state under `.giterloper/`. Mutable state is session-rooted under `.giterloper/sessions/<sessionId>/`.
-- **Layout (per session):** `sessions/<sessionId>/pinned.yaml`, `sessions/<sessionId>/versions/<pinName>/<sha>/` (git clones), `sessions/<sessionId>/staged/<pinName>/<branch>/` (working clones), `sessions/<sessionId>/indexes/<pinName>/<sha>/` (metadata.json + milvus.db), `locks/pins/` (FIFO mutex).
+- **Root:** All session-scoped mutable state under `.giterloper/`. Each session has its own directory **named by session id** (no `sessions/` wrapper): **`.giterloper/<sessionId>/`**.
+- **Layout (per session):** `<sessionId>/pinned.yaml`, `<sessionId>/versions/<pinName>/<sha>/` (git clones), `<sessionId>/staged/<pinName>/<branch>/` (working clones), `<sessionId>/indexes/<pinName>/<sha>/` (metadata.json + milvus.db), `<sessionId>/locks/pins/` (FIFO mutex, or equivalent session-local lock paths as implemented).
 - **Writes:** Atomic overwrites (pinned.yaml), clone replace, git ops in staged/, memsearch writes milvus.db + metadata.json, session .last_activity, lock tickets (create/delete).
 - **Scale (hobby):** Few pins, few sessions; size dominated by clones + staged + indexes. No hard limit; assume &lt;10–20 GB sufficient.
 

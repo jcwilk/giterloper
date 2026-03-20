@@ -7,7 +7,7 @@ cd "$(dirname "$0")/.."
 echo "==> Typecheck (deno check lib/gl.ts)"
 deno check lib/gl.ts
 
-echo "==> Tests (deno run -A scripts/run-tests.ts — parallel core only; see tests/README.md)"
+echo "==> Tests (deno run -A scripts/run-tests.ts — see tests/README.md for harness / parallelism)"
 deno run -A scripts/run-tests.ts
 
 echo "==> All checks passed"
