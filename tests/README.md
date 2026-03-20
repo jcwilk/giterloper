@@ -23,7 +23,7 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 ### Isolation and helpers
 
 - Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
-- **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Helpers should default **`cwd`** and **`sessionId`** from that context (wrappers that always pass `--session-id` are encouraged).
+- **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local `.giterloper/` trees are removed under the test cwd.
 - **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env.
 
 ### Cleanup
@@ -85,10 +85,10 @@ Tests are grouped by **topic**, not by duration:
 
 Tests that hit `giterloper_test_knowledge` use a shared remote repository. Local state must remain **per session** and **per test case** under **`<cwd>/.giterloper/<sessionId>/`**.
 
-Use the shared helpers (`tests/helpers/gl.ts`, `tests/helpers/cleanup.ts`, and the forthcoming test runtime context) so every case gets:
+Use the shared helpers (`tests/helpers/gl.ts`, `tests/helpers/test-runtime-context.ts`, `tests/helpers/cleanup.ts`) so every case gets:
 
 - a unique **`sessionId`** for the whole case (not shared across cases in the same file unless the file is a single case);
-- a unique **`RUN_ID`** (or equivalent) embedded in pin names, branches, and remote file paths;
+- a unique **`runId`** on **`TestRuntimeContext`** (or equivalent `RUN_ID`) embedded in pin names, branches, and remote file paths;
 - **`cleanupTestKnowledgeRepo(...)`** (or successors) in **branch- and pin-scoped** modes only—never legacy “delete all branches” modes while any parallel run can exist.
 
 ### 1) Randomize all collision-prone names

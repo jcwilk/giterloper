@@ -5,7 +5,6 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
-  E2E_MARKER,
   TEST_SOURCE,
   TEST_TOPIC_BODY,
   TEST_TOPIC_PATH,
@@ -16,14 +15,14 @@ import {
 } from "../helpers/config.ts";
 
 import {
+  createTestRuntimeContext,
+  destroyTestRuntimeContext,
   giterloperSessionRoot,
-  newTestCliSessionId,
   runGlJson as runGlJsonCli,
   runGlMaintenanceJson as runGlMaintenanceJsonCli,
+  scratchPinName,
 } from "../helpers/gl.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
-
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
 
 function getPin(
   state: { name?: string }[] | unknown,
@@ -33,22 +32,25 @@ function getPin(
   return arr.find((entry: { name?: string }) => entry.name === pinName);
 }
 
-const TEST_SESSION = newTestCliSessionId();
+const ctx = createTestRuntimeContext();
+addEventListener("unload", () => {
+  destroyTestRuntimeContext(ctx);
+});
 
-function glj(args: string[], o: { cwd?: string; stdin?: string | null } = {}) {
-  return runGlJsonCli(args, { sessionId: TEST_SESSION, ...o });
+function glj(args: string[], o: { stdin?: string | null } = {}) {
+  return runGlJsonCli(args, { ctx, ...o });
 }
 
-function glm(args: string[], o: { cwd?: string } = {}) {
-  return runGlMaintenanceJsonCli(args, { sessionId: TEST_SESSION, ...o });
+function glm(args: string[]) {
+  return runGlMaintenanceJsonCli(args, { ctx });
 }
 
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "staged", pinName, branch);
+  return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "staged", pinName, branch);
 }
 
 function cloneDir(pinName: string, sha: string): string {
-  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "versions", pinName, sha);
+  return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "versions", pinName, sha);
 }
 
 function branchContentText(): string {
@@ -72,10 +74,6 @@ function runGit(args: string[], opts: { cwd?: string; silent?: boolean } = {}): 
   }
 
   return (result.stdout || "").trim();
-}
-
-function scratchPinName(prefix: string): string {
-  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
 }
 
 function ensurePinRemoved(pinName: string): void {
@@ -116,10 +114,10 @@ function createRemoteBranchFromMain(
 }
 
 Deno.test("stage creates a working clone", () => {
-  const pinName = scratchPinName("scratch-stage");
+  const pinName = scratchPinName(ctx, "scratch-stage");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const stageResult = glm(["stage", branch, "--pin", pinName]) as {
@@ -133,15 +131,15 @@ Deno.test("stage creates a working clone", () => {
     assertEquals(existsSync(path.join(dir, "CONSTITUTION.md")), true, "staged dir should contain repository files");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("write content to staged clone", () => {
-  const pinName = scratchPinName("scratch-write");
+  const pinName = scratchPinName(ctx, "scratch-write");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const dir = stagedDir(pinName, branch);
@@ -154,15 +152,15 @@ Deno.test("write content to staged clone", () => {
     assertMatch(content, /e2e-topic-keyword/);
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("promote pushes and updates pin", () => {
-  const pinName = scratchPinName("scratch-promote");
+  const pinName = scratchPinName(ctx, "scratch-promote");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const beforePins = glj(["pin", "list"]) as { name?: string; sha?: string }[];
@@ -181,15 +179,15 @@ Deno.test("promote pushes and updates pin", () => {
     assertEquals(existsSync(cloneDir(pinName, afterPin!.sha!)), true, "pinned clone should exist for new sha");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("diagnostic reports healthy state (main gl)", () => {
-  const pinName = scratchPinName("scratch-diagnostic");
+  const pinName = scratchPinName(ctx, "scratch-diagnostic");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, TEST_TOPIC_PATH, branchContentText());
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const result = glj(["diagnostic", "--pin", pinName]) as {
@@ -204,15 +202,15 @@ Deno.test("diagnostic reports healthy state (main gl)", () => {
     assertEquals(check.cloneShaOk, true, "clone should match pinned sha");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("verify reports healthy state (extended)", () => {
-  const pinName = scratchPinName("scratch-verify");
+  const pinName = scratchPinName(ctx, "scratch-verify");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, TEST_TOPIC_PATH, branchContentText());
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const result = glm(["verify", "--pin", pinName]) as {
@@ -227,15 +225,15 @@ Deno.test("verify reports healthy state (extended)", () => {
     assertEquals(check.cloneShaOk, true, "clone should match pinned sha");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("stage-cleanup removes staged clone", () => {
-  const pinName = scratchPinName("scratch-cleanup");
+  const pinName = scratchPinName(ctx, "scratch-cleanup");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const staged = glm(["stage", branch, "--pin", pinName]) as { staged?: string };
@@ -250,15 +248,15 @@ Deno.test("stage-cleanup removes staged clone", () => {
     assertEquals(existsSync(stagedPath), false, "staged path should be removed after cleanup");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("stage same branch reuses existing", () => {
-  const pinName = scratchPinName("scratch-reuse");
+  const pinName = scratchPinName(ctx, "scratch-reuse");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const first = glm(["stage", branch, "--pin", pinName]) as {
@@ -275,15 +273,15 @@ Deno.test("stage same branch reuses existing", () => {
     glm(["stage-cleanup", branch, "--pin", pinName]);
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("pin list includes the test pin", () => {
-  const pinName = scratchPinName("scratch-list");
+  const pinName = scratchPinName(ctx, "scratch-list");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, TEST_TOPIC_PATH, branchContentText());
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const pins = glj(["pin", "list"]) as { name?: string; source?: string; sha?: string }[];
@@ -294,12 +292,12 @@ Deno.test("pin list includes the test pin", () => {
     assertEquals(!!pin!.sha, true, "pin sha should be populated");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("pin remove removes local pin data", () => {
-  const pinName = scratchPinName("scratch-remove");
+  const pinName = scratchPinName(ctx, "scratch-remove");
   try {
     const added = glj(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]) as {
       name?: string;
@@ -311,7 +309,7 @@ Deno.test("pin remove removes local pin data", () => {
     assertEquals(removed.removed, true, "pin remove should report removed");
     assertEquals(getPin(glj(["pin", "list"]) as { name?: string }[], pinName), undefined, "pin should no longer exist");
     assertEquals(
-      existsSync(path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "versions", pinName)),
+      existsSync(path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "versions", pinName)),
       false,
       "pin versions directory should be removed"
     );
@@ -321,14 +319,14 @@ Deno.test("pin remove removes local pin data", () => {
 });
 
 Deno.test("pin update advances pin sha", () => {
-  const pinName = scratchPinName("scratch-update");
+  const pinName = scratchPinName(ctx, "scratch-update");
   const branchName = `${pinName}-branch`;
   try {
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     const originalSha = getPin(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName)!.sha!;
     const branchSha = createRemoteBranchFromMain(
       branchName,
-      `knowledge/e2e-update_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
+      `knowledge/e2e-update_${ctx.runId}_${randomBytes(4).toString("hex")}.md`,
       `# Update marker for ${pinName}\n`
     );
     const update = glj(["pin", "update", pinName, "--ref", branchName]) as {
@@ -346,15 +344,15 @@ Deno.test("pin update advances pin sha", () => {
     assertEquals(pin!.sha, branchSha, "pinned sha should match updated hash");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });
 
 Deno.test("status returns pinned state", () => {
-  const pinName = scratchPinName("scratch-status");
+  const pinName = scratchPinName(ctx, "scratch-status");
   const branch = `${pinName}-branch`;
   try {
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
     createRemoteBranchFromMain(branch, TEST_TOPIC_PATH, branchContentText());
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const status = glm(["status"]) as {
@@ -373,6 +371,6 @@ Deno.test("status returns pinned state", () => {
     assertEquals(pin!.cloneAtExpectedSha, true, "test pin clone should match pinned sha");
   } finally {
     ensurePinRemoved(pinName);
-    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: TEST_SESSION });
+    cleanupTestKnowledgeRepo(TEST_SOURCE, CLEAN_MAIN_SHA, { pinName, branchName: branch, sessionId: ctx.sessionId, cwd: ctx.cwd });
   }
 });

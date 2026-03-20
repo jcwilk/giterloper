@@ -1,30 +1,54 @@
 import { spawnSync } from "node:child_process";
-import { randomBytes } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+import type { TestRuntimeContext } from "./test-runtime-context.ts";
 
-/** Random CLI session id (valid for `validateSessionId`). Use one per logical test case (or per file until cases are split) so concurrent runs do not contend on `_cli`. Target on-disk layout: `.giterloper/<sessionId>/` (see tests/README.md). */
-export function newTestCliSessionId(): string {
-  return `e2e_${randomBytes(16).toString("hex")}`;
-}
+export type { TestRuntimeContext } from "./test-runtime-context.ts";
+export {
+  createTestRuntimeContext,
+  destroyTestRuntimeContext,
+  newTestCliSessionId,
+  scratchPinName,
+} from "./test-runtime-context.ts";
+
+/** Repository root (workspace); use for reading fixture files when `Deno.cwd()` is a per-test temp dir. */
+export const GITERLOPER_REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+
+const GL_SCRIPT = path.join(GITERLOPER_REPO_ROOT, ".cursor", "skills", "gl", "scripts", "gl");
+const GL_MAINTENANCE_SCRIPT = path.join(GITERLOPER_REPO_ROOT, "scripts", "gl-maintenance");
 
 /** Session state directory under `cwd`: `.giterloper/<sessionId>/` (see `tests/README.md`). */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
   return path.join(cwd, ".giterloper", sessionId);
 }
 
-export type GlCliRunOpts = {
-  sessionId: string;
+type GlCliRunOptsBase = {
   parseJson?: boolean;
-  cwd?: string;
   stdin?: string | null;
 };
-const GL_SCRIPT = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
-const GL_MAINTENANCE_SCRIPT = path.join(root, "scripts", "gl-maintenance");
+
+/**
+ * CLI / gl-maintenance subprocess opts: pass `ctx` or explicit `cwd` + `sessionId`.
+ * Integration helpers do not default `cwd` to the repo root (avoids shared `.giterloper` contention).
+ */
+export type GlCliRunOpts = GlCliRunOptsBase &
+  ({ ctx: TestRuntimeContext } | { cwd: string; sessionId: string });
+
+function resolveGlRun(
+  opts: GlCliRunOpts
+): { cwd: string; sessionId: string; parseJson: boolean; stdin: string | null | undefined } {
+  const cwd = "ctx" in opts ? opts.ctx.cwd : opts.cwd;
+  const sessionId = "ctx" in opts ? opts.ctx.sessionId : opts.sessionId;
+  return {
+    cwd,
+    sessionId,
+    parseJson: opts.parseJson ?? true,
+    stdin: opts.stdin,
+  };
+}
 
 /** Block the isolate for `ms` (for sync retry backoff in tests). */
 function sleepSyncMs(ms: number): void {
@@ -49,19 +73,18 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
 }
 
 export function runGl(args: string[], opts: GlCliRunOpts) {
-  const parseJson = opts.parseJson ?? true;
-  const cliArgs = ["--json", "--session-id", opts.sessionId, ...args];
-  const cwd = opts.cwd ?? root;
+  const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
+  const cliArgs = ["--json", "--session-id", sessionId, ...args];
   const env = { ...Deno.env.toObject() };
   const maxAttempts = 3;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let result;
-    if (opts.stdin != null && opts.stdin !== "") {
+    if (stdin != null && stdin !== "") {
       const tmp = mkdtempSync(path.join(tmpdir(), "gl-stdin-"));
       const stdinFile = path.join(tmp, "stdin.txt");
       try {
-        writeFileSync(stdinFile, opts.stdin, "utf8");
+        writeFileSync(stdinFile, stdin, "utf8");
         result = spawnSync("sh", ["-c", `"${GL_SCRIPT}" ${cliArgs.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ")} < ${stdinFile}`], {
           cwd,
           encoding: "utf8",
@@ -105,19 +128,15 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
   throw new Error("gl: unreachable retry loop exit");
 }
 
-export function runGlJson(
-  args: string[],
-  opts: { sessionId: string; cwd?: string; stdin?: string | null }
-): unknown {
+export function runGlJson(args: string[], opts: GlCliRunOpts): unknown {
   return runGl(args, { ...opts, parseJson: true }).data;
 }
 
 /** Run gl-maintenance commands (status, verify, clone, teardown, stage, stage-cleanup, promote). */
 export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
-  const parseJson = opts.parseJson ?? true;
-  const sessionArgs = ["--session-id", opts.sessionId];
+  const { cwd, sessionId, parseJson } = resolveGlRun(opts);
+  const sessionArgs = ["--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
-  const cwd = opts.cwd ?? root;
   const env = { ...Deno.env.toObject() };
   const maxAttempts = 3;
 
@@ -154,9 +173,6 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   throw new Error("gl-maintenance: unreachable retry loop exit");
 }
 
-export function runGlMaintenanceJson(
-  args: string[],
-  opts: { sessionId: string; cwd?: string }
-): unknown {
+export function runGlMaintenanceJson(args: string[], opts: GlCliRunOpts): unknown {
   return runGlMaintenance(args, { ...opts, parseJson: true }).data;
 }

@@ -33,12 +33,11 @@ function runGit(
   return (result.stdout || "").trim();
 }
 
-function cleanupLocalCopies(pinName: string | null, sessionId: string): void {
+function cleanupLocalCopies(pinName: string | null, sessionId: string, cwd: string): void {
   if (!pinName) return;
 
-  const root = Deno.cwd();
-  const versionsDir = path.join(root, ".giterloper", sessionId, "versions", pinName);
-  const stagedDir = path.join(root, ".giterloper", sessionId, "staged", pinName);
+  const versionsDir = path.join(cwd, ".giterloper", sessionId, "versions", pinName);
+  const stagedDir = path.join(cwd, ".giterloper", sessionId, "staged", pinName);
 
   try {
     rmSync(versionsDir, { recursive: true, force: true });
@@ -57,6 +56,8 @@ export interface CleanupOpts {
   branchName?: string | null;
   /** Required when `pinName` is set (local session tree cleanup under `.giterloper/<sessionId>/`). */
   sessionId?: string;
+  /** Process cwd that owns `.giterloper/<sessionId>/`; defaults to `Deno.cwd()`. */
+  cwd?: string;
 }
 
 export function cleanupTestKnowledgeRepo(
@@ -67,13 +68,14 @@ export function cleanupTestKnowledgeRepo(
   const pinName = opts?.pinName ?? null;
   const branchName = opts?.branchName ? opts.branchName : null;
   const sessionId = opts?.sessionId;
+  const stateCwd = opts?.cwd ?? Deno.cwd();
 
   if (pinName && !sessionId) {
     throw new Error("cleanupTestKnowledgeRepo: sessionId is required when pinName is set");
   }
 
   if (pinName && sessionId) {
-    cleanupLocalCopies(pinName, sessionId);
+    cleanupLocalCopies(pinName, sessionId, stateCwd);
   }
 
   const remoteUrl = toRemoteUrl(remoteSource);
@@ -116,6 +118,6 @@ export function cleanupTestKnowledgeRepo(
   }
 
   if (pinName && sessionId) {
-    cleanupLocalCopies(pinName, sessionId);
+    cleanupLocalCopies(pinName, sessionId, stateCwd);
   }
 }

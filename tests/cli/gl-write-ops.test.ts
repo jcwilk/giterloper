@@ -1,42 +1,39 @@
 import { assertEquals } from "jsr:@std/assert";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { tmpdir } from "node:os";
-import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 
 import {
-  E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
   toRemoteUrl,
 } from "../helpers/config.ts";
 import {
+  createTestRuntimeContext,
+  destroyTestRuntimeContext,
+  GITERLOPER_REPO_ROOT,
   giterloperSessionRoot,
-  newTestCliSessionId,
   runGlJson,
   runGlMaintenanceJson,
+  scratchPinName,
 } from "../helpers/gl.ts";
 
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
+const ctx = createTestRuntimeContext();
+addEventListener("unload", () => {
+  destroyTestRuntimeContext(ctx);
+});
 
-function randomPin(prefix: string): string {
-  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+function glj(args: string[], o: { stdin?: string | null } = {}) {
+  return runGlJson(args, { ctx, ...o });
 }
 
-const TEST_SESSION = newTestCliSessionId();
-
-function glj(args: string[], o: { cwd?: string; stdin?: string | null } = {}) {
-  return runGlJson(args, { sessionId: TEST_SESSION, ...o });
-}
-
-function glm(args: string[], o: { cwd?: string } = {}) {
-  return runGlMaintenanceJson(args, { sessionId: TEST_SESSION, ...o });
+function glm(args: string[]) {
+  return runGlMaintenanceJson(args, { ctx });
 }
 
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "staged", pinName, branch);
+  return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -87,7 +84,7 @@ function createRemoteBranchFromMain(
 }
 
 Deno.test("insert queues content in knowledge/_pending and advances pin sha", () => {
-  const pinName = randomPin("insert");
+  const pinName = scratchPinName(ctx, "insert");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
@@ -109,12 +106,16 @@ Deno.test("insert queues content in knowledge/_pending and advances pin sha", ()
 });
 
 Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha", () => {
-  const pinName = randomPin("install-remote");
+  const pinName = scratchPinName(ctx, "install-remote");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    copyFileSync(
+      path.join(GITERLOPER_REPO_ROOT, "CONSTITUTION.md"),
+      path.join(ctx.cwd, "CONSTITUTION.md")
+    );
     const result = glj(["install-remote", pinName]) as {
       action?: string;
       file?: string;
@@ -124,7 +125,7 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
     assertEquals(result.file, "GITERLOPER.md");
     const destPath = path.join(stagedDir(pinName, branch), "GITERLOPER.md");
     assertEquals(existsSync(destPath), true);
-    const constitutionPath = path.join(Deno.cwd(), "CONSTITUTION.md");
+    const constitutionPath = path.join(GITERLOPER_REPO_ROOT, "CONSTITUTION.md");
     const expected = readFileSync(constitutionPath, "utf8");
     const actual = readFileSync(destPath, "utf8");
     assertEquals(actual, expected);
@@ -136,7 +137,7 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
 });
 
 Deno.test("reconcile processes _pending into topic files and deletes pending", () => {
-  const pinName = randomPin("reconcile");
+  const pinName = scratchPinName(ctx, "reconcile");
   const branch = `${pinName}-branch`;
   try {
     const pendingContent = "# Reconcile Test Topic\n\nContent with marker `reconcile-e2e-marker`.";
@@ -169,7 +170,7 @@ Deno.test("reconcile processes _pending into topic files and deletes pending", (
 });
 
 Deno.test("insert with --name uses requested file name", () => {
-  const pinName = randomPin("insert-name");
+  const pinName = scratchPinName(ctx, "insert-name");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");

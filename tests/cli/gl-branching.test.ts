@@ -7,7 +7,6 @@ import { spawnSync } from "node:child_process";
 
 import {
   CLEAN_MAIN_SHA,
-  E2E_MARKER,
   TEST_ADD_CONTENT,
   TEST_MAIN_REF,
   TEST_SOURCE,
@@ -15,32 +14,31 @@ import {
 } from "../helpers/config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
 import {
+  createTestRuntimeContext,
+  destroyTestRuntimeContext,
   giterloperSessionRoot,
-  newTestCliSessionId,
   runGl,
   runGlMaintenance,
   runGlJson,
   runGlMaintenanceJson,
+  scratchPinName,
 } from "../helpers/gl.ts";
 
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
+const ctx = createTestRuntimeContext();
+addEventListener("unload", () => {
+  destroyTestRuntimeContext(ctx);
+});
 
-function randomPin(prefix: string): string {
-  return `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+function glj(args: string[], o: { stdin?: string | null } = {}) {
+  return runGlJson(args, { ctx, ...o });
 }
 
-const TEST_SESSION = newTestCliSessionId();
-
-function glj(args: string[], o: { cwd?: string; stdin?: string | null } = {}) {
-  return runGlJson(args, { sessionId: TEST_SESSION, ...o });
-}
-
-function glm(args: string[], o: { cwd?: string } = {}) {
-  return runGlMaintenanceJson(args, { sessionId: TEST_SESSION, ...o });
+function glm(args: string[]) {
+  return runGlMaintenanceJson(args, { ctx });
 }
 
 function stagedDir(pinName: string, branch: string): string {
-  return path.join(giterloperSessionRoot(Deno.cwd(), TEST_SESSION), "staged", pinName, branch);
+  return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "staged", pinName, branch);
 }
 
 function runGit(args: string[], opts: { cwd?: string } = {}): string {
@@ -114,11 +112,11 @@ function pushCommitToBranch(
 }
 
 Deno.test("insert fails for branchless pin", () => {
-  const branchlessPin = randomPin("branchless");
+  const branchlessPin = scratchPinName(ctx, "branchless");
   try {
     glj(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGl(["insert", "--pin", branchlessPin], { sessionId: TEST_SESSION, stdin: "x" }),
+      () => runGl(["insert", "--pin", branchlessPin], { ctx, stdin: "x" }),
       Error,
       "has no branch"
     );
@@ -128,11 +126,11 @@ Deno.test("insert fails for branchless pin", () => {
 });
 
 Deno.test("promote fails for branchless pin", () => {
-  const branchlessPin = randomPin("branchless");
+  const branchlessPin = scratchPinName(ctx, "branchless");
   try {
     glj(["pin", "add", branchlessPin, TEST_SOURCE, "--ref", TEST_MAIN_REF]);
     assertThrows(
-      () => runGlMaintenance(["promote", "--pin", branchlessPin], { sessionId: TEST_SESSION }),
+      () => runGlMaintenance(["promote", "--pin", branchlessPin], { ctx }),
       Error,
       "has no branch"
     );
@@ -142,7 +140,7 @@ Deno.test("promote fails for branchless pin", () => {
 });
 
 Deno.test("pin add with non-existent branch creates pin and clones from ref", () => {
-  const pinName = randomPin("create-branch");
+  const pinName = scratchPinName(ctx, "create-branch");
   const branch = `${pinName}-branch`;
   try {
     const result = glj([
@@ -167,7 +165,7 @@ Deno.test("pin add with non-existent branch creates pin and clones from ref", ()
 });
 
 Deno.test("insert on newly created branch creates remote branch on first push", () => {
-  const pinName = randomPin("create-on-push");
+  const pinName = scratchPinName(ctx, "create-on-push");
   const branch = `${pinName}-branch`;
   try {
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", TEST_MAIN_REF, "--branch", branch]);
@@ -184,10 +182,10 @@ Deno.test("insert on newly created branch creates remote branch on first push", 
 });
 
 Deno.test("pin add fails when branch exists on remote at different SHA", () => {
-  const pinName = randomPin("add-fail-mismatch");
+  const pinName = scratchPinName(ctx, "add-fail-mismatch");
   const branch = `${pinName}-branch`;
   try {
-    createRemoteBranchFromMain(branch, `knowledge/e2e_${RUN_ID}_${randomBytes(4).toString("hex")}.md`, "# exists");
+    createRemoteBranchFromMain(branch, `knowledge/e2e_${ctx.runId}_${randomBytes(4).toString("hex")}.md`, "# exists");
     assertThrows(
       () =>
         glj([
@@ -211,18 +209,18 @@ Deno.test("pin add fails when branch exists on remote at different SHA", () => {
 });
 
 Deno.test("insert fails before staged copy when branch exists and pin SHA mismatches remote", () => {
-  const pinName = randomPin("fail-fast");
+  const pinName = scratchPinName(ctx, "fail-fast");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     pushCommitToBranch(
       branch,
-      `knowledge/stale_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
+      `knowledge/stale_${ctx.runId}_${randomBytes(4).toString("hex")}.md`,
       `# stale marker\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGl(["insert", "--pin", pinName], { sessionId: TEST_SESSION, stdin: "should fail" }),
+      () => runGl(["insert", "--pin", pinName], { ctx, stdin: "should fail" }),
       Error,
       "does not match"
     );
@@ -234,18 +232,18 @@ Deno.test("insert fails before staged copy when branch exists and pin SHA mismat
 });
 
 Deno.test("stage fails before clone when branch exists and pin SHA mismatches remote", () => {
-  const pinName = randomPin("stage-fail-fast");
+  const pinName = scratchPinName(ctx, "stage-fail-fast");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     pushCommitToBranch(
       branch,
-      `knowledge/stale_${RUN_ID}_${randomBytes(4).toString("hex")}.md`,
+      `knowledge/stale_${ctx.runId}_${randomBytes(4).toString("hex")}.md`,
       `# stale\n\n${Date.now()}`
     );
     assertThrows(
-      () => runGlMaintenance(["stage", branch, "--pin", pinName], { sessionId: TEST_SESSION }),
+      () => runGlMaintenance(["stage", branch, "--pin", pinName], { ctx }),
       Error,
       "does not match"
     );
@@ -255,7 +253,7 @@ Deno.test("stage fails before clone when branch exists and pin SHA mismatches re
 });
 
 Deno.test("insert succeeds when branch exists and pin SHA matches remote", () => {
-  const pinName = randomPin("match-flow");
+  const pinName = scratchPinName(ctx, "match-flow");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
@@ -274,20 +272,20 @@ Deno.test("insert succeeds when branch exists and pin SHA matches remote", () =>
 });
 
 Deno.test("merge merges source pin branch into target via GitHub API", () => {
-  const srcBranch = `${RUN_ID}_merge_src`;
-  const tgtBranch = `${RUN_ID}_merge_tgt`;
-  const srcPin = randomPin("merge-src");
-  const tgtPin = randomPin("merge-tgt");
+  const srcBranch = `${ctx.runId}_merge_src`;
+  const tgtBranch = `${ctx.runId}_merge_tgt`;
+  const srcPin = scratchPinName(ctx, "merge-src");
+  const tgtPin = scratchPinName(ctx, "merge-tgt");
   try {
     createRemoteBranchFromMain(
       srcBranch,
-      `knowledge/e2e_${RUN_ID}_merge_src.md`,
-      `# Merge source\n\nmerge-src-marker-${RUN_ID}`
+      `knowledge/e2e_${ctx.runId}_merge_src.md`,
+      `# Merge source\n\nmerge-src-marker-${ctx.runId}`
     );
     createRemoteBranchFromMain(
       tgtBranch,
-      `knowledge/e2e_${RUN_ID}_merge_tgt.md`,
-      `# Merge target\n\nmerge-tgt-marker-${RUN_ID}`
+      `knowledge/e2e_${ctx.runId}_merge_tgt.md`,
+      `# Merge target\n\nmerge-tgt-marker-${ctx.runId}`
     );
     glj(["pin", "add", srcPin, TEST_SOURCE, "--ref", srcBranch, "--branch", srcBranch]);
     glj(["pin", "add", tgtPin, TEST_SOURCE, "--ref", tgtBranch, "--branch", tgtBranch]);
