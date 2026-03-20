@@ -17,12 +17,12 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 - **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
   - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
   - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
-  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset);
-  - applies an extra semaphore for **`tests/cli/`** and **`tests/mcp/`** so at most **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** of those subprocesses run at once (default **1**), reducing contention on the shared test knowledge remote and heavy git work; **`tests/core/`** cases use the full worker budget.
-- There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue with the caps above.
+  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
+- There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
 
 ### Isolation and helpers
 
+- **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other manifest cases run in parallel.
 - Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
 - **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local `.giterloper/` trees are removed under the test cwd.
 - **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env.
@@ -65,8 +65,7 @@ Use this before persisting ticket work (e.g. verifier and work-next use it to va
 
 ### Parallel execution
 
-- Cap overall subprocess concurrency with **`DENO_JOBS`** (integer; default 16 in the harness).
-- Optional: raise integration overlap with **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** (integer ≥ 1); default **1** keeps `tests/cli/` + `tests/mcp/` cases from hitting the shared remote concurrently.
+- Cap subprocess concurrency with **`DENO_JOBS`** (integer; default 16 in the harness) for every logical case.
 - **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext`; MCP uses injected `createMcpAppForTest` options).
 
 ### Layout and individual commands

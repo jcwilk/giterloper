@@ -14,7 +14,25 @@ import {
   touchSession,
 } from "../../lib/mcp-session-store.ts";
 
-const RUN_ID = `mcp_ss_${randomBytes(4).toString("hex")}`;
+const RUN_ID = `mcp_ss_${randomBytes(8).toString("hex")}`;
+
+/** Avoid scanning/deleting workspace `.giterloper/` (parallel harness + short-TTL scavenge). */
+function withIsolatedProjectRootSync(fn: () => void): void {
+  const tmp = Deno.makeTempDirSync();
+  const prev = Deno.env.get("GITERLOPER_PROJECT_ROOT");
+  Deno.env.set("GITERLOPER_PROJECT_ROOT", tmp);
+  try {
+    fn();
+  } finally {
+    if (prev === undefined) Deno.env.delete("GITERLOPER_PROJECT_ROOT");
+    else Deno.env.set("GITERLOPER_PROJECT_ROOT", prev);
+    try {
+      Deno.removeSync(tmp, { recursive: true });
+    } catch {
+      // ignore
+    }
+  }
+}
 
 Deno.test("isSafeSessionId accepts valid sessionIds", () => {
   assertEquals(isSafeSessionId("abc123"), true);
@@ -32,24 +50,28 @@ Deno.test("isSafeSessionId rejects invalid inputs", () => {
 });
 
 Deno.test("sessionDir returns path under .giterloper/<sessionId>", () => {
-  const id = "test-session";
-  const dir = sessionDir(id);
-  assertEquals(dir.endsWith(path.join(".giterloper", "test-session")), true);
+  withIsolatedProjectRootSync(() => {
+    const id = "test-session";
+    const dir = sessionDir(id);
+    assertEquals(dir.endsWith(path.join(".giterloper", "test-session")), true);
+  });
 });
 
 Deno.test("touchSession creates dir and last_activity file, removeSessionData cleans up", () => {
-  const sessionId = `${RUN_ID}_touch_remove`;
-  const dir = sessionDir(sessionId);
-  try {
-    touchSession(sessionId);
-    assertEquals(existsSync(dir), true);
-    assertEquals(existsSync(path.join(dir, ".last_activity")), true);
+  withIsolatedProjectRootSync(() => {
+    const sessionId = `${RUN_ID}_touch_remove`;
+    const dir = sessionDir(sessionId);
+    try {
+      touchSession(sessionId);
+      assertEquals(existsSync(dir), true);
+      assertEquals(existsSync(path.join(dir, ".last_activity")), true);
 
-    removeSessionData(sessionId);
-    assertEquals(existsSync(dir), false);
-  } finally {
-    removeSessionData(sessionId);
-  }
+      removeSessionData(sessionId);
+      assertEquals(existsSync(dir), false);
+    } finally {
+      removeSessionData(sessionId);
+    }
+  });
 });
 
 Deno.test("removeSessionData is no-op for invalid sessionId", () => {
@@ -61,26 +83,32 @@ Deno.test("removeSessionData is no-op for invalid sessionId", () => {
 });
 
 Deno.test("removeSessionData is no-op when dir does not exist", () => {
-  removeSessionData(`${RUN_ID}_nonexistent_${randomBytes(4).toString("hex")}`);
+  withIsolatedProjectRootSync(() => {
+    removeSessionData(`${RUN_ID}_nonexistent_${randomBytes(4).toString("hex")}`);
+  });
 });
 
 Deno.test("scavengeStaleSessions removes sessions older than TTL", () => {
-  const sessionId = `${RUN_ID}_stale_${randomBytes(4).toString("hex")}`;
-  const dir = sessionDir(sessionId);
-  try {
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path.join(dir, ".last_activity"), "1", "utf8"); // Very old timestamp
+  withIsolatedProjectRootSync(() => {
+    const sessionId = `${RUN_ID}_stale_${randomBytes(4).toString("hex")}`;
+    const dir = sessionDir(sessionId);
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, ".last_activity"), "1", "utf8"); // Very old timestamp
 
-    const removed = scavengeStaleSessions(1000); // 1 second TTL
-    assertEquals(removed >= 1, true);
-    assertEquals(existsSync(dir), false);
-  } finally {
-    if (existsSync(dir)) {
-      removeSessionData(sessionId);
+      const removed = scavengeStaleSessions(1000); // 1 second TTL
+      assertEquals(removed >= 1, true);
+      assertEquals(existsSync(dir), false);
+    } finally {
+      if (existsSync(dir)) {
+        removeSessionData(sessionId);
+      }
     }
-  }
+  });
 });
 
 Deno.test("scavengeStaleSessions returns 0 when TTL is 0", () => {
-  assertEquals(scavengeStaleSessions(0), 0);
+  withIsolatedProjectRootSync(() => {
+    assertEquals(scavengeStaleSessions(0), 0);
+  });
 });

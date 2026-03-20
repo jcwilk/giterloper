@@ -77,5 +77,5 @@ context --> cleanup[ScopedCleanup]
 - `.giterloper/` has only session-id directories (no `sessions/` wrapper).
 - Every logical case gets its own session id and isolated cwd/state root automatically (CLI/integration helpers); MCP in-process tests inject auth/bootstrap via `createMcpAppForTest` / server options instead of mutating `Deno.env`.
 - Cleanup only affects resources created by the current test; the default harness does not sweep unrelated sessions.
-- Optional: `tests/cli/` + `tests/mcp/` subprocesses may be capped separately (`GITERLOPER_REMOTE_TEST_CONCURRENCY`, default 1) for shared-remote stability; this is not an isolation-driven serial split.
+- Subprocess concurrency is a single knob: **`DENO_JOBS`** applies to all manifest cases; shared-remote contention is handled by per-test isolation and collision-avoidance helpers, not a separate integration-only cap.
 - `tests/README.md` and `AGENTS.md` describe the final behavior accurately.

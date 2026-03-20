@@ -1,6 +1,6 @@
 ---
 id: git-gws2
-status: open
+status: closed
 deps: [git-alnk]
 links: []
 created: 2026-03-20T03:24:41Z

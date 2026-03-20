@@ -14,7 +14,13 @@ import type { Pin } from "./types.ts";
 
 export type { GlState };
 
-const PROJECT_ROOT = path.resolve(Deno.cwd());
+/** Must match `lib/mcp-session-store.ts` so MCP session paths align with `sessionDir` / scavenge. */
+const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
+
+function projectRoot(): string {
+  const o = Deno.env.get(PROJECT_ROOT_ENV)?.trim();
+  return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
+}
 
 /** Env var for session auto-init: repo source (e.g. github.com/owner/repo). When set, new sessions start with _session pin at main. */
 export const KNOWLEDGE_STORE_REMOTE = "KNOWLEDGE_STORE_REMOTE";
@@ -89,12 +95,12 @@ export function validateSessionId(sessionId: string | null | undefined): string 
  * (pinned.yaml, versions, staged, indexes).
  */
 export function makeState(sessionId: string): GlState {
-  const projectRoot = PROJECT_ROOT;
-  const baseGiterloper = path.join(projectRoot, ".giterloper");
+  const projectRootResolved = projectRoot();
+  const baseGiterloper = path.join(projectRootResolved, ".giterloper");
   const validated = validateSessionId(sessionId);
   const sessionRoot = path.join(baseGiterloper, validated);
   return {
-    projectRoot,
+    projectRoot: projectRootResolved,
     rootDir: sessionRoot,
     versionsDir: path.join(sessionRoot, "versions"),
     stagedRoot: path.join(sessionRoot, "staged"),

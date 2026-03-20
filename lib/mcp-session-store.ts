@@ -8,15 +8,29 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const PROJECT_ROOT = path.resolve(Deno.cwd());
+/**
+ * When set (trimmed non-empty), session dirs use `<value>/.giterloper/<sessionId>/` instead of
+ * `<cwd>/.giterloper/`. Intended for tests that call `scavengeStaleSessions` with a short TTL so
+ * they do not delete live workspace sessions under parallel `deno test` workers.
+ */
+const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
+
+function projectRootForSessions(): string {
+  const o = Deno.env.get(PROJECT_ROOT_ENV)?.trim();
+  return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
+}
+
 /** Direct children are session id directories only (see docs/DEPLOYMENT_REQUIREMENTS.md). */
-const GITERLOPER_ROOT = path.join(PROJECT_ROOT, ".giterloper");
+function giterloperRootPath(): string {
+  return path.join(projectRootForSessions(), ".giterloper");
+}
+
 const LAST_ACTIVITY_FILENAME = ".last_activity";
 const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
 /** Returns the directory path for a session. Does not validate sessionId. */
 export function sessionDir(sessionId: string): string {
-  return path.join(GITERLOPER_ROOT, sessionId);
+  return path.join(giterloperRootPath(), sessionId);
 }
 
 /**
@@ -66,22 +80,32 @@ export function touchSession(sessionId: string): void {
  */
 export function scavengeStaleSessions(ttlMs: number): number {
   if (ttlMs <= 0) return 0;
-  if (!existsSync(GITERLOPER_ROOT)) return 0;
+  const gRoot = giterloperRootPath();
+  if (!existsSync(gRoot)) return 0;
   const now = Date.now();
   const cutoff = now - ttlMs;
   let removed = 0;
   try {
-    const entries = readdirSync(GITERLOPER_ROOT);
+    const entries = readdirSync(gRoot);
     for (const name of entries) {
       if (!isSafeSessionId(name)) continue;
-      const dir = path.join(GITERLOPER_ROOT, name);
+      const dir = path.join(gRoot, name);
       const stampPath = path.join(dir, LAST_ACTIVITY_FILENAME);
       let lastActivity = 0;
       if (existsSync(stampPath)) {
         try {
           const content = readFileSync(stampPath, "utf8");
           const parsed = parseInt(content, 10);
-          if (!Number.isNaN(parsed)) lastActivity = parsed;
+          if (!Number.isNaN(parsed)) {
+            lastActivity = parsed;
+          } else {
+            // Empty/corrupt stamp must not be treated as epoch 0 (would delete active sessions).
+            try {
+              lastActivity = statSync(dir).mtimeMs;
+            } catch {
+              continue;
+            }
+          }
         } catch {
           // Use mtime as fallback
           try {

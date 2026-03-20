@@ -1,7 +1,12 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
+
+function memsearchTmpRoot(): string {
+  return path.join(tmpdir(), `memsearch-test-${randomBytes(16).toString("hex")}`);
+}
 
 import type { GlState } from "../../lib/types.ts";
 import {
@@ -35,7 +40,7 @@ Deno.test("metadataPath returns indexDir/metadata.json", () => {
 });
 
 Deno.test("readIndexMetadata returns null when file missing", () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   try {
     ensureDir(path.join(root, "indexes", "p", "s".repeat(40)));
@@ -46,7 +51,7 @@ Deno.test("readIndexMetadata returns null when file missing", () => {
 });
 
 Deno.test("readIndexMetadata returns null for invalid JSON", () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const dir = path.join(root, "indexes", "p", "s".repeat(40));
   try {
@@ -59,7 +64,7 @@ Deno.test("readIndexMetadata returns null for invalid JSON", () => {
 });
 
 Deno.test("readIndexMetadata parses valid metadata", () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const meta: IndexMetadata = {
     pinName: "kb",
@@ -82,7 +87,7 @@ Deno.test("readIndexMetadata parses valid metadata", () => {
 });
 
 Deno.test("writeIndexMetadata then readIndexMetadata roundtrips", () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const meta: IndexMetadata = {
     pinName: "test",
@@ -103,7 +108,7 @@ Deno.test("writeIndexMetadata then readIndexMetadata roundtrips", () => {
 });
 
 Deno.test("search throws StaleIndexError when metadata pin+sha does not match requested", async () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const reqSha = "a".repeat(40);
   const metaSha = "b".repeat(40);
@@ -137,7 +142,7 @@ Deno.test("search throws StaleIndexError when metadata pin+sha does not match re
 // --- Per-version isolation tests (git-76vk) ---
 
 Deno.test("search throws StaleIndexError when same pin but metadata sha differs (no cross-sha reuse)", async () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const reqSha = "a".repeat(40);
   const metaSha = "b".repeat(40);
@@ -169,7 +174,7 @@ Deno.test("search throws StaleIndexError when same pin but metadata sha differs 
 });
 
 Deno.test("search fails when milvus exists but metadata missing (no fallback to other index)", async () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const pinName = "p";
   const sha = "s".repeat(40);
@@ -192,7 +197,7 @@ Deno.test("search fails when milvus exists but metadata missing (no fallback to 
 });
 
 Deno.test("buildOnDemand fails when pin sha does not match requested sha", async () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const reqSha = "a".repeat(40);
   const pinSha = "b".repeat(40);
@@ -211,7 +216,7 @@ Deno.test("buildOnDemand fails when pin sha does not match requested sha", async
 });
 
 Deno.test("buildOnDemand fails when pin name does not match requested pin", async () => {
-  const root = path.join(tmpdir(), `memsearch-test-${Date.now()}`);
+  const root = memsearchTmpRoot();
   const state = makeState(root);
   const sha = "a".repeat(40);
   const { search } = await import("../../lib/memsearch-adapter.ts");
