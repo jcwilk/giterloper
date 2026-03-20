@@ -1,6 +1,6 @@
 ---
 id: git-alnk
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-20T03:24:39Z

@@ -17,7 +17,7 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 - **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
   - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
   - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
-  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **8** if unset);
+  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset);
   - applies an extra semaphore for **`tests/cli/`** and **`tests/mcp/`** so at most **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** of those subprocesses run at once (default **1**), reducing contention on the shared test knowledge remote and heavy git work; **`tests/core/`** cases use the full worker budget.
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue with the caps above.
 
@@ -65,7 +65,7 @@ Use this before persisting ticket work (e.g. verifier and work-next use it to va
 
 ### Parallel execution
 
-- Cap overall subprocess concurrency with **`DENO_JOBS`** (integer; default 8 in the harness).
+- Cap overall subprocess concurrency with **`DENO_JOBS`** (integer; default 16 in the harness).
 - Optional: raise integration overlap with **`GITERLOPER_REMOTE_TEST_CONCURRENCY`** (integer ≥ 1); default **1** keeps `tests/cli/` + `tests/mcp/` cases from hitting the shared remote concurrently.
 - **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext`; MCP uses injected `createMcpAppForTest` options).
 

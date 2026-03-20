@@ -2,7 +2,7 @@
 /**
  * Unified test harness: bounded worker pool schedules one `deno test` subprocess per logical case
  * (see tests/test-case-manifest.json). Per-case isolation matches Deno 2.x concurrency model (one runnable
- * module per case). Concurrency: DENO_JOBS (workers, default 8); tests/cli + tests/mcp share
+ * module per case). Concurrency: DENO_JOBS (workers, default 16); tests/cli + tests/mcp share
  * GITERLOPER_REMOTE_TEST_CONCURRENCY (default 1). No suite-wide .giterloper sweep.
  *
  * Regenerate the manifest after adding or renaming tests: `deno task gen:test-manifest`
@@ -58,7 +58,7 @@ function workerCount(): number {
     const n = parseInt(j, 10);
     if (!Number.isNaN(n) && n >= 1) return n;
   }
-  return 8;
+  return 16;
 }
 
 /** Max concurrent subprocesses for tests/cli and tests/mcp (shared remote + heavy git). Default 1. */
