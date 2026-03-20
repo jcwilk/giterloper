@@ -60,25 +60,56 @@ function getRequestOpts(client: Client): { timeout?: number } | undefined {
   return ms != null ? { timeout: ms } : undefined;
 }
 
+const MCP_REMOTE_TRANSIENT =
+  /could not reach remote|the remote may be unreachable|rate limit|SSL connection timeout|Connection timed out|Could not resolve host|Recv failure|Operation timed out|unable to access|upload-pack: not our ref|not our ref 0{40}/i;
+
+function isTransientMcpToolError(err: { code: string; message: string }): boolean {
+  if (err.code === "external") return true;
+  return MCP_REMOTE_TRANSIENT.test(err.message);
+}
+
+async function sleepMs(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+/** Call MCP tool with retries on transient remote/git failures (parallel integration load). */
+async function callToolJson(
+  client: Client,
+  toolName: string,
+  args: Record<string, unknown>,
+  maxAttempts = 5
+): Promise<unknown> {
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const result = await client.callTool(
+      { name: toolName, arguments: args },
+      undefined,
+      getRequestOpts(client)
+    );
+    const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
+    if (!content) {
+      throw new Error("Unexpected tool response");
+    }
+    if (result.isError) {
+      const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
+      lastErr = new Error(`${err.code}: ${err.message}`);
+      if (attempt < maxAttempts - 1 && isTransientMcpToolError(err)) {
+        await sleepMs(2000 * (attempt + 1) + Math.floor(Math.random() * 500));
+        continue;
+      }
+      throw lastErr;
+    }
+    return parseToolResult(content.text);
+  }
+  throw lastErr ?? new Error("callToolJson: unreachable");
+}
+
 /** Call giterloper_search and return parsed result. */
 export async function search(
   client: Client,
   args: { pin: string; query: string; sha?: string; limit?: number }
 ): Promise<{ ok: boolean; pin: string; effectiveSha: string; results: unknown[] }> {
-  const result = await client.callTool(
-    { name: "giterloper_search", arguments: args as Record<string, unknown> },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_search", args as Record<string, unknown>)) as {
     ok: boolean;
     pin: string;
     effectiveSha: string;
@@ -94,20 +125,7 @@ export async function retrieve(
   const toolArgs: Record<string, unknown> = { path: args.path };
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
   if (args.sha != null && args.sha !== "") toolArgs.sha = args.sha;
-  const result = await client.callTool(
-    { name: "giterloper_retrieve", arguments: toolArgs },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_retrieve", toolArgs)) as {
     ok: boolean;
     pin: string;
     effectiveSha: string;
@@ -121,20 +139,7 @@ export async function stateInspect(
   client: Client,
   args?: { pin?: string; verify?: boolean }
 ): Promise<{ ok: boolean; pins?: unknown[]; checks?: unknown[] }> {
-  const result = await client.callTool(
-    { name: "giterloper_state_inspect", arguments: (args ?? {}) as Record<string, unknown> },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_state_inspect", (args ?? {}) as Record<string, unknown>)) as {
     ok: boolean;
     pins?: unknown[];
     checks?: unknown[];
@@ -146,20 +151,7 @@ export async function pinSet(
   client: Client,
   args: { pin?: string; source?: string; ref?: string; branch?: string }
 ): Promise<{ ok: boolean; action?: string; message?: string; pin?: { name: string }; sessionPin?: unknown }> {
-  const result = await client.callTool(
-    { name: "giterloper_pin_set", arguments: args as Record<string, unknown> },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_pin_set", args as Record<string, unknown>)) as {
     ok: boolean;
     action?: string;
     message?: string;
@@ -184,20 +176,7 @@ export async function insertPending(
   const toolArgs: Record<string, unknown> = { content: args.content };
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
   if (args.name != null && args.name !== "") toolArgs.name = args.name;
-  const result = await client.callTool(
-    { name: "giterloper_insert_pending", arguments: toolArgs },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_insert_pending", toolArgs)) as {
     ok: boolean;
     action: string;
     pin: string;
@@ -225,20 +204,7 @@ export async function reconcilePending(
 }> {
   const toolArgs: Record<string, unknown> = {};
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
-  const result = await client.callTool(
-    { name: "giterloper_reconcile_pending", arguments: toolArgs },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_reconcile_pending", toolArgs)) as {
     ok: boolean;
     action: string;
     pin: string;
@@ -261,20 +227,7 @@ export async function merge(
   source: { pin: string; branch: string; sha: string };
   target: { pin: string; branch: string; oldSha: string; newSha: string };
 }> {
-  const result = await client.callTool(
-    { name: "giterloper_merge", arguments: args as Record<string, unknown> },
-    undefined,
-    getRequestOpts(client)
-  );
-  const content = getFirstTextContent(result.content as Array<{ type: string; text?: string }> | undefined);
-  if (!content) {
-    throw new Error("Unexpected tool response");
-  }
-  if (result.isError) {
-    const err = parseToolResult(content.text) as { ok: false; code: string; message: string };
-    throw new Error(`${err.code}: ${err.message}`);
-  }
-  return parseToolResult(content.text) as {
+  return (await callToolJson(client, "giterloper_merge", args as Record<string, unknown>)) as {
     ok: boolean;
     action: string;
     source: { pin: string; branch: string; sha: string };

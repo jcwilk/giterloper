@@ -99,7 +99,7 @@ Use the shared helpers (`tests/helpers/gl.ts`, `tests/helpers/test-runtime-conte
 Each logical test case should have a unique `RUN_ID` (or derive it from the test context):
 
 ```js
-const RUN_ID = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
+const RUN_ID = `${E2E_MARKER}${randomUUID().replace(/-/g, "")}`;
 ```
 
 (`E2E_MARKER` in `tests/helpers/config.ts` is the `"gle2e_"` prefix for scratch pin names—kept under that export name for leak cleanup and older references; CLI/MCP remote scenarios are **topic integration tests**, not a separate “e2e” suite.)
@@ -110,10 +110,10 @@ Every collision-prone name must include `RUN_ID` (or equivalent entropy):
 |----------|---------|-----|
 | Pin names | `test_knowledge_${RUN_ID}` | `.giterloper/<sessionId>/versions/<name>/`, `pinned.yaml` |
 | Branches (remote) | `${RUN_ID}` or `${RUN_ID}_suffix` | Shared remote; cleanup only deletes our branch |
-| Scratch pins | `${prefix}_${RUN_ID}_${randomBytes(4).toString("hex")}` | Parallel cases; `Date.now()` alone can collide |
+| Scratch pins | `${prefix}_${RUN_ID}_${randomUUID().replace(/-/g, "")}` (`scratchPinName`) | Parallel cases; `Date.now()` alone can collide |
 | File paths in remote | `knowledge/e2e_${RUN_ID}_${randomBytes(4)}.md` | Avoid overwrites between runs |
 
-Assume **logical cases** can run in parallel with any other case. Use `crypto.randomBytes` for entropy; `Date.now()` is insufficient.
+Assume **logical cases** can run in parallel with any other case. Use `crypto.randomUUID()` / `randomBytes` for entropy; `Date.now()` is insufficient.
 
 ### 2) Test independence (CRITICAL)
 

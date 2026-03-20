@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects, assertThrows } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -15,6 +16,18 @@ import {
 } from "../../lib/pinned.ts";
 import { makeState } from "../../lib/gl-core.ts";
 import { GlError } from "../../lib/errors.ts";
+
+function tmpPinnedRoot(kind: string): string {
+  return path.join(tmpdir(), `${kind}-${randomBytes(8).toString("hex")}`);
+}
+
+function removeTmpRoot(root: string): void {
+  try {
+    Deno.removeSync(root, { recursive: true });
+  } catch {
+    /* parallel cases or double teardown */
+  }
+}
 
 const SAMPLE_PINS_YAML = `foo:
   repo: github.com/x/repo
@@ -46,7 +59,7 @@ bar: github.com/y/repo@abcdef0123456789abcdef0123456789abcdef01
 `;
 
 Deno.test("resolvePin fails when no _session exists", () => {
-  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  const root = tmpPinnedRoot("pinned-resolve");
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
   const state: GlState = {
@@ -66,12 +79,12 @@ Deno.test("resolvePin fails when no _session exists", () => {
     assertEquals(err.message.includes(SESSION_PIN_NAME), true);
     assertEquals(err.message.includes("KNOWLEDGE_STORE_REMOTE"), true);
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    removeTmpRoot(root);
   }
 });
 
 Deno.test("resolvePin('_session') is rejected", () => {
-  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  const root = tmpPinnedRoot("pinned-resolve");
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_WITH_SESSION, "utf8");
   const state: GlState = {
@@ -87,7 +100,7 @@ Deno.test("resolvePin('_session') is rejected", () => {
     const err = assertThrows(() => resolvePin(state, "_session"), GlError) as GlError;
     assertEquals(err.message.includes("reserved") || err.message.includes("omit"), true);
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    removeTmpRoot(root);
   }
 });
 
@@ -102,7 +115,7 @@ _session:
 `;
 
 Deno.test("resolvePin finds _session pin by name regardless of position in list", () => {
-  const root = path.join(tmpdir(), `pinned-resolve-${Date.now()}`);
+  const root = tmpPinnedRoot("pinned-resolve");
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), PINS_SESSION_SECOND, "utf8");
   const state: GlState = {
@@ -121,12 +134,12 @@ Deno.test("resolvePin finds _session pin by name regardless of position in list"
     assertEquals(resolvePin(state, undefined).name, SESSION_PIN_NAME);
     assertEquals(resolvePin(state, "").name, SESSION_PIN_NAME);
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    removeTmpRoot(root);
   }
 });
 
 Deno.test("readPins returns [] for missing pinned.yaml", () => {
-  const root = path.join(tmpdir(), `pinned-read-${Date.now()}`);
+  const root = tmpPinnedRoot("pinned-read");
   mkdirSync(root, { recursive: true });
   const state: GlState = {
     projectRoot: path.dirname(root),
@@ -141,12 +154,12 @@ Deno.test("readPins returns [] for missing pinned.yaml", () => {
     const pins = readPins(state);
     assertEquals(pins, []);
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    removeTmpRoot(root);
   }
 });
 
 Deno.test("mutatePins session-scoped skips lock and updates file", () => {
-  const root = path.join(tmpdir(), `pinned-mutate-${Date.now()}`);
+  const root = tmpPinnedRoot("pinned-mutate");
   mkdirSync(root, { recursive: true });
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
   const state = makeState("pinned-mutate-session");
@@ -173,7 +186,7 @@ Deno.test("mutatePins session-scoped skips lock and updates file", () => {
     assertEquals(pinsAfter.length, 1);
     assertEquals(pinsAfter[0].name, "foo");
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    removeTmpRoot(root);
   }
 });
 

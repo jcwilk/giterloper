@@ -97,8 +97,18 @@ export function ensureWorkingClone(
 ): string {
   assertBranchReadyForWrite(state, pin);
   const dir = stagedDir(state, pin.name, pin.branch!);
-  if (!existsSync(dir)) cloneToStaged(state, pin, pin.branch!, opts);
-  else setCloneIdentity(dir);
+  if (existsSync(dir)) {
+    setCloneIdentity(dir);
+    const localSha = run("git", ["-C", dir, "rev-parse", "HEAD"]).trim();
+    if (localSha.toLowerCase() !== pin.sha.toLowerCase()) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  if (!existsSync(dir)) {
+    cloneToStaged(state, pin, pin.branch!, opts);
+  } else {
+    setCloneIdentity(dir);
+  }
   return dir;
 }
 

@@ -59,7 +59,7 @@ function sleepSyncMs(ms: number): void {
 
 /** Transient failures from shared remote, git, or subprocess cwd (see lib/run.ts defaultSpawnCwd). */
 const REMOTE_TRANSIENT =
-  /could not reach remote|getcwd\(\) failed|unable to get current working directory|the remote may be unreachable|try again later|rate limit/i;
+  /could not reach remote|getcwd\(\) failed|unable to get current working directory|the remote may be unreachable|try again later|rate limit|SSL connection timeout|unable to access|Connection timed out|Could not resolve host|Recv failure|Operation timed out|the remote end hung up unexpectedly|ENOBUFS/i;
 
 function normalizeOutput(stdout: string, parseJson: boolean): unknown {
   if (!stdout) return null;
@@ -76,7 +76,7 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
   const cliArgs = ["--json", "--session-id", sessionId, ...args];
   const env = { ...Deno.env.toObject() };
-  const maxAttempts = 3;
+  const maxAttempts = 5;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let result;
@@ -120,7 +120,7 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
 
     const detail = (stderr || stdout || "gl command failed").trim();
     if (attempt < maxAttempts - 1 && REMOTE_TRANSIENT.test(detail)) {
-      sleepSyncMs(2000);
+      sleepSyncMs(2000 * (attempt + 1));
       continue;
     }
     throw new Error(detail);
@@ -138,7 +138,7 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const sessionArgs = ["--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const env = { ...Deno.env.toObject() };
-  const maxAttempts = 3;
+  const maxAttempts = 5;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {
@@ -165,7 +165,7 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
 
     const detail = (stderr || stdout || "gl-maintenance command failed").trim();
     if (attempt < maxAttempts - 1 && REMOTE_TRANSIENT.test(detail)) {
-      sleepSyncMs(2000);
+      sleepSyncMs(2000 * (attempt + 1));
       continue;
     }
     throw new Error(detail);

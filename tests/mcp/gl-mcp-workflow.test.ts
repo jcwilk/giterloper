@@ -4,11 +4,15 @@
  * Verifies SHA chain and snapshot isolation via MCP tools only.
  */
 import { assertEquals, assertExists } from "jsr:@std/assert";
+import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
-import { spawn, spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { randomBytes, randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
 
 import { TEST_SOURCE, toRemoteUrl } from "../helpers/config.ts";
+import { GITERLOPER_REPO_ROOT } from "../helpers/gl.ts";
+import { runGit } from "../helpers/run-git.ts";
 import {
   createClient,
   insertPending,
@@ -18,9 +22,9 @@ import {
   stateInspect,
 } from "../../reference_client/client.ts";
 
-const RUN_ID = `gle2e_${randomBytes(8).toString("hex")}`;
+const RUN_ID = `gle2e_${randomUUID().replace(/-/g, "")}`;
 const SNAPSHOT_NAME = `snapshot_${RUN_ID}`;
-const BRANCH_NAME = `mcp_workflow_${RUN_ID}_${randomBytes(4).toString("hex")}`;
+const BRANCH_NAME = `mcp_workflow_${RUN_ID}_${randomUUID().replace(/-/g, "")}`;
 const MARKER_A = `workflow_marker_a_${RUN_ID}`;
 const MARKER_B = `workflow_marker_b_${RUN_ID}`;
 
@@ -28,32 +32,19 @@ function randomPort(): number {
   return 3500 + (randomBytes(2).readUInt16BE(0) % 1000);
 }
 
-function runGit(args: string[], opts: { cwd?: string } = {}): string {
-  const result = spawnSync("git", args, {
-    cwd: opts.cwd ?? Deno.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error) throw new Error(`Failed to run git: ${result.error.message}`);
-  if (result.status !== 0) {
-    const stderr = (result.stderr || result.stdout || "git failed").trim();
-    throw new Error(stderr);
-  }
-  return (result.stdout || "").trim();
-}
-
 interface ServerHandle {
   kill: () => void;
 }
 
-function startMcpServer(port: number): ServerHandle {
-  const proc = spawn("deno", ["run", "-A", path.join(Deno.cwd(), "lib", "gl-mcp-server.ts")], {
-    cwd: Deno.cwd(),
+function startMcpServer(port: number, projectRoot: string): ServerHandle {
+  const proc = spawn("deno", ["run", "-A", path.join(GITERLOPER_REPO_ROOT, "lib", "gl-mcp-server.ts")], {
+    cwd: GITERLOPER_REPO_ROOT,
     env: {
       ...Deno.env.toObject(),
       MCP_PORT: String(port),
       MCP_INSECURE: "true",
       KNOWLEDGE_STORE_REMOTE: TEST_SOURCE,
+      GITERLOPER_PROJECT_ROOT: projectRoot,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -79,14 +70,15 @@ async function waitForServer(port: number, timeoutMs = 8000): Promise<void> {
 Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation", async () => {
   const port = randomPort();
   let server: ServerHandle | null = null;
+  const projectRoot = mkdtempSync(path.join(tmpdir(), "giterloper-mcp-workflow-"));
 
   try {
-    server = startMcpServer(port);
+    server = startMcpServer(port, projectRoot);
     await waitForServer(port);
 
     const client = await createClient({
       url: `http://127.0.0.1:${port}/mcp`,
-      requestTimeoutMs: 120000,
+      requestTimeoutMs: 600_000,
     });
 
     try {
@@ -179,11 +171,15 @@ Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, sn
     }
   } finally {
     server?.kill();
-    // Cleanup: delete test branch from remote
     try {
       runGit(["push", toRemoteUrl(TEST_SOURCE), "--delete", BRANCH_NAME]);
     } catch {
       /* branch may not exist */
+    }
+    try {
+      rmSync(projectRoot, { recursive: true, force: true });
+    } catch {
+      /* ignore */
     }
   }
 });

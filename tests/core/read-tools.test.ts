@@ -1,4 +1,5 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -33,8 +34,12 @@ function initGitRepo(dir: string, filePath: string, content: string): string {
   return run("git", ["rev-parse", "HEAD"], { cwd: dir });
 }
 
+function uniqueRoot(): string {
+  return path.join(tmpdir(), `read-tools-${randomBytes(8).toString("hex")}`);
+}
+
 Deno.test("retrieveFileContent returns file content when clone exists at sha", () => {
-  const root = path.join(tmpdir(), `read-tools-${Date.now()}`);
+  const root = uniqueRoot();
   const state = makeState(root);
   ensureDir(state.versionsDir);
   const pinName = "kb";
@@ -55,7 +60,7 @@ Deno.test("retrieveFileContent returns file content when clone exists at sha", (
 });
 
 Deno.test("retrieveFileContent throws when clone is missing", () => {
-  const root = path.join(tmpdir(), `read-tools-${Date.now()}`);
+  const root = uniqueRoot();
   ensureDir(root);
   const state = makeState(root);
   const pin: Pin = { name: "kb", source: "https://x/y", sha: SHA40 };
@@ -71,7 +76,7 @@ Deno.test("retrieveFileContent throws when clone is missing", () => {
 });
 
 Deno.test("retrieveFileContent throws when path escapes clone directory", () => {
-  const root = path.join(tmpdir(), `read-tools-${Date.now()}`);
+  const root = uniqueRoot();
   const state = makeState(root);
   ensureDir(state.versionsDir);
   const pinName = "kb";
@@ -95,7 +100,7 @@ Deno.test("retrieveFileContent throws when path escapes clone directory", () => 
 });
 
 Deno.test("retrieveFileContent throws when file not found", () => {
-  const root = path.join(tmpdir(), `read-tools-${Date.now()}`);
+  const root = uniqueRoot();
   const state = makeState(root);
   ensureDir(state.versionsDir);
   const pinName = "kb";

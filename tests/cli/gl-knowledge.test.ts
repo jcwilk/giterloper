@@ -2,7 +2,6 @@ import { assertEquals, assertExists, assertMatch } from "jsr:@std/assert";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { spawnSync } from "node:child_process";
 
 import {
   TEST_SOURCE,
@@ -23,6 +22,7 @@ import {
   scratchPinName,
 } from "../helpers/gl.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
+import { runGit } from "../helpers/run-git.ts";
 
 function getPin(
   state: { name?: string }[] | unknown,
@@ -55,25 +55,6 @@ function cloneDir(pinName: string, sha: string): string {
 
 function branchContentText(): string {
   return [`# ${TEST_TOPIC_TITLE}`, "", TEST_TOPIC_BODY].join("\n");
-}
-
-function runGit(args: string[], opts: { cwd?: string; silent?: boolean } = {}): string {
-  const result = spawnSync("git", args, {
-    cwd: opts.cwd ?? Deno.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", opts.silent ? "ignore" : "pipe", "pipe"],
-  });
-
-  if (result.error) {
-    throw new Error(`Failed to run git: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    const stderr = (result.stderr || result.stdout || "git command failed").trim();
-    throw new Error(stderr);
-  }
-
-  return (result.stdout || "").trim();
 }
 
 function ensurePinRemoved(pinName: string): void {

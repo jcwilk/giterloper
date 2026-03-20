@@ -2,6 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
 import { createMcpAppForTest, validateInsertContent } from "../../lib/gl-mcp-server.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
+import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
@@ -45,6 +46,7 @@ async function parseToolResult(res: Response): Promise<unknown> {
 
 /** insert_pending with omitted pin uses session pin and advances SHA. Per spec: omit pin targets session pin; updatePinSha no longer rejects _session on internal lifecycle path. */
 Deno.test("insert_pending with content only uses session pin", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
       auth: MCP_INSECURE_TEST_AUTH,
       knowledgeStoreRemote: TEST_SOURCE,
@@ -97,6 +99,7 @@ Deno.test("insert_pending with content only uses session pin", async () => {
     const result = (await parseToolResult(insertRes)) as { ok?: boolean; action?: string };
     assertEquals(result.ok, true, `insert_pending with omitted pin should succeed, got: ${JSON.stringify(result)}`);
     assertEquals(result.action, "inserted");
+  });
 });
 
 Deno.test("validateInsertContent rejects empty string", () => {
@@ -131,6 +134,7 @@ Deno.test("validateInsertContent rejects null", () => {
 
 /** insert_pending with explicit pin "_session" must fail. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md. */
 Deno.test("insert_pending with pin _session is rejected", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
       auth: MCP_INSECURE_TEST_AUTH,
       knowledgeStoreRemote: "github.com/jcwilk/giterloper_test_knowledge",
@@ -177,6 +181,7 @@ Deno.test("insert_pending with pin _session is rejected", async () => {
       true,
       "Must include corrective guidance"
     );
+  });
 });
 
 Deno.test("validateInsertContent rejects undefined", () => {

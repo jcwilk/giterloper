@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -31,7 +31,7 @@ export function createTestRuntimeContext(options?: { tmpPrefix?: string }): Test
   const prefix = options?.tmpPrefix ?? "giterloper-test-";
   const cwd = mkdtempSync(path.join(tmpdir(), prefix));
   const sessionId = newTestCliSessionId();
-  const runId = `${E2E_MARKER}${randomBytes(8).toString("hex")}`;
+  const runId = `${E2E_MARKER}${randomUUID().replace(/-/g, "")}`;
   return { cwd, sessionId, runId };
 }
 
@@ -43,7 +43,7 @@ export function destroyTestRuntimeContext(ctx: TestRuntimeContext): void {
   }
 }
 
-/** Scratch pin name: `prefix_runId_random` (parallel-safe). */
+/** Scratch pin name: `prefix_runId_uuid` (parallel-safe; UUID suffix for aggressive suite concurrency). */
 export function scratchPinName(ctx: TestRuntimeContext, prefix: string): string {
-  return `${prefix}_${ctx.runId}_${randomBytes(4).toString("hex")}`;
+  return `${prefix}_${ctx.runId}_${randomUUID().replace(/-/g, "")}`;
 }

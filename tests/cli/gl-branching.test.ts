@@ -3,7 +3,6 @@ import { assertThrows } from "jsr:@std/assert";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { spawnSync } from "node:child_process";
 
 import {
   CLEAN_MAIN_SHA,
@@ -13,6 +12,7 @@ import {
   toRemoteUrl,
 } from "../helpers/config.ts";
 import { cleanupTestKnowledgeRepo } from "../helpers/cleanup.ts";
+import { runGit } from "../helpers/run-git.ts";
 import {
   createTestRuntimeContext,
   destroyTestRuntimeContext,
@@ -39,19 +39,6 @@ function glm(args: string[]) {
 
 function stagedDir(pinName: string, branch: string): string {
   return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "staged", pinName, branch);
-}
-
-function runGit(args: string[], opts: { cwd?: string } = {}): string {
-  const result = spawnSync("git", args, {
-    cwd: opts.cwd ?? Deno.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || "git failed").trim());
-  }
-  return (result.stdout || "").trim();
 }
 
 function pinByName(list: { name?: string; sha?: string }[] | null | undefined, name: string) {

@@ -4,6 +4,7 @@
  * Internal lifecycle (insert, reconcile, merge) may pass SESSION_PIN_NAME to updatePinSha.
  */
 import { assertEquals } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
@@ -22,7 +23,7 @@ function makeState(root: string): GlState {
     stagedRoot: path.join(root, "staged"),
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
-    sessionId: `lifecycle-${Date.now()}`,
+    sessionId: `lifecycle-${randomBytes(8).toString("hex")}`,
   };
 }
 
@@ -32,7 +33,7 @@ function makeState(root: string): GlState {
  * Uses real test repo for clone; requires network.
  */
 Deno.test("updatePinSha accepts _session for internal lifecycle path", () => {
-  const root = path.join(tmpdir(), `pin-lifecycle-${Date.now()}`);
+  const root = path.join(tmpdir(), `pin-lifecycle-${randomBytes(8).toString("hex")}`);
   mkdirSync(root, { recursive: true });
   const pinnedContent = `_session:
   repo: ${TEST_SOURCE}
@@ -48,6 +49,10 @@ Deno.test("updatePinSha accepts _session for internal lifecycle path", () => {
     assertEquals(session !== undefined, true, "Session pin must exist after update");
     assertEquals(session!.sha, CLEAN_MAIN_SHA);
   } finally {
-    Deno.removeSync(root, { recursive: true });
+    try {
+      Deno.removeSync(root, { recursive: true });
+    } catch {
+      /* ignore */
+    }
   }
 });

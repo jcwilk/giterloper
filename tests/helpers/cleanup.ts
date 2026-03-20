@@ -1,7 +1,8 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+
+import { runGit } from "./run-git.ts";
 
 export function toRemoteUrl(source: string): string {
   const token = Deno.env.get("GITERLOPER_GH_TOKEN");
@@ -9,28 +10,6 @@ export function toRemoteUrl(source: string): string {
     return `https://x-access-token:${token}@${source}`;
   }
   return `https://${source}`;
-}
-
-function runGit(
-  args: string[],
-  opts: { cwd?: string | null; silent?: boolean } = {}
-): string {
-  const result = spawnSync("git", args, {
-    cwd: opts.cwd ?? undefined,
-    encoding: "utf8",
-    stdio: ["ignore", opts.silent ? "ignore" : "pipe", "pipe"],
-  });
-
-  if (result.error) {
-    throw new Error(`Failed to run git: ${result.error.message}`);
-  }
-
-  if (result.status !== 0) {
-    const stderr = (result.stderr || result.stdout || "git command failed").trim();
-    throw new Error(stderr);
-  }
-
-  return (result.stdout || "").trim();
 }
 
 function cleanupLocalCopies(pinName: string | null, sessionId: string, cwd: string): void {

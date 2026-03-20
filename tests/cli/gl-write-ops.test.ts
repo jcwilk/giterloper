@@ -1,7 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 import {
   TEST_ADD_CONTENT,
@@ -18,6 +17,7 @@ import {
   runGlMaintenanceJson,
   scratchPinName,
 } from "../helpers/gl.ts";
+import { runGit } from "../helpers/run-git.ts";
 
 const ctx = createTestRuntimeContext();
 addEventListener("unload", () => {
@@ -34,19 +34,6 @@ function glm(args: string[]) {
 
 function stagedDir(pinName: string, branch: string): string {
   return path.join(giterloperSessionRoot(ctx.cwd, ctx.sessionId), "staged", pinName, branch);
-}
-
-function runGit(args: string[], opts: { cwd?: string } = {}): string {
-  const result = spawnSync("git", args, {
-    cwd: opts.cwd ?? Deno.cwd(),
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout || "git failed").trim());
-  }
-  return (result.stdout || "").trim();
 }
 
 function pinByName(list: { name?: string }[], name: string): { name?: string; sha?: string } | undefined {

@@ -1,17 +1,22 @@
 import { assertEquals } from "jsr:@std/assert";
+import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { ensureDir, cloneDir, stagedDir, indexDir } from "../../lib/paths.ts";
 
 Deno.test("ensureDir creates directory when missing", () => {
-  const dir = path.join(tmpdir(), `paths-test-${Date.now()}`);
+  const dir = path.join(tmpdir(), `paths-test-${randomBytes(8).toString("hex")}`);
   try {
     assertEquals(existsSync(dir), false);
     ensureDir(dir);
     assertEquals(existsSync(dir) && Deno.statSync(dir).isDirectory, true);
   } finally {
-    Deno.removeSync(dir, { recursive: true });
+    try {
+      Deno.removeSync(dir, { recursive: true });
+    } catch {
+      /* ignore */
+    }
   }
 });
 
