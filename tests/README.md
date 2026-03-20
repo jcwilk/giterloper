@@ -16,6 +16,7 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 
 - **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
   - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
+  - after validating the manifest, **deletes `<repository-root>/.giterloper`** if it exists so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
   - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
   - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
@@ -30,7 +31,8 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 ### Cleanup
 
 - Cleanup is **scoped to the current test**: branches, pins, temp dirs, and session dirs that **that test** created.
-- The default runner path does **not** perform suite-wide sweeps across all sessions or unrelated remote branches. A separate **debug-only** leak cleaner may exist for manual recovery; it is not part of the parallel happy path.
+- The harness **does** remove **repo-root** **`.giterloper/`** once at suite start (see runner bullets above) so old session trees do not pile up locally; that is unrelated to cross-test isolation guarantees.
+- Aside from that, the default runner path does **not** perform other suite-wide sweeps across remote branches or shared-remote state. A separate **debug-only** leak cleaner may exist for manual recovery; it is not part of the parallel happy path.
 
 ---
 

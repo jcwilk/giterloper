@@ -9,7 +9,7 @@ Make **every logical test case** parallel-safe and runnable concurrently with ev
 - no shared `_cli` fallback in tests
 - `.giterloper/` contains **only session-id directories**, with no `sessions/` wrapper at all
 - no test interface relies on mutable process-global env
-- no suite-wide cleanup that touches unrelated sessions or branches
+- no suite-wide cleanup that touches **unrelated remote branches** or **other tests’** session state; the harness may delete **repo-root** **`.giterloper/`** once at suite start only to limit **local disk** buildup from repeated runs (not an isolation mechanism)
 - a bounded worker pool keeps pulling new tests as slots free up, so concurrency is continuous rather than phase-based
 
 ## Why the pre-migration suite stops short
@@ -41,7 +41,7 @@ Tests pass explicit config into `createServer` / `createMcpAppForTest` / auth / 
 
 ### 4. Make cleanup strictly test-scoped
 
-Remove suite-wide session sweeps from the default runner path; avoid cleanup that deletes unrelated branches; optional debug-only leak tools only.
+Avoid cleanup that deletes unrelated remote branches. The default harness may still remove **`<repo>/.giterloper`** at suite start for **local hygiene** (leftover session dirs from prior invocations), without replacing per-test `cwd`/session isolation. Optional debug-only leak tools beyond that remain manual-only.
 
 ## Per-test concurrency in Deno
 
@@ -76,6 +76,6 @@ context --> cleanup[ScopedCleanup]
 - `deno task test` is one bounded worker pool over **logical cases** (no phase barrier such as “all core then all integration”). Cases are scheduled via `scripts/run-tests.ts` and `tests/test-case-manifest.json`.
 - `.giterloper/` has only session-id directories (no `sessions/` wrapper).
 - Every logical case gets its own session id and isolated cwd/state root automatically (CLI/integration helpers); MCP in-process tests inject auth/bootstrap via `createMcpAppForTest` / server options instead of mutating `Deno.env`.
-- Cleanup only affects resources created by the current test; the default harness does not sweep unrelated sessions.
+- Cleanup only affects resources created by the current test; the default harness does not sweep **remote** state or **other cases’** trees, aside from deleting **repo-root** **`.giterloper/`** once at harness start for local disk hygiene (see `tests/README.md`).
 - Subprocess concurrency is a single knob: **`DENO_JOBS`** applies to all manifest cases; shared-remote contention is handled by per-test isolation and collision-avoidance helpers, not a separate integration-only cap.
 - `tests/README.md` and `AGENTS.md` describe the final behavior accurately.
