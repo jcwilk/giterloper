@@ -31,10 +31,10 @@ Deno.test("isSafeSessionId rejects invalid inputs", () => {
   assertEquals(isSafeSessionId("bad/path"), false);
 });
 
-Deno.test("sessionDir returns path under sessions root", () => {
+Deno.test("sessionDir returns path under .giterloper/<sessionId>", () => {
   const id = "test-session";
   const dir = sessionDir(id);
-  assertEquals(dir.endsWith(path.join(".giterloper", "sessions", "test-session")), true);
+  assertEquals(dir.endsWith(path.join(".giterloper", "test-session")), true);
 });
 
 Deno.test("touchSession creates dir and last_activity file, removeSessionData cleans up", () => {

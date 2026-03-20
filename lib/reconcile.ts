@@ -107,8 +107,16 @@ export async function getPendingInCommitOrder(repoDir: string): Promise<PendingE
     const rel = `${PENDING_DIR}/${f}`;
     const fullPath = path.join(repoDir, rel);
     if (!existsSync(fullPath)) continue;
+    // Read content before any await so another test/process cannot remove the file mid-flight (parallel suite).
+    let content: string;
+    try {
+      content = readFileSync(fullPath, "utf8");
+    } catch (e) {
+      const code = e && typeof e === "object" && "code" in e ? (e as { code?: string }).code : "";
+      if (code === "ENOENT") continue;
+      throw e;
+    }
     const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi);
-    const content = readFileSync(fullPath, "utf8");
     entries.push({ path: rel, addEpoch, content });
   }
   entries.sort(comparePendingByAddEpoch);

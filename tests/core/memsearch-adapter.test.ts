@@ -26,7 +26,7 @@ function makeState(rootDir: string): GlState {
 }
 
 Deno.test("metadataPath returns indexDir/metadata.json", () => {
-  const sessionRoot = "/proj/.giterloper/sessions/test";
+  const sessionRoot = "/proj/.giterloper/test";
   const state = makeState(sessionRoot);
   assertEquals(
     metadataPath(state, "p1", "b".repeat(40)),

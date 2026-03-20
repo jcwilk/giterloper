@@ -1,7 +1,3 @@
-.giterloper/versions/
-.giterloper/staged/
-.giterloper/sessions/
-.giterloper/indexes/
-.giterloper/locks/
+.giterloper/
 
 .cursor/plans/

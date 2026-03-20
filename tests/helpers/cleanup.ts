@@ -37,8 +37,8 @@ function cleanupLocalCopies(pinName: string | null, sessionId: string): void {
   if (!pinName) return;
 
   const root = Deno.cwd();
-  const versionsDir = path.join(root, ".giterloper", "sessions", sessionId, "versions", pinName);
-  const stagedDir = path.join(root, ".giterloper", "sessions", sessionId, "staged", pinName);
+  const versionsDir = path.join(root, ".giterloper", sessionId, "versions", pinName);
+  const stagedDir = path.join(root, ".giterloper", sessionId, "staged", pinName);
 
   try {
     rmSync(versionsDir, { recursive: true, force: true });
@@ -55,7 +55,7 @@ function cleanupLocalCopies(pinName: string | null, sessionId: string): void {
 export interface CleanupOpts {
   pinName?: string | null;
   branchName?: string | null;
-  /** Required when `pinName` is set (local session tree cleanup). Target: `.giterloper/<sessionId>/`; implementation may still use `.giterloper/sessions/<sessionId>/` until the layout migration — see `tests/README.md`. */
+  /** Required when `pinName` is set (local session tree cleanup under `.giterloper/<sessionId>/`). */
   sessionId?: string;
 }
 

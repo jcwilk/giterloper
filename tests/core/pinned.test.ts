@@ -151,7 +151,7 @@ Deno.test("mutatePins session-scoped skips lock and updates file", () => {
   writeFileSync(path.join(root, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
   const state = makeState("pinned-mutate-session");
   // Override paths to use our temp root
-  const sessionRoot = path.join(root, "sessions", "pinned-mutate-session");
+  const sessionRoot = path.join(root, "pinned-mutate-session");
   mkdirSync(sessionRoot, { recursive: true });
   writeFileSync(path.join(sessionRoot, "pinned.yaml"), SAMPLE_PINS_YAML, "utf8");
   const sessionState: GlState = {

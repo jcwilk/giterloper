@@ -16,7 +16,7 @@ Deno.test("ensureDir creates directory when missing", () => {
 });
 
 Deno.test("cloneDir returns versionsDir/name/sha", () => {
-  const sessionRoot = "/proj/.giterloper/sessions/test";
+  const sessionRoot = "/proj/.giterloper/test";
   const state = {
     projectRoot: "/proj",
     rootDir: sessionRoot,
@@ -27,11 +27,11 @@ Deno.test("cloneDir returns versionsDir/name/sha", () => {
     sessionId: "test",
   };
   const pin = { name: "p1", source: "x", sha: "abc123" };
-  assertEquals(cloneDir(state, pin), "/proj/.giterloper/sessions/test/versions/p1/abc123");
+  assertEquals(cloneDir(state, pin), "/proj/.giterloper/test/versions/p1/abc123");
 });
 
 Deno.test("stagedDir returns stagedRoot/pinName/branchName", () => {
-  const sessionRoot = "/proj/.giterloper/sessions/test";
+  const sessionRoot = "/proj/.giterloper/test";
   const state = {
     projectRoot: "/proj",
     rootDir: sessionRoot,
@@ -41,11 +41,11 @@ Deno.test("stagedDir returns stagedRoot/pinName/branchName", () => {
     globalJson: false,
     sessionId: "test",
   };
-  assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/sessions/test/staged/p1/main");
+  assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/test/staged/p1/main");
 });
 
 Deno.test("indexDir returns rootDir/indexes/pinName/sha", () => {
-  const sessionRoot = "/proj/.giterloper/sessions/test";
+  const sessionRoot = "/proj/.giterloper/test";
   const state = {
     projectRoot: "/proj",
     rootDir: sessionRoot,
@@ -57,6 +57,6 @@ Deno.test("indexDir returns rootDir/indexes/pinName/sha", () => {
   };
   assertEquals(
     indexDir(state, "knowledge", "abcd1234".repeat(5)),
-    "/proj/.giterloper/sessions/test/indexes/knowledge/abcd1234abcd1234abcd1234abcd1234abcd1234"
+    "/proj/.giterloper/test/indexes/knowledge/abcd1234abcd1234abcd1234abcd1234abcd1234"
   );
 });

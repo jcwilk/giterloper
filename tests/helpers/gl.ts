@@ -12,13 +12,9 @@ export function newTestCliSessionId(): string {
   return `e2e_${randomBytes(16).toString("hex")}`;
 }
 
-/**
- * Session state directory under `cwd`.
- * **Target (canonical):** `.giterloper/<sessionId>/` — see `tests/README.md`.
- * **Current implementation** still uses `.giterloper/sessions/<sessionId>/` until the flattened layout migration lands; update this helper when paths are moved.
- */
+/** Session state directory under `cwd`: `.giterloper/<sessionId>/` (see `tests/README.md`). */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
-  return path.join(cwd, ".giterloper", "sessions", sessionId);
+  return path.join(cwd, ".giterloper", sessionId);
 }
 
 export type GlCliRunOpts = {

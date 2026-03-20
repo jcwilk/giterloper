@@ -16,7 +16,7 @@ export interface GlState {
   stagedRoot: string;
   pinnedPath: string;
   globalJson: boolean;
-  /** Mutable paths (pinned.yaml, versions, staged, indexes) root under .giterloper/sessions/<sessionId>/ */
+  /** Mutable paths (pinned.yaml, versions, staged, indexes) root under .giterloper/<sessionId>/ */
   sessionId: string;
 }
 

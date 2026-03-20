@@ -91,8 +91,8 @@ export function ensurePinRemoved(name: string, sessionId: string): void {
 }
 
 function cleanupLocalCopies(pinName: string, sessionId: string): void {
-  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "versions", pinName);
-  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "staged", pinName);
+  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "versions", pinName);
+  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "staged", pinName);
   try {
     rmSync(versionsDir, { recursive: true, force: true });
   } catch {
@@ -168,7 +168,7 @@ export function addTestPin(
 ): void {
   runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch], sessionId);
   runGlMaintenanceJson(["stage", branch, "--pin", pinName], sessionId);
-  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", "sessions", sessionId, "staged", pinName, branch);
+  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "staged", pinName, branch);
   if (!existsSync(stagedPath)) {
     throw new Error(`Stage failed: ${stagedPath} does not exist`);
   }

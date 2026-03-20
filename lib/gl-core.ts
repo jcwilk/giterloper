@@ -73,14 +73,14 @@ export function validateSessionId(sessionId: string | null | undefined): string 
 }
 
 /**
- * Creates GlState. Mutable paths root under .giterloper/sessions/<sessionId>/
+ * Creates GlState. Mutable paths root under .giterloper/<sessionId>/
  * (pinned.yaml, versions, staged, indexes).
  */
 export function makeState(sessionId: string): GlState {
   const projectRoot = PROJECT_ROOT;
   const baseGiterloper = path.join(projectRoot, ".giterloper");
   const validated = validateSessionId(sessionId);
-  const sessionRoot = path.join(baseGiterloper, "sessions", validated);
+  const sessionRoot = path.join(baseGiterloper, validated);
   return {
     projectRoot,
     rootDir: sessionRoot,

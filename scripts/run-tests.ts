@@ -7,7 +7,7 @@
  * mutating `Deno.env`. See `tests/README.md` and `docs/TEST_PARALLELISM_PLAN.md`.
  *
  * **Current implementation** (until that migration lands): `tests/core/` with `deno test --parallel`, then `tests/cli/`
- * and `tests/mcp/` in one serial `deno test` invocation; `cleanupLeakedTestPins()` sweeps `.giterloper/sessions/*`.
+ * and `tests/mcp/` in one serial `deno test` invocation; `cleanupLeakedTestPins()` sweeps `.giterloper/*` session dirs.
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -48,13 +48,13 @@ function cleanupLeakedTestPinsInSession(glScript: string, sessionId: string) {
 
 function cleanupLeakedTestPins() {
   const glScript = path.join(root, ".cursor", "skills", "gl", "scripts", "gl");
-  const sessionsRoot = path.join(root, ".giterloper", "sessions");
-  if (!existsSync(sessionsRoot)) return;
-  for (const name of readdirSync(sessionsRoot)) {
+  const giterloperRoot = path.join(root, ".giterloper");
+  if (!existsSync(giterloperRoot)) return;
+  for (const name of readdirSync(giterloperRoot)) {
     if (!SESSION_ID_SAFE.test(name)) continue;
     let sub: string;
     try {
-      sub = path.join(sessionsRoot, name);
+      sub = path.join(giterloperRoot, name);
       if (!statSync(sub).isDirectory()) continue;
     } catch {
       continue;

@@ -115,7 +115,7 @@ function cmdClone(state: GlState, args: string[]) {
     args,
     [
       "Usage: gl-maintenance clone [--pin <name> | --all]",
-      "Clones pinned version(s) into .giterloper/sessions/<sessionId>/versions/<name>/<sha>/.",
+      "Clones pinned version(s) into .giterloper/<sessionId>/versions/<name>/<sha>/.",
     ].join("\n")
   );
   let rest = [...args];

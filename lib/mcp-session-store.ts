@@ -1,5 +1,5 @@
 /**
- * MCP session store and cleanup. Manages session-local state under .giterloper/sessions/<sessionId>/.
+ * MCP session store and cleanup. Manages session-local state under .giterloper/<sessionId>/.
  * Provides explicit cleanup via giterloper_session_end and DELETE /mcp, plus stale-session
  * scavenging by last-activity TTL. Decoupled from tool handlers.
  *
@@ -9,13 +9,14 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import path from "node:path";
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
-const SESSIONS_ROOT = path.join(PROJECT_ROOT, ".giterloper", "sessions");
+/** Direct children are session id directories only (see docs/DEPLOYMENT_REQUIREMENTS.md). */
+const GITERLOPER_ROOT = path.join(PROJECT_ROOT, ".giterloper");
 const LAST_ACTIVITY_FILENAME = ".last_activity";
 const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
 /** Returns the directory path for a session. Does not validate sessionId. */
 export function sessionDir(sessionId: string): string {
-  return path.join(SESSIONS_ROOT, sessionId);
+  return path.join(GITERLOPER_ROOT, sessionId);
 }
 
 /**
@@ -29,7 +30,7 @@ export function isSafeSessionId(sessionId: string | null | undefined): sessionId
 }
 
 /**
- * Removes session-local state (`.giterloper/sessions/<sessionId>/`) best-effort.
+ * Removes session-local state (`.giterloper/<sessionId>/`) best-effort.
  * Validates sessionId for path safety; skips removal if invalid.
  * Does not throw.
  */
@@ -65,15 +66,15 @@ export function touchSession(sessionId: string): void {
  */
 export function scavengeStaleSessions(ttlMs: number): number {
   if (ttlMs <= 0) return 0;
-  if (!existsSync(SESSIONS_ROOT)) return 0;
+  if (!existsSync(GITERLOPER_ROOT)) return 0;
   const now = Date.now();
   const cutoff = now - ttlMs;
   let removed = 0;
   try {
-    const entries = readdirSync(SESSIONS_ROOT);
+    const entries = readdirSync(GITERLOPER_ROOT);
     for (const name of entries) {
       if (!isSafeSessionId(name)) continue;
-      const dir = path.join(SESSIONS_ROOT, name);
+      const dir = path.join(GITERLOPER_ROOT, name);
       const stampPath = path.join(dir, LAST_ACTIVITY_FILENAME);
       let lastActivity = 0;
       if (existsSync(stampPath)) {

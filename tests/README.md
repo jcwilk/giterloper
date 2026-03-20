@@ -10,9 +10,7 @@ The repository is converging on the layout and runner described in [docs/TEST_PA
 
 ### On-disk session layout
 
-- Under the process working directory, **all** giterloper session state lives at **`.giterloper/<sessionId>/`** (for example `pinned.yaml`, `versions/`, `staged/`, indexes, and any session-local locks).
-- There is **no** `.giterloper/sessions/` directory in the target layout—only directories **named by session id** sit directly under `.giterloper/`.
-- Until the migration is complete, some sources may still use the legacy path `.giterloper/sessions/<sessionId>/`. **New code and tests should implement the flattened layout** and update adjacent call sites when touched.
+- Under the process working directory, **all** giterloper session state lives at **`.giterloper/<sessionId>/`** (for example `pinned.yaml`, `versions/`, `staged/`, indexes, and any session-local locks). Only directories **named by session id** sit directly under `.giterloper/` (no `sessions/` wrapper).
 
 ### Runner and parallelism
 

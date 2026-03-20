@@ -6,10 +6,10 @@ import { GlError } from "../../lib/errors.ts";
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
 
-Deno.test("makeState with sessionId roots mutable paths under sessions/<sessionId>", () => {
+Deno.test("makeState with sessionId roots mutable paths under .giterloper/<sessionId>", () => {
   const state = makeState("abc123");
   assertEquals(state.projectRoot, PROJECT_ROOT);
-  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper", "sessions", "abc123");
+  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper", "abc123");
   assertEquals(state.rootDir, sessionRoot);
   assertEquals(state.versionsDir, path.join(sessionRoot, "versions"));
   assertEquals(state.stagedRoot, path.join(sessionRoot, "staged"));
@@ -17,9 +17,9 @@ Deno.test("makeState with sessionId roots mutable paths under sessions/<sessionI
   assertEquals(state.sessionId, "abc123");
 });
 
-Deno.test("makeState('_cli') returns paths under .giterloper/sessions/_cli/", () => {
+Deno.test("makeState('_cli') returns paths under .giterloper/_cli/", () => {
   const state = makeState("_cli");
-  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper", "sessions", "_cli");
+  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper", "_cli");
   assertEquals(state.rootDir, sessionRoot);
   assertEquals(state.pinnedPath, path.join(sessionRoot, "pinned.yaml"));
   assertEquals(state.sessionId, "_cli");
