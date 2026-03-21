@@ -47,7 +47,7 @@ Avoid cleanup that deletes unrelated remote branches. The default harness may st
 
 - Express each logical case as data or `runCase(ctx)` in source modules.
 - Generate one runnable module per case.
-- Run generated modules through a **bounded worker pool** that backfills until all cases finish.
+- Run generated modules through a **bounded worker pool** that backfills until all cases finish. Worker count is **`DENO_JOBS`** (integer ≥ 1; default **16** when unset), matching `scripts/run-tests.ts`.
 - Point `scripts/run-tests.ts` and `deno.json` tasks at that unified path.
 
 ```mermaid
@@ -77,5 +77,5 @@ context --> cleanup[ScopedCleanup]
 - `.giterloper/` has only session-id directories (no `sessions/` wrapper).
 - Every logical case gets its own session id and isolated cwd/state root automatically (CLI/integration helpers); MCP in-process tests inject auth/bootstrap via `createMcpAppForTest` / server options instead of mutating `Deno.env`.
 - Cleanup only affects resources created by the current test; the default harness does not sweep **remote** state or **other cases’** trees, aside from deleting **repo-root** **`.giterloper/`** once at harness start for local disk hygiene (see `tests/README.md`).
-- Subprocess concurrency is a single knob: **`DENO_JOBS`** applies to all manifest cases; shared-remote contention is handled by per-test isolation and collision-avoidance helpers, not a separate integration-only cap.
+- Subprocess concurrency is a single knob: **`DENO_JOBS`** (default **16** when unset) applies to all manifest cases; shared-remote contention is handled by per-test isolation and collision-avoidance helpers, not a separate integration-only cap.
 - `tests/README.md` and `AGENTS.md` describe the final behavior accurately.
