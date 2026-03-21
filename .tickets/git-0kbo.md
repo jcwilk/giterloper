@@ -1,6 +1,6 @@
 ---
 id: git-0kbo
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-21T21:17:57Z

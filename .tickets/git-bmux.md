@@ -1,6 +1,6 @@
 ---
 id: git-bmux
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-21T21:18:01Z

@@ -2,6 +2,14 @@
  * Shared type definitions for giterloper. See CONVENTIONS.md for coding conventions.
  */
 
+export type RetryLogRole = "cli" | "mcp" | "test";
+
+/** Optional correlation for append-only logs/giterloper-retry.log (see AGENTS.md). */
+export interface RetryLogContext {
+  sessionId?: string;
+  role?: RetryLogRole;
+}
+
 export interface Pin {
   name: string;
   source: string;
@@ -18,6 +26,8 @@ export interface GlState {
   globalJson: boolean;
   /** Mutable paths (pinned.yaml, versions, staged, indexes) root under .giterloper/<sessionId>/ */
   sessionId: string;
+  /** Set by makeState callers so retry logs distinguish cli vs mcp. */
+  retryLogRole?: RetryLogRole;
 }
 
 export interface RunResult {

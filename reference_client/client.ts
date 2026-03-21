@@ -60,12 +60,10 @@ function getRequestOpts(client: Client): { timeout?: number } | undefined {
   return ms != null ? { timeout: ms } : undefined;
 }
 
-const MCP_REMOTE_TRANSIENT =
-  /could not reach remote|the remote may be unreachable|rate limit|SSL connection timeout|Connection timed out|Could not resolve host|Recv failure|Operation timed out|unable to access|upload-pack: not our ref|not our ref 0{40}/i;
-
+/** Transport- and server-class failures only; lib/git/github own git/GitHub retries. */
 function isTransientMcpToolError(err: { code: string; message: string }): boolean {
   if (err.code === "external") return true;
-  return MCP_REMOTE_TRANSIENT.test(err.message);
+  return /\brate limit\b/i.test(err.message);
 }
 
 async function sleepMs(ms: number): Promise<void> {
@@ -77,7 +75,7 @@ async function callToolJson(
   client: Client,
   toolName: string,
   args: Record<string, unknown>,
-  maxAttempts = 5
+  maxAttempts = 2
 ): Promise<unknown> {
   let lastErr: Error | null = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

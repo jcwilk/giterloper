@@ -5,6 +5,7 @@ import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { EXIT, fail } from "./errors.ts";
+import { retryLogFromGlState, runGitNetwork } from "./retry-external.ts";
 import { run, runSoft } from "./run.ts";
 import { toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
@@ -48,19 +49,16 @@ export function clonePin(
   ensureDir(path.dirname(cdir));
   if (existsSync(cdir)) rmSync(cdir, { recursive: true, force: true });
   const url = toRemoteUrl(pin.source);
+  const rlog = retryLogFromGlState(state);
 
   // Clone from SHA: init, fetch the commit, checkout. No branch involved.
   run("git", ["init", cdir]);
   run("git", ["-C", cdir, "remote", "add", "origin", url]);
-  const fetchResult = runSoft("git", [
-    "-C",
-    cdir,
-    "fetch",
-    "--depth",
-    "1",
-    "origin",
-    `${pin.sha}:refs/heads/_pin`,
-  ]);
+  const fetchResult = runGitNetwork(
+    ["-C", cdir, "fetch", "--depth", "1", "origin", `${pin.sha}:refs/heads/_pin`],
+    {},
+    { operation: "git fetch pin sha", logContext: rlog }
+  );
   if (!fetchResult.ok) {
     fail(
       `git fetch ${pin.sha} failed: ${(fetchResult.stderr || fetchResult.stdout).trim()}. ` +

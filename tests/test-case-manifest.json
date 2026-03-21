@@ -305,6 +305,34 @@
       "name": "stripBoilerplate collapses multiple newlines"
     },
     {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "computeBackoffMs is positive and bounded"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "gitArgsTouchNetwork detects ls-remote after -C"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "githubResponseRetry 401 and 422 are not retried"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "githubResponseRetry merge 409 is not retried"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "githubResponseRetry rate-limited 403 with body"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "githubResponseRetry uses retry-after seconds"
+    },
+    {
+      "path": "tests/core/retry-external.test.ts",
+      "name": "gitTransientMessage recognizes common network flakes"
+    },
+    {
       "path": "tests/mcp/gl-mcp-workflow.test.ts",
       "name": "MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation"
     },

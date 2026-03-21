@@ -56,6 +56,10 @@ Topic integration tests—especially MCP workflow tests against a live remote—
 
 Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, and cleanup rules). The target end state for the test harness and flattened `.giterloper/<sessionId>/` layout is spelled out in [docs/TEST_PARALLELISM_PLAN.md](./docs/TEST_PARALLELISM_PLAN.md); `tests/README.md` is kept aligned with that plan as the implementation lands.
 
+## External retries (git, GitHub)
+
+Transient network and GitHub REST failures are retried in `lib/retry-external.ts` (bounded attempts, jittered backoff). Each retry is logged as one append-only JSON line under `logs/giterloper-retry.log` (repo root, or `GITERLOPER_PROJECT_ROOT` when set): ISO timestamp, process id, optional `sessionId` and `role` (`cli` / `mcp` / `test`), operation label, attempt/maxAttempts, wait ms, and a short error snippet. If the log file cannot be written, the same line is emitted once on stderr. See epic ticket `git-0kbo` for background. MCP/CLI JSON stdout stays free of retry noise.
+
 ## Gl Script Notes
 
 - **pinned.yaml** — All writes go through `mutatePins()`. Each session has its own pinned.yaml under `.giterloper/<sessionId>/`; no cross-session locking.

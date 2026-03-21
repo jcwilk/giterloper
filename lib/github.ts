@@ -5,7 +5,9 @@
  * Auth: uses GITERLOPER_GH_TOKEN if set, otherwise `gh auth token` (session-based).
  */
 import { EXIT, fail } from "./errors.ts";
+import { fetchWithRetry } from "./retry-external.ts";
 import { runSoft } from "./run.ts";
+import type { RetryLogContext } from "./types.ts";
 
 /**
  * Parse github.com/owner/repo into { owner, repo }.
@@ -23,7 +25,11 @@ export function parseGithubSource(source: string): { owner: string; repo: string
  * GET /repos/{owner}/{repo}/commits/{sha} accepts partial SHAs.
  * Requires parseGithubSource(source) to succeed. Uses GITERLOPER_GH_TOKEN when set.
  */
-export async function resolvePartialShaViaGithub(source: string, shortSha: string): Promise<string> {
+export async function resolvePartialShaViaGithub(
+  source: string,
+  shortSha: string,
+  retryLog?: RetryLogContext
+): Promise<string> {
   const parsed = parseGithubSource(source);
   if (!parsed) {
     fail(
@@ -38,7 +44,10 @@ export async function resolvePartialShaViaGithub(source: string, shortSha: strin
     Authorization: `Bearer ${token}`,
   };
   const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits/${shortSha}`;
-  const res = await fetch(url, { headers });
+  const res = await fetchWithRetry(url, { headers }, {
+    operation: "github commits partial-sha",
+    retryLog,
+  });
   if (!res.ok) {
     const text = await res.text();
     fail(
@@ -91,7 +100,8 @@ function getGitHubToken(): string {
 export async function getFileAddEpochViaApi(
   source: string,
   path: string,
-  sha: string
+  sha: string,
+  retryLog?: RetryLogContext
 ): Promise<number> {
   const parsed = parseGithubSource(source);
   if (!parsed) return 0;
@@ -106,8 +116,12 @@ export async function getFileAddEpochViaApi(
   const perPage = 100;
   let lastCommit: { commit?: { committer?: { date?: string } } } | null = null;
   for (;;) {
-    const url = `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?sha=${encodeURIComponent(sha)}&path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}`;
-    const res = await fetch(url, { headers });
+    const url =
+      `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/commits?sha=${encodeURIComponent(sha)}&path=${encodeURIComponent(path)}&per_page=${perPage}&page=${page}`;
+    const res = await fetchWithRetry(url, { headers }, {
+      operation: "github commits path history",
+      retryLog,
+    });
     if (!res.ok) return 0;
     const data = (await res.json()) as Array<{ commit?: { committer?: { date?: string } } }>;
     if (!Array.isArray(data) || data.length === 0) break;
@@ -131,7 +145,8 @@ export async function mergeBranchesRemotely(
   source: string,
   baseBranch: string,
   headBranch: string,
-  commitMessage: string
+  commitMessage: string,
+  retryLog?: RetryLogContext
 ): Promise<MergeResult> {
   const parsed = parseGithubSource(source);
   if (!parsed) {
@@ -144,7 +159,7 @@ export async function mergeBranchesRemotely(
     head: headBranch,
     commit_message: commitMessage,
   });
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -153,6 +168,10 @@ export async function mergeBranchesRemotely(
       "X-GitHub-Api-Version": "2022-11-28",
     },
     body,
+  }, {
+    operation: "github merges POST",
+    retryLog,
+    isMergePost: true,
   });
   const status = res.status;
   if (status === 201) {
@@ -165,14 +184,15 @@ export async function mergeBranchesRemotely(
   }
   if (status === 204) {
     // Already up-to-date (base contains head). Base branch tip is unchanged.
-    const refRes = await fetch(
+    const refRes = await fetchWithRetry(
       `https://api.github.com/repos/${parsed.owner}/${parsed.repo}/git/ref/heads/${encodeURIComponent(baseBranch)}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github+json",
         },
-      }
+      },
+      { operation: "github ref heads", retryLog }
     );
     if (!refRes.ok) fail("failed to get base branch ref after merge", EXIT.EXTERNAL);
     const d = (await refRes.json()) as { object?: { sha?: string } };

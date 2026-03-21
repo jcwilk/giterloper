@@ -6,12 +6,12 @@ import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { BranchShaMismatchError, EXIT, fail } from "./errors.ts";
+import { retryLogFromGlState, runGitNetwork } from "./retry-external.ts";
 import { run, runSoft } from "./run.ts";
 import { isBranchNotFoundError } from "./run.ts";
 import { resolveBranchShaReachable, setCloneIdentity, toRemoteUrl } from "./git.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
-import type { GlState } from "./types.ts";
-import type { Pin } from "./types.ts";
+import type { GlState, Pin, RetryLogContext } from "./types.ts";
 
 export function requirePinBranch(pin: Pin, operation: string): void {
   if (pin.branch) return;
@@ -27,7 +27,8 @@ export function requirePinBranch(pin: Pin, operation: string): void {
  */
 export function assertBranchReadyForWrite(state: GlState, pin: Pin): void {
   requirePinBranch(pin, "write operation");
-  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!);
+  const rlog = retryLogFromGlState(state);
+  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!, rlog);
   if (!reachable) {
     fail(
       `could not reach remote to verify pin vs branch HEAD for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
@@ -62,22 +63,28 @@ export function cloneToStaged(
   const dir = stagedDir(state, pin.name, branch);
   ensureDir(path.dirname(dir));
   const url = toRemoteUrl(pin.source);
-  const result = runSoft("git", [
-    "clone",
-    "--depth",
-    "1",
-    "--branch",
-    branch,
-    url,
-    dir,
-  ]);
+  const rlog = retryLogFromGlState(state);
+  const result = runGitNetwork(
+    ["clone", "--depth", "1", "--branch", branch, url, dir],
+    {},
+    { operation: "git clone --branch", logContext: rlog }
+  );
   if (!result.ok) {
     if (isBranchNotFoundError(result)) {
       if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
       (opts?.infoFn ?? (() => {}))(
         `branch "${branch}" not found; creating from default branch`
       );
-      run("git", ["clone", "--depth", "1", url, dir]);
+      const fb = runGitNetwork(["clone", "--depth", "1", url, dir], {}, {
+        operation: "git clone default",
+        logContext: rlog,
+      });
+      if (!fb.ok) {
+        fail(
+          `git clone failed: ${(fb.stderr || fb.stdout).trim()}`,
+          EXIT.EXTERNAL
+        );
+      }
       run("git", ["-C", dir, "checkout", "-b", branch]);
     } else {
       fail(
@@ -119,7 +126,11 @@ export function assertBranchFresh(
 ): void {
   if (!pin.branch) return;
   const localSha = run("git", ["-C", workingDir, "rev-parse", "HEAD"]);
-  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch);
+  const { reachable, remoteSha } = resolveBranchShaReachable(
+    pin.source,
+    pin.branch,
+    retryLogFromGlState(state)
+  );
   if (!reachable) {
     fail(
       `could not reach remote to check branch freshness for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
@@ -159,9 +170,13 @@ export function commitIfDirty(dir: string, message: string): boolean {
 export function pushBranchOrFail(
   dir: string,
   pin: Pin,
-  operationName: string
+  operationName: string,
+  retryLog?: RetryLogContext
 ): void {
-  const pushed = runSoft("git", ["-C", dir, "push", "-u", "origin", pin.branch!]);
+  const pushed = runGitNetwork(["-C", dir, "push", "-u", "origin", pin.branch!], {}, {
+    operation: `git push (${operationName})`,
+    logContext: retryLog,
+  });
   if (pushed.ok) return;
   fail(
     [
@@ -183,7 +198,8 @@ export function pushBranchOrFail(
  */
 export function eagerPushBranchOrFail(state: GlState, pin: Pin): void {
   requirePinBranch(pin, "eager branch push");
-  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!);
+  const rlog = retryLogFromGlState(state);
+  const { reachable, remoteSha } = resolveBranchShaReachable(pin.source, pin.branch!, rlog);
   if (!reachable) {
     fail(
       `could not reach remote to push branch for pin "${pin.name}" (branch "${pin.branch}"). The remote may be unreachable.`,
@@ -217,7 +233,10 @@ export function eagerPushBranchOrFail(state: GlState, pin: Pin): void {
   }
   setCloneIdentity(dir);
   run("git", ["-C", dir, "checkout", "-B", pin.branch!]);
-  const pushed = runSoft("git", ["-C", dir, "push", "-u", "origin", pin.branch!]);
+  const pushed = runGitNetwork(["-C", dir, "push", "-u", "origin", pin.branch!], {}, {
+    operation: "git push (eager)",
+    logContext: rlog,
+  });
   if (!pushed.ok) {
     fail(
       [
@@ -236,12 +255,11 @@ export function branchFreshSoft(state: GlState, pin: Pin): BranchFreshResult {
   if (!existsSync(dir))
     return { fresh: null, localSha: null, remoteSha: null };
   const local = runSoft("git", ["-C", dir, "rev-parse", "HEAD"]);
-  const remote = runSoft("git", [
-    "ls-remote",
-    "--heads",
-    toRemoteUrl(pin.source),
-    pin.branch,
-  ]);
+  const remote = runGitNetwork(
+    ["ls-remote", "--heads", toRemoteUrl(pin.source), pin.branch],
+    {},
+    { operation: "git ls-remote (branchFreshSoft)", logContext: retryLogFromGlState(state) }
+  );
   if (!local.ok || !remote.ok || !remote.stdout) {
     return { fresh: null, localSha: local.stdout || null, remoteSha: null };
   }

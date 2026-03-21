@@ -10,6 +10,7 @@ import path from "node:path";
 import { getRemoteOriginUrl } from "./git.ts";
 import { getFileAddEpochViaApi, parseGithubSource } from "./github.ts";
 import { run, runSoft } from "./run.ts";
+import type { RetryLogContext } from "./types.ts";
 
 const PENDING_DIR = "knowledge/_pending";
 const KNOWLEDGE_DIR = "knowledge";
@@ -62,12 +63,13 @@ async function addEpochForFile(
   repoDir: string,
   rel: string,
   source: string | null,
-  useApi: boolean
+  useApi: boolean,
+  retryLog?: RetryLogContext
 ): Promise<number> {
   if (useApi && source) {
     const headSha = runSoft("git", ["-C", repoDir, "rev-parse", "HEAD"]);
     if (headSha.ok && headSha.stdout?.trim()) {
-      const epoch = await getFileAddEpochViaApi(source, rel, headSha.stdout.trim());
+      const epoch = await getFileAddEpochViaApi(source, rel, headSha.stdout.trim(), retryLog);
       if (epoch > 0) return epoch;
     }
   }
@@ -93,7 +95,10 @@ export function comparePendingByAddEpoch(a: PendingEntry, b: PendingEntry): numb
  * Get pending files in commit order (earliest add first). Uses GitHub API for add timestamp when repo is GitHub and token available (works with shallow clones).
  * Entries with addEpoch 0 (API and git log both yield 0, e.g. shallow clone without API) are included and ordered last.
  */
-export async function getPendingInCommitOrder(repoDir: string): Promise<PendingEntry[]> {
+export async function getPendingInCommitOrder(
+  repoDir: string,
+  retryLog?: RetryLogContext
+): Promise<PendingEntry[]> {
   const pendingPath = path.join(repoDir, PENDING_DIR);
   if (!existsSync(pendingPath)) return [];
   const files = readdirSync(pendingPath).filter((f) => f.endsWith(".md"));
@@ -116,7 +121,7 @@ export async function getPendingInCommitOrder(repoDir: string): Promise<PendingE
       if (code === "ENOENT") continue;
       throw e;
     }
-    const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi);
+    const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi, retryLog);
     entries.push({ path: rel, addEpoch, content });
   }
   entries.sort(comparePendingByAddEpoch);
@@ -161,9 +166,12 @@ export function mergeTopicContent(
  * Returns oldSha/newSha, touched paths, unresolved (if any), deleted pending paths.
  * No silent data loss: unresolved files stay in _pending.
  */
-export async function reconcile(repoDir: string): Promise<ReconcileResult | ReconcileError> {
+export async function reconcile(
+  repoDir: string,
+  retryLog?: RetryLogContext
+): Promise<ReconcileResult | ReconcileError> {
   const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
-  const entries = await getPendingInCommitOrder(repoDir);
+  const entries = await getPendingInCommitOrder(repoDir, retryLog);
   if (entries.length === 0) {
     return { ok: true, oldSha, newSha: oldSha, touched: [], unresolved: [], deleted: [] };
   }

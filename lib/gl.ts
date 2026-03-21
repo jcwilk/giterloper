@@ -14,6 +14,7 @@ import { resolveShaOrRef } from "./git.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { makeState } from "./gl-core.ts";
 import type { GlState } from "./gl-core.ts";
+import { retryLogFromGlState } from "./retry-external.ts";
 import { cloneDir, ensureDir, stagedDir } from "./paths.ts";
 import {
   assertBranchFresh,
@@ -88,7 +89,7 @@ async function cmdPinAdd(state: GlState, args: string[]) {
   const branch = branchParsed.found ? branchParsed.value : undefined;
   const refInput = (refParsed.found ? refParsed.value : branch || "HEAD") ?? "HEAD";
 
-  const sha = await resolveShaOrRef(source, refInput);
+  const sha = await resolveShaOrRef(source, refInput, retryLogFromGlState(state));
 
   const newPin = { name, source, sha, branch: branch ?? undefined };
   const pins = readPins(state);
@@ -162,7 +163,7 @@ async function cmdPinUpdate(state: GlState, args: string[]) {
   const oldPin = pins.find((p) => p.name === name);
   if (!oldPin) fail(`pin "${name}" not found`, EXIT.USER);
   const ref = (refParsed.found ? refParsed.value : oldPin.branch || "HEAD") ?? "HEAD";
-  const newSha = await resolveShaOrRef(oldPin.source, ref);
+  const newSha = await resolveShaOrRef(oldPin.source, ref, retryLogFromGlState(state));
   if (newSha.toLowerCase() === oldPin.sha.toLowerCase()) {
     commandOutput({ name, sha: newSha, updated: false, reason: "already at requested sha" }, state.globalJson);
     return;
@@ -256,7 +257,7 @@ function cmdInsert(state: GlState, args: string[]) {
   writeFileSync(outPath, content.endsWith("\n") ? content : `${content}\n`, "utf8");
 
   commitIfDirty(dir, `gl: insert ${path.basename(outPath)}`);
-  pushBranchOrFail(dir, pin, "insert");
+  pushBranchOrFail(dir, pin, "insert", retryLogFromGlState(state));
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   updatePinSha(state, pin.name, newSha, { infoFn: info });
   commandOutput(
@@ -294,7 +295,7 @@ function cmdInstallRemote(state: GlState, args: string[]) {
   writeFileSync(destPath, content, "utf8");
 
   commitIfDirty(dir, "gl: install-remote GITERLOPER.md");
-  pushBranchOrFail(dir, pin, "install-remote");
+  pushBranchOrFail(dir, pin, "install-remote", retryLogFromGlState(state));
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   updatePinSha(state, pin.name, newSha, { infoFn: info });
   commandOutput(
@@ -360,12 +361,12 @@ async function cmdReconcile(state: GlState, args: string[]) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
 
-  const result = await reconcile(dir);
+  const result = await reconcile(dir, retryLogFromGlState(state));
   if (!result.ok) {
     fail(result.message, EXIT.STATE);
   }
   if (result.touched.length > 0 || result.deleted.length > 0) {
-    pushBranchOrFail(dir, pin, "reconcile");
+    pushBranchOrFail(dir, pin, "reconcile", retryLogFromGlState(state));
     updatePinSha(state, pin.name, result.newSha, { infoFn: info });
   }
 
@@ -415,7 +416,8 @@ async function cmdMerge(state: GlState, args: string[]) {
     source.source,
     target.branch!,
     source.branch!,
-    commitMessage
+    commitMessage,
+    retryLogFromGlState(state)
   );
 
   updatePinSha(state, target.name, result.sha, { infoFn: info });
@@ -440,7 +442,7 @@ async function main() {
     printTopHelp();
     return;
   }
-  const state = makeState(sessionId);
+  const state = makeState(sessionId, { retryLogRole: "cli" });
   state.globalJson = helpJsonParsed.found;
 
   const [cmd, ...rest] = args;

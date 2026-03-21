@@ -14,6 +14,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import { autoInitSessionPin, ensureSessionDir, makeState, validateSessionId } from "./gl-core.ts";
+import { retryLogFromGlState } from "./retry-external.ts";
 import type { GlState, Pin } from "./types.ts";
 import { mutatePins, readPins, resolvePin, SESSION_PIN_NAME, validatePinName } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
@@ -148,7 +149,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     extra: { sessionId?: string } | undefined
   ): ReturnType<typeof makeState> {
     const sessionId = resolveSessionId(extra);
-    const state = makeState(sessionId);
+    const state = makeState(sessionId, { retryLogRole: "mcp" });
     ensureSessionDir(state);
     autoInitSessionPin(state, knowledgeRemoteOpt);
     touchSession(sessionId);
@@ -315,7 +316,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           "utf8"
         );
         commitIfDirty(dir, `gl: insert ${path.basename(outPath)}`);
-        pushBranchOrFail(dir, p, "insert");
+        pushBranchOrFail(dir, p, "insert", retryLogFromGlState(state));
         const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
         updatePinSha(state, p.name, newSha, {});
         return {
@@ -354,7 +355,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const dir = ensureWorkingClone(state, p, {});
         assertBranchFresh(state, p, dir);
         const oldSha = p.sha;
-        const result = await reconcile(dir);
+        const result = await reconcile(dir, retryLogFromGlState(state));
         if (!result.ok) {
           return {
             ok: false,
@@ -364,7 +365,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           };
         }
         if (result.touched.length > 0 || result.deleted.length > 0) {
-          pushBranchOrFail(dir, p, "reconcile");
+          pushBranchOrFail(dir, p, "reconcile", retryLogFromGlState(state));
           updatePinSha(state, p.name, result.newSha, {});
         }
         return {
@@ -452,7 +453,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
           source.source,
           target.branch!,
           source.branch!,
-          commitMessage
+          commitMessage,
+          retryLogFromGlState(state)
         );
         const oldSha = target.sha;
         updatePinSha(state, target.name, result.sha, {});
@@ -524,6 +526,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const ref = str(raw.ref);
         const branch = str(raw.branch);
         const state = stateForSession(extra);
+        const rlog = retryLogFromGlState(state);
         const pins = readPins(state);
 
         // Omit pin: operate on session pin. Per docs/PIN_SETTING_PARAM_BEHAVIOR.md.
@@ -567,8 +570,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
           if (!sessionPin) {
             const effectiveSource = source!.trim();
             const effectiveSha = shaProvided
-              ? await resolveShaOrRef(effectiveSource, ref!.trim())
-              : resolveSha(effectiveSource, "HEAD");
+              ? await resolveShaOrRef(effectiveSource, ref!.trim(), rlog)
+              : resolveSha(effectiveSource, "HEAD", rlog);
             const branchVal = branchProvided ? branch!.trim() || undefined : undefined;
             sessionPin = {
               name: SESSION_PIN_NAME,
@@ -620,7 +623,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
               details: {},
             };
           }
-          const resolvedSha = await resolveShaOrRef(effectiveSource, ref!.trim());
+          const resolvedSha = await resolveShaOrRef(effectiveSource, ref!.trim(), rlog);
           const updated: Pin = { ...sessionPin, sha: resolvedSha, branch: undefined };
           teardownPinData(state, sessionPin);
           clonePin(state, updated);
@@ -677,7 +680,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
             };
           }
           const effectiveSha = shaProvided
-            ? await resolveShaOrRef(effectiveSource, ref!.trim())
+            ? await resolveShaOrRef(effectiveSource, ref!.trim(), rlog)
             : sessionPinForInheritance!.sha;
           const branchVal = branch!.trim() || undefined;
           const snapshotPin: Pin = {
@@ -752,7 +755,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
           if (refProvided || sourceProvided) {
             const src = merged.source;
             const refInput = refProvided ? ref!.trim() : "HEAD";
-            merged.sha = await resolveShaOrRef(src, refInput);
+            merged.sha = await resolveShaOrRef(src, refInput, rlog);
           }
 
           const shaChanged = merged.sha !== existing.sha;
@@ -791,7 +794,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         const refInput = ref?.trim() || "HEAD";
         const effectiveSha =
           !sessionPinForInheritance || source?.trim() || ref?.trim()
-            ? await resolveShaOrRef(effectiveSource, refInput)
+            ? await resolveShaOrRef(effectiveSource, refInput, rlog)
             : sessionPinForInheritance.sha;
         const newPin = {
           name: trimmedName,

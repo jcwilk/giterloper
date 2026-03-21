@@ -18,16 +18,19 @@ function defaultSpawnCwd(): string {
   return "/";
 }
 
+const DEFAULT_SPAWN_MAX_BUFFER = 64 * 1024 * 1024;
+
 export function run(
   cmd: string,
   args: string[],
-  opts: { cwd?: string; env?: Record<string, string> } = {}
+  opts: { cwd?: string; env?: Record<string, string>; maxBuffer?: number } = {}
 ): string {
   const result = spawnSync(cmd, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    ...opts,
+    maxBuffer: opts.maxBuffer ?? DEFAULT_SPAWN_MAX_BUFFER,
     cwd: opts.cwd ?? defaultSpawnCwd(),
+    env: opts.env,
   });
   if (result.error) {
     fail(`failed to run ${cmd}: ${result.error.message}`, EXIT.EXTERNAL);
@@ -44,13 +47,14 @@ export function run(
 export function runSoft(
   cmd: string,
   args: string[],
-  opts: { cwd?: string; env?: Record<string, string> } = {}
+  opts: { cwd?: string; env?: Record<string, string>; maxBuffer?: number } = {}
 ): RunResult {
   const result = spawnSync(cmd, args, {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    ...opts,
+    maxBuffer: opts.maxBuffer ?? DEFAULT_SPAWN_MAX_BUFFER,
     cwd: opts.cwd ?? defaultSpawnCwd(),
+    env: opts.env,
   });
   return {
     ok: !result.error && result.status === 0,

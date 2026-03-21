@@ -76,7 +76,7 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
   const cliArgs = ["--json", "--session-id", sessionId, ...args];
   const env = { ...Deno.env.toObject() };
-  const maxAttempts = 5;
+  const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     let result;
@@ -138,7 +138,7 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const sessionArgs = ["--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const env = { ...Deno.env.toObject() };
-  const maxAttempts = 5;
+  const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const result = spawnSync(GL_MAINTENANCE_SCRIPT, cliArgs, {

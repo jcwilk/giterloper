@@ -14,6 +14,7 @@ import { consumeBooleanFlag, parseFlag, printMaintenanceHelp } from "./cli.ts";
 import { ensureHelpNotRequested, commandOutput, info } from "./cli.ts";
 import { makeState } from "./gl-core.ts";
 import type { GlState } from "./gl-core.ts";
+import { retryLogFromGlState } from "./retry-external.ts";
 import { ensureGiterloperRoot, mutatePins, readPins, resolvePin, validatePinName } from "./pinned.ts";
 import { cloneDir, stagedDir } from "./paths.ts";
 import { run } from "./run.ts";
@@ -191,7 +192,7 @@ function cmdPromote(state: GlState, args: string[]) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
   commitIfDirty(dir, `giterloper: promote ${pin.branch}`);
-  pushBranchOrFail(dir, pin, "promote");
+  pushBranchOrFail(dir, pin, "promote", retryLogFromGlState(state));
   const newSha = run("git", ["-C", dir, "rev-parse", "HEAD"]);
   updatePinSha(state, pin.name, newSha, { infoFn: info });
   removeStagedDir(state, pin.name, pin.branch);
@@ -229,7 +230,7 @@ async function main() {
     printMaintenanceHelp();
     return;
   }
-  const state = makeState(sessionId);
+  const state = makeState(sessionId, { retryLogRole: "cli" });
   state.globalJson = helpJsonParsed.found;
 
   const [cmd, ...rest] = args;

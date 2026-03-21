@@ -1,6 +1,6 @@
 ---
 id: git-6dwk
-status: open
+status: closed
 deps: [git-bmux]
 links: []
 created: 2026-03-21T21:18:04Z

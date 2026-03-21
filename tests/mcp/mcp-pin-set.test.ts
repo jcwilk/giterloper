@@ -64,49 +64,29 @@ async function parseToolResult(res: Response): Promise<unknown> {
   }
 }
 
-const MCP_TOOL_REMOTE_TRANSIENT =
-  /could not reach remote|the remote may be unreachable|rate limit|SSL connection timeout|Connection timed out|Could not resolve host|Recv failure|Operation timed out|unable to access|upload-pack: not our ref|not our ref 0{40}/i;
-
-function toolResultIsTransientRemoteFailure(r: unknown): boolean {
-  if (!r || typeof r !== "object") return false;
-  const o = r as { ok?: boolean; message?: string; code?: string };
-  if (o.ok !== false) return false;
-  if (o.code === "external") return true;
-  return MCP_TOOL_REMOTE_TRANSIENT.test(o.message ?? "");
-}
-
 async function sleepMs(ms: number): Promise<void> {
   await new Promise((r) => setTimeout(r, ms));
 }
 
-/** `tools/call` with retries when GitHub/network flakes under parallel harness load. */
-async function reqToolJson(
+/** `tools/call` with minimal transport retries (5xx); tool/json errors rely on lib retries. */
+async function reqTool(
   req: (body: object) => Promise<Response>,
   callBody: object,
-  maxAttempts = 6
+  maxAttempts = 2
 ): Promise<unknown> {
-  let last: unknown;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const res = await req(callBody);
     if (res.status >= 500 && res.status < 600 && attempt < maxAttempts - 1) {
-      await sleepMs(2000 * (attempt + 1) + Math.floor(Math.random() * 400));
+      await sleepMs(1500 * (attempt + 1));
       continue;
     }
     if (res.status !== 200) {
       const t = await res.text();
-      if (attempt < maxAttempts - 1 && /rate limit|timeout|502|503|504/i.test(t)) {
-        await sleepMs(2000 * (attempt + 1) + Math.floor(Math.random() * 400));
-        continue;
-      }
       throw new Error(`MCP tools/call HTTP ${res.status}: ${t.slice(0, 300)}`);
     }
-    last = await parseToolResult(res);
-    if (!toolResultIsTransientRemoteFailure(last)) return last;
-    if (attempt < maxAttempts - 1) {
-      await sleepMs(2000 * (attempt + 1) + Math.floor(Math.random() * 400));
-    }
+    return parseToolResult(res);
   }
-  return last;
+  throw new Error("reqTool: unreachable");
 }
 
 async function setupSession(
@@ -248,7 +228,7 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
     const { req } = await setupSession(app);
 
     // No pin, no branch, no sha — view session pin (succeeds when _session exists)
-    const result1 = (await reqToolJson(req, {
+    const result1 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -285,7 +265,7 @@ Deno.test("session pin name is _session after bootstrap", async () => {
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -314,7 +294,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -330,7 +310,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     const originalSha = sessionPin!.sha;
 
     const branchName = mcpUnique("pin_set_branch_only");
-    const setResult = (await reqToolJson(req, {
+    const setResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
@@ -347,7 +327,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
     assertEquals(setResult.sessionPin?.branch, branchName);
     assertEquals(setResult.sessionPin?.sha, originalSha, "SHA must remain unchanged");
 
-    const inspect2 = (await reqToolJson(req, {
+    const inspect2 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
@@ -372,7 +352,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -389,7 +369,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     const snapshotName = `snapshot_test_${u}`;
     const snapshotBranch = `snapshot_branch_${u}`;
 
-    const setResult = (await reqToolJson(req, {
+    const setResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
@@ -407,7 +387,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
     assertEquals(setResult.pin?.branch, snapshotBranch);
     assertEquals(setResult.created, true);
 
-    const inspect2 = (await reqToolJson(req, {
+    const inspect2 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
@@ -442,7 +422,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -455,7 +435,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
     const sha = sessionPin!.sha;
     const branchlessName = mcpUnique("branchless");
 
-    const setResult = (await reqToolJson(req, {
+    const setResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
@@ -472,7 +452,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
     assertEquals(setResult.pin?.sha, sha);
     assertEquals(setResult.pin?.branch, null, "Must be branchless (read-only)");
 
-    const inspect2 = (await reqToolJson(req, {
+    const inspect2 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
@@ -497,7 +477,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -509,7 +489,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
     assertEquals(sessionPin !== undefined, true);
     const branchlessName = mcpUnique("ref_main");
 
-    const setResult = (await reqToolJson(req, {
+    const setResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
@@ -532,7 +512,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
       "ref=main must resolve to main's HEAD SHA from remote"
     );
 
-    const inspect2 = (await reqToolJson(req, {
+    const inspect2 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",
@@ -557,7 +537,7 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
     });
     const { req } = await setupSession(app);
 
-    const inspectResult = (await reqToolJson(req, {
+    const inspectResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 2,
       method: "tools/call",
@@ -571,7 +551,7 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
     const snapshotName = `ref_branch_pin_${u}`;
     const snapshotBranch = `ref_branch_${u}`;
 
-    const setResult = (await reqToolJson(req, {
+    const setResult = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 3,
       method: "tools/call",
@@ -592,7 +572,7 @@ Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
     );
     assertEquals(setResult.pin?.branch, snapshotBranch);
 
-    const inspect2 = (await reqToolJson(req, {
+    const inspect2 = (await reqTool(req, {
       jsonrpc: "2.0",
       id: 4,
       method: "tools/call",

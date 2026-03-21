@@ -9,8 +9,7 @@ import { EXIT, fail } from "./errors.ts";
 import { mutatePins, readPins, SESSION_PIN_NAME } from "./pinned.ts";
 import { clonePin } from "./pin-lifecycle.ts";
 import { resolveSha } from "./git.ts";
-import type { GlState } from "./types.ts";
-import type { Pin } from "./types.ts";
+import type { GlState, Pin, RetryLogRole } from "./types.ts";
 
 export type { GlState };
 
@@ -57,7 +56,10 @@ export function autoInitSessionPin(
   }
   if (!source) return;
 
-  const sha = resolveSha(source, "HEAD");
+  const sha = resolveSha(source, "HEAD", {
+    sessionId: state.sessionId,
+    role: state.retryLogRole ?? "mcp",
+  });
   const sessionPin: Pin = {
     name: SESSION_PIN_NAME,
     source,
@@ -94,7 +96,7 @@ export function validateSessionId(sessionId: string | null | undefined): string 
  * Creates GlState. Mutable paths root under .giterloper/<sessionId>/
  * (pinned.yaml, versions, staged, indexes).
  */
-export function makeState(sessionId: string): GlState {
+export function makeState(sessionId: string, opts?: { retryLogRole?: RetryLogRole }): GlState {
   const projectRootResolved = projectRoot();
   const baseGiterloper = path.join(projectRootResolved, ".giterloper");
   const validated = validateSessionId(sessionId);
@@ -107,5 +109,6 @@ export function makeState(sessionId: string): GlState {
     pinnedPath: path.join(sessionRoot, "pinned.yaml"),
     globalJson: false,
     sessionId: validated,
+    retryLogRole: opts?.retryLogRole,
   };
 }

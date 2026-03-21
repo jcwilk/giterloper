@@ -3,8 +3,9 @@
  */
 import { EXIT, fail } from "./errors.ts";
 import { resolvePartialShaViaGithub } from "./github.ts";
+import { runGitNetwork } from "./retry-external.ts";
 import { run, runSoft } from "./run.ts";
-import type { Pin } from "./types.ts";
+import type { RetryLogContext } from "./types.ts";
 
 const SHA_FULL = /^[0-9a-f]{40}$/i;
 const SHA_ABBREV = /^[0-9a-f]{7,39}$/i;
@@ -24,10 +25,14 @@ export function isAbbreviatedSha(s: string): boolean {
  * - Abbreviated SHA (7–39 hex): expand via GitHub API (github.com only).
  * - Otherwise: resolve via ls-remote (branch, tag, etc.).
  */
-export async function resolveShaOrRef(source: string, refOrSha: string): Promise<string> {
+export async function resolveShaOrRef(
+  source: string,
+  refOrSha: string,
+  retryLog?: RetryLogContext
+): Promise<string> {
   if (isFullSha(refOrSha)) return refOrSha;
-  if (isAbbreviatedSha(refOrSha)) return resolvePartialShaViaGithub(source, refOrSha);
-  return resolveSha(source, refOrSha);
+  if (isAbbreviatedSha(refOrSha)) return resolvePartialShaViaGithub(source, refOrSha, retryLog);
+  return resolveSha(source, refOrSha, retryLog);
 }
 
 export function toRemoteUrl(source: string): string {
@@ -45,10 +50,16 @@ export function toRemoteUrl(source: string): string {
   return `https://${source}`;
 }
 
-export function resolveSha(source: string, ref: string = "HEAD"): string {
+export function resolveSha(source: string, ref: string = "HEAD", retryLog?: RetryLogContext): string {
   const remote = toRemoteUrl(source);
-  const out = run("git", ["ls-remote", remote, ref]);
-  const first = out.split(/\r?\n/).find(Boolean);
+  const out = runGitNetwork(["ls-remote", remote, ref], {}, {
+    operation: `git ls-remote ${ref}`,
+    logContext: retryLog,
+  });
+  if (!out.ok || !out.stdout) {
+    fail(`could not resolve ref "${ref}" for ${source}`, EXIT.EXTERNAL);
+  }
+  const first = out.stdout.split(/\r?\n/).find(Boolean);
   if (!first) fail(`could not resolve ref "${ref}" for ${source}`, EXIT.EXTERNAL);
   const sha = first.split(/\s+/)[0];
   if (!SHA_FULL.test(sha)) {
@@ -57,9 +68,12 @@ export function resolveSha(source: string, ref: string = "HEAD"): string {
   return sha;
 }
 
-export function resolveBranchSha(source: string, branch: string): string {
+export function resolveBranchSha(source: string, branch: string, retryLog?: RetryLogContext): string {
   const remote = toRemoteUrl(source);
-  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
+  const out = runGitNetwork(["ls-remote", "--heads", remote, branch], {}, {
+    operation: "git ls-remote --heads",
+    logContext: retryLog,
+  });
   if (!out.ok || !out.stdout) {
     fail(`could not resolve branch "${branch}" for ${source}`, EXIT.EXTERNAL);
   }
@@ -71,8 +85,8 @@ export function resolveBranchSha(source: string, branch: string): string {
   return sha;
 }
 
-export function resolveBranchShaSoft(source: string, branch: string): string | null {
-  const { reachable, remoteSha } = resolveBranchShaReachable(source, branch);
+export function resolveBranchShaSoft(source: string, branch: string, retryLog?: RetryLogContext): string | null {
+  const { reachable, remoteSha } = resolveBranchShaReachable(source, branch, retryLog);
   return reachable ? remoteSha : null;
 }
 
@@ -82,10 +96,14 @@ export function resolveBranchShaSoft(source: string, branch: string): string | n
  */
 export function resolveBranchShaReachable(
   source: string,
-  branch: string
+  branch: string,
+  retryLog?: RetryLogContext
 ): { reachable: boolean; remoteSha: string | null } {
   const remote = toRemoteUrl(source);
-  const out = runSoft("git", ["ls-remote", "--heads", remote, branch]);
+  const out = runGitNetwork(["ls-remote", "--heads", remote, branch], {}, {
+    operation: "git ls-remote --heads (reachable)",
+    logContext: retryLog,
+  });
   if (!out.ok) return { reachable: false, remoteSha: null };
   if (!out.stdout) return { reachable: true, remoteSha: null };
   const first = out.stdout.split(/\r?\n/).find(Boolean);
