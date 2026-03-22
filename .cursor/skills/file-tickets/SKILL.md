@@ -30,11 +30,19 @@ Turn the **conclusion of the current conversation** into a structured set of tic
    - `./tk dep <id> <dep-id>` — `id` cannot start until `dep-id` is closed.
    - Run `./tk dep cycle` to verify no cycles.
 5. **Verify coverage**: Walk through the conclusion and confirm every item maps to at least one ticket.
-6. **Commit and push**: Stage **only** the new `.tickets/*.md` files. Commit as a group (e.g., `Add epic <id>: <title>`). Push to remote.
+6. **Pre-commit ticket review (subagent pass)** — **before** staging or committing:
+   - **Goal:** Catch scope gaps, sibling-ticket conflicts, weak acceptance criteria, and dependency-order mistakes while tickets are still mutable.
+   - **Spawn one read-only subagent per ticket** in this filing batch (epic + each child). Use a **Task**-style subagent or equivalent with **read-only** / no-write instructions.
+   - **Shared context** for every subagent (copy in the prompt): (a) the **conversation conclusion** and any **verbatim user constraints** that shaped the filing; (b) a **request / conversation id** if the user supplied one; (c) a **compact map of all tickets** in the batch (id, title, type, `deps`); (d) the **full text** (or `./tk show <id>` output) of the **one ticket that subagent is assigned to evaluate**.
+   - **Subagent rules:** **Do not** edit `.tickets/*.md` or run `./tk` mutating commands. **Report only:** structured findings—gaps vs user intent, conflicts with other tickets in the batch, whether **deps** supply everything this ticket needs before it runs and whether it sets up downstream tickets, mis-structured scope, and **concrete** suggested description/acceptance/dep changes (wording only).
+   - **Parent agent:** When all subagents return, **reconcile** their reports (merge overlapping advice, resolve tensions, decide what to adopt). Apply updates by editing `.tickets/*.md` and/or `./tk dep` / `./tk undep` as needed. Re-run `./tk dep cycle` after dep changes.
+   - **Proportionality:** If the batch is a **single** ticket (no epic children), the **parent** may run the **same evaluation checklist** inline instead of spawning a subagent—still **before** commit.
+7. **Commit and push**: Stage **only** the new or updated `.tickets/*.md` files from this filing (including any edits from step 6). Commit as a group (e.g., `Add epic <id>: <title>` or `Refine tickets for epic <id>`). Push to remote.
 
 ## Rules
 
-- **Filing only** — do not run `./tk start`, write code, or make changes beyond `.tickets/*.md`.
+- **Filing only** — do not run `./tk start`, write code, or make changes beyond `.tickets/*.md` (step 6 may **edit tickets only** after subagent review).
+- **Subagent review is part of filing** — step 6 runs **before** the commit in step 7; skipping it defeats the purpose unless the user explicitly waives it.
 - Prefer smaller, focused tickets over large monolithic ones.
 - Use `--parent` to group under the epic. Use `dep` for ordering constraints.
 - Types: `-t feature` (new capability), `-t task` (implementation work), `-t chore` (maintenance), `-t bug` (fix).
