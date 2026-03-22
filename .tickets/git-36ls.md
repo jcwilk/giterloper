@@ -11,9 +11,13 @@ parent: git-zbfq
 ---
 # Update AGENTS.md for mandate, orthogonality, and new paths
 
-Revise AGENTS.md: link prominently to HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md; state orthogonal relationship between root instruction files and specs/*; product-truth precedence within a slice (specs/* > tests > code); docs/ demotion; use hierarchical alignment / hierarchical divergence vocabulary; instruct agents that judgement (vs past precedence) governs whether a change is materially new behavior requiring spec updates—no numeric metric. Replace pointers to docs/PIN_SETTING_PARAM_BEHAVIOR.md and similar with the single canonical specs location after migration. Clarify that spec edits should be task-scoped only.
+**Depends on git-9btr** (mandate file + minimal prominent link) and **git-46zo** (canonical pin path + doc trims). **Transitive:** **git-46zo** requires **git-6g05**, so **specs/MCP.md** and root MCP demotion land before this closes—AGENTS must point MCP readers at **specs/MCP.md**, not normative root MCP.md.
+
+Revise AGENTS.md: **preserve and integrate** the prominent mandate link from **git-9btr** (this is the consolidating pass, not a second mandate rollout). State orthogonal relationship between root instruction files and `specs/*`; product-truth precedence **within a slice** (`specs/*` > tests > code); **docs/** demotion; use hierarchical alignment / hierarchical divergence vocabulary; instruct agents that **judgement** (vs past precedence) governs materially new behavior needing spec updates—no numeric metric. Replace pointers to `docs/PIN_SETTING_PARAM_BEHAVIOR.md` and similar with the **single** canonical specs path from **git-46zo**. Clarify spec edits are **task-scoped** only.
+
+**Reconcile tier-(1) “normative contracts”:** Current AGENTS lists markdown specs, CLI help, and MCP tool descriptions as authoritative—align this with the mandate so **`specs/cli.md` / `specs/MCP.md`** relate clearly to **CLI help** and **tool descriptions** (e.g. intentional sync, conflict = bug to fix in lockstep—no silent pick). This ticket updates **agent guidance**, not product specs without user direction (existing AGENTS rule).
 
 ## Acceptance Criteria
 
-AGENTS.md consistent with mandate; references point to specs/* and mandate; no stale pin-doc paths.
+AGENTS.md consistent with HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md; mandate link prominent; references point to `specs/*` (including **specs/MCP.md**); no stale pin-doc or deprecated-doc paths; precedence section reconciles slice specs with CLI help / MCP strings per description; **git-9btr** link work integrated, not duplicated or removed.
 

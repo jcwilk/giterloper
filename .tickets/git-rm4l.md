@@ -11,13 +11,13 @@ parent: git-zbfq
 ---
 # Add human-driven spec-change subagent (spec + tickets commit, verifier gate)
 
-New .cursor/agents/*.md subagent: primary human entry point for feeding specification changes to downstream agent work. Flow: (1) Apply requested edits to specs/* and/or HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md when in scope. (2) Run file-tickets skill to create however many tickets are needed for code+test hierarchical alignment—do NOT mix code/test changes into this commit; plans-only commits stay separate from implementation commits per current workflow. (3) Single commit containing spec/mandate edits AND new .tickets/*.md together to show joint planning intent. (4) MUST invoke verifier before finishing; verifier evaluates whether tickets adequately capture spec deltas (without requiring explicit delta mapping in ticket bodies). Note: spec-change is generally human-invoked (not work-next autopilot).
+New .cursor/agents/*.md subagent: **primary human entry point** for feeding specification changes to downstream agent work. **Assumes git-incv merged** (verifier understands plan-only commits). Flow: (1) Apply requested edits to `specs/*` and/or **HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md** when in scope. (2) Run **file-tickets** per `.cursor/skills/file-tickets/SKILL.md` to create tickets for code+test hierarchical alignment—**do NOT** mix code/test changes into this commit; implementation stays separate commits. (3) Single commit: spec/mandate edits **and** new `.tickets/*.md` only. (4) **MUST** invoke verifier before finishing; acceptable outcomes include **APPROVED** when tickets plausibly cover spec intent **without** code in-repo (verifier semantics per **git-incv**—do not require implementation proof for this commit shape). Note: spec-change is generally **human-invoked** (not work-next autopilot).
 
 ## Design
 
-Mirror existing agent structure; reference .cursor/skills/file-tickets/SKILL.md and the mandate file.
+Mirror existing agent structure; reference `.cursor/skills/file-tickets/SKILL.md` and **HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md** by filename.
 
 ## Acceptance Criteria
 
-Agent file exists; documents commit boundaries (spec+tickets only); verifier gate explicit; aligns with user workflow answers.
+Agent file exists; names **HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md** and `specs/*`; documents commit boundaries (spec+tickets only); verifier gate explicit with **plan-only** expectations aligned to **git-incv**; references file-tickets skill; aligns with user workflow (conversation ref **9ee956a8-4a31-47d2-8520-2d3f3b2e2ada**).
 
