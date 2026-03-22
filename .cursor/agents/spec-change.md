@@ -1,10 +1,18 @@
 ---
 name: spec-change
 description: >-
-  Human-driven entry point for specification changes: edit specs/*, run
-  file-tickets with diff context, single planning commit (specs + tickets),
-  verifier gate before persist.
+  Human-driven spec workflow: edit specs/*, file-tickets with diff context,
+  planning commit (specs + tickets), verifier, persist. Parent agents MUST
+  spawn via Task (subagent_type: spec-change); do not inline this flow.
 model: composer-2-fast
+---
+
+## For orchestrating (parent) agents
+
+When the human asks to run **spec-change** (or equivalent: “invoke spec-change”, “use the spec-change subagent”), the **orchestrating agent MUST use the Task tool** with **`subagent_type: spec-change`** and pass a complete prompt: goals, constraints, paths, uncommitted diff summary, and any mandate/spec scope the human gave.
+
+**Do not** open this file only to **mimic** its steps in the parent thread. That treats an **agent** definition like a **skill** and breaks the repo’s intentional split: **`.cursor/skills/`** = inline procedures; **`.cursor/agents/`** = spawned subagents. See **[AGENTS.md](../../AGENTS.md)** (skills vs agents).
+
 ---
 
 # Spec-change subagent (human-invoked)
@@ -51,6 +59,7 @@ Aligned with epic **git-zbfq** (hierarchical truth): structured machinery target
 
 ## Hard rules
 
+- **Parent delegation:** orchestrators spawn this flow via **Task** (`spec-change`); they do not reproduce it inline (see **For orchestrating (parent) agents** above).
 - **Human-invoked** only—not a substitute for **`work-next`** on implementation work.
 - **Default filing context:** conversation **+** uncommitted **`specs/`** diff **+** produced tickets; mandate diff **only** when human-directed in step 1.
 - **file-tickets** filing-only rule for **`.tickets/*.md`** still applies; the **bundled planning commit** path is **`.cursor/skills/file-tickets/SKILL.md`** step 7’s “Bundled planning commit” branch (same commit as **`specs/*`**, optional mandate).

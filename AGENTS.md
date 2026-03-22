@@ -4,9 +4,17 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence within a product slice, **`docs/` demotion** (operational notes, not a lock on product truth), **hierarchical alignment** vs **hierarchical divergence**, verifier expectations for area specs, and rules for spec scope and growth.
 
-**This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** (`.cursor/agents/verifier.md`) for agent workflows. **`specs/`**, **tests/README**, the verifier, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
+**This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** (`.cursor/agents/verifier.md`) for agent workflows. For **verifier**-shaped gates, **spawn** the **`verifier`** subagent via Task—do not impersonate it inline (see **Skills vs agents** below). **`specs/`**, **tests/README**, the verifier definition, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
 
 **Orthogonality:** **Root instruction files** (this doc, [CONVENTIONS.md](./CONVENTIONS.md), and similar) govern **universal** process, standards, and agent behavior for the whole repo. **`specs/*`** governs **product behavior** per area only (for example `specs/core.md` for behavior covered by `tests/core/`). If the layers seem to overlap, **call the overlap out**. In general, **area specs conform to repo-wide root instructions**, not the other way around; changing root instructions is for systemic or user-requested process change, not routine product tweaks.
+
+## Skills vs agents (orchestration)
+
+**`.cursor/skills/`** is for procedures the **current** agent executes **inline** in this conversation: read the skill, follow it here, use normal tools.
+
+**`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`** (for example **`spec-change`**, **`verifier`**, **`work-next`**). Pass a self-contained prompt; the subagent owns its loop.
+
+**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. **Strong nudge:** when the user points at an agent definition or names that workflow, **spawn the subagent** unless the user **explicitly** asks you to waive delegation and work inline.
 
 ## Source-of-truth precedence (CRITICAL)
 
@@ -44,11 +52,11 @@ Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./
 
 **Task completion requires commit and push.** A closed ticket with a dirty tree is not done.
 
-Ticket operations are typically induced by user-invoked skills/subagents such as:
+Ticket operations are typically induced by user-invoked **skills** (inline) or **agents** (spawn via Task), for example:
 - `/work-all` (`.cursor/skills/work-all/SKILL.md`)
 - `/file-tickets` (`.cursor/skills/file-tickets/SKILL.md`)
 - `/archive-tickets` (`.cursor/skills/archive-tickets/SKILL.md`)
-- `/work-next` (`.cursor/agents/work-next.md`)
+- `/work-next` — spawn **`.cursor/agents/work-next.md`** as subagent (`work-next`), do not inline
 
 ## Run environment: native for dev/test, Docker for prod
 
