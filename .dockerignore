@@ -5,7 +5,6 @@
 .tickets
 *.md
 !docs/FLY_IO_DEPLOYMENT.md
-reference_client
 tests
 .env
 .env.*

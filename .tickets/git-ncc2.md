@@ -1,6 +1,6 @@
 ---
 id: git-ncc2
-status: open
+status: closed
 deps: [git-4azd]
 links: []
 created: 2026-03-22T18:53:05Z
