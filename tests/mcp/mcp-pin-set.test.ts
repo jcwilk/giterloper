@@ -191,6 +191,43 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   });
 });
 
+/** MCP must not accept client `source`; repo identity is server config only (specs/core.md, specs/MCP.md). */
+Deno.test("pin_set rejects source argument", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      knowledgeStoreRemote: TEST_SOURCE,
+    });
+    const { req } = await setupSession(app);
+
+    const res = await req({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "giterloper_pin_set",
+        arguments: {
+          source: "https://github.com/client/evil-repo.git",
+          branch: "main",
+        },
+      },
+    });
+    assertEquals(res.status, 200);
+    const result = (await parseToolResult(res)) as { ok?: boolean; code?: string; message?: string };
+    assertEquals(result.ok, false, "pin_set must reject source (no client repo override on MCP)");
+    const msg = (result.message ?? "").toLowerCase();
+    assertEquals(
+      msg.includes("unknown") ||
+        msg.includes("unrecognized") ||
+        msg.includes("additional") ||
+        msg.includes("not allowed") ||
+        msg.includes("invalid"),
+      true,
+      `Expected strict rejection of source; got: ${result.message ?? ""}`
+    );
+  });
+});
+
 /** pin_set with pin _session is rejected; omit pin to target session pin. Per specs/core.md. */
 Deno.test("pin_set with pin _session is rejected", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {

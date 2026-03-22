@@ -3,7 +3,7 @@
 # Use when you want parity with production (Fly.io). Dev and tests normally use native Deno.
 # Matches Fly.io environment (CWD = /data, .giterloper on volume). From repo root:
 #   ./scripts/run-docker.sh
-# Optional: pass env (e.g. MCP_TOKEN) or --build to rebuild the image.
+# Pass -e KNOWLEDGE_STORE_REMOTE=<url> (required for MCP startup) and MCP_TOKEN, etc.; optional --build to rebuild.
 set -e
 cd "$(dirname "$0")/.."
 IMAGE_NAME="${GITERLOPER_DOCKER_IMAGE:-giterloper}"

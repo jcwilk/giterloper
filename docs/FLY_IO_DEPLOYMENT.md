@@ -100,7 +100,9 @@ Use `fly platform vm-sizes` and the [pricing page](https://fly.io/docs/about/pri
   fly secrets set GITERLOPER_GH_TOKEN="<github-token>"
   ```
 
-  Optional: `MCP_SESSION_TTL_MS`. Optional non-secret: **`KNOWLEDGE_STORE_REMOTE`** (e.g. `https://github.com/owner/repo`) if you want new HTTP sessions to auto-bootstrap `_session` from that remote’s default branch—see [`specs/MCP.md`](../specs/MCP.md). Do **not** set `MCP_INSECURE=true` in production.
+  Optional: `MCP_SESSION_TTL_MS`. **Required (non-secret):** set **`KNOWLEDGE_STORE_REMOTE`** (e.g. `https://github.com/owner/repo`) in `[env]` or via `fly secrets set`—the MCP server **exits at startup** if it is unset, empty, or not a valid remote URL. That remote is the sole knowledge-store identity for the server; each new HTTP MCP session bootstraps **`_session`** at the remote’s default branch HEAD before any tool runs—see [`specs/MCP.md`](../specs/MCP.md). Do **not** set `MCP_INSECURE=true` in production.
+
+  **Harness / automation only:** to run an MCP-like stack with session state under **`.giterloper_test`**, use **`GITERLOPER_MCP_TEST_MODE`** (truthy) and **`TEST_KNOWLEDGE_STORE_REMOTE`** instead of the normal pair; see [`tests/README.md`](../tests/README.md). Do not use test mode for production Fly apps.
 
 - **Apply:** Redeploy to pick up secret changes: `fly deploy` (or `fly secrets deploy` to deploy without rebuilding).
 
@@ -120,7 +122,7 @@ Use `fly platform vm-sizes` and the [pricing page](https://fly.io/docs/about/pri
 
 ## 6. One-paragraph summary and minimal config
 
-**Deploy giterloper on Fly.io:** Create an app with `fly launch --no-deploy`, add to `fly.toml` a `[mounts]` section with `source = "giterloper_data"`, `destination = "/data"`, and `initial_size = "20gb"`. Use a Dockerfile that installs Deno, git, Python, and `pip install memsearch`, sets `WORKDIR /data` (or runs the server with CWD `/data`) so `.giterloper` lives on the volume, and exposes the MCP port (e.g. 8080). Set `[env]` for `MCP_HOST=0.0.0.0` and `MCP_PORT=8080`, set `MCP_TOKEN` and optionally `GITERLOPER_GH_TOKEN` with `fly secrets set`, set `[http_service] internal_port = 8080` and a health check to `/health`, add `[[vm]] size = "shared-cpu-1x"` and e.g. `memory = "512mb"`, then run `fly deploy` and `fly scale count 1`. Cost is roughly \$6–9/month for shared-cpu-1x + 20 GB volume. Fly provides TLS and public HTTP/HTTPS; the app listens on HTTP and uses Bearer auth via `MCP_TOKEN`.
+**Deploy giterloper on Fly.io:** Create an app with `fly launch --no-deploy`, add to `fly.toml` a `[mounts]` section with `source = "giterloper_data"`, `destination = "/data"`, and `initial_size = "20gb"`. Use a Dockerfile that installs Deno, git, Python, and `pip install memsearch`, sets `WORKDIR /data` (or runs the server with CWD `/data`) so `.giterloper` lives on the volume, and exposes the MCP port (e.g. 8080). Set `[env]` for `MCP_HOST=0.0.0.0`, `MCP_PORT=8080`, and **`KNOWLEDGE_STORE_REMOTE=<your knowledge repo HTTPS URL>`** (required—the server will not start without a valid remote). Set `MCP_TOKEN` and optionally `GITERLOPER_GH_TOKEN` with `fly secrets set`, set `[http_service] internal_port = 8080` and a health check to `/health`, add `[[vm]] size = "shared-cpu-1x"` and e.g. `memory = "512mb"`, then run `fly deploy` and `fly scale count 1`. Cost is roughly \$6–9/month for shared-cpu-1x + 20 GB volume. Fly provides TLS and public HTTP/HTTPS; the app listens on HTTP and uses Bearer auth via `MCP_TOKEN`.
 
 **Minimal `fly.toml` outline:**
 
@@ -133,6 +135,7 @@ app = "giterloper"
 [env]
   MCP_HOST = "0.0.0.0"
   MCP_PORT = "8080"
+  KNOWLEDGE_STORE_REMOTE = "https://github.com/owner/your-knowledge-repo"
 
 [mounts]
   source = "giterloper_data"
@@ -164,6 +167,7 @@ fly launch --no-deploy
 # edit fly.toml (mounts, env, vm, http_service, health check)
 fly secrets set MCP_TOKEN="<token>"
 fly secrets set GITERLOPER_GH_TOKEN="<token>"   # optional
+# KNOWLEDGE_STORE_REMOTE: set in [env] above or via fly secrets set — required for MCP startup
 fly deploy
 fly scale count 1
 fly volumes list && fly machine list
@@ -181,9 +185,9 @@ Optional: run the same image locally with your `.giterloper` directory persisted
    ```
    Or run without rebuilding: `./scripts/run-docker.sh`.
 
-2. The script ([`scripts/run-docker.sh`](../scripts/run-docker.sh)—compared for this audit) mounts `$(pwd)/.giterloper` at `/data/.giterloper`, publishes host port **3443** to container port **3443**, and sets `MCP_HOST=0.0.0.0` and `MCP_PORT=3443`. To pass secrets (e.g. for GitHub or MCP auth), add `-e` before the image name:
+2. The script ([`scripts/run-docker.sh`](../scripts/run-docker.sh)—compared for this audit) mounts `$(pwd)/.giterloper` at `/data/.giterloper`, publishes host port **3443** to container port **3443**, and sets `MCP_HOST=0.0.0.0` and `MCP_PORT=3443`. The container **must** receive **`KNOWLEDGE_STORE_REMOTE`** (and usually `MCP_TOKEN`); the server exits at startup if the knowledge remote is missing or invalid. Example:
    ```bash
-   ./scripts/run-docker.sh -e MCP_TOKEN=your-token -e GITERLOPER_GH_TOKEN=your-gh-token
+   ./scripts/run-docker.sh -e KNOWLEDGE_STORE_REMOTE=https://github.com/owner/repo -e MCP_TOKEN=your-token -e GITERLOPER_GH_TOKEN=your-gh-token
    ```
 
 3. Health: `curl http://localhost:3443/health`. MCP endpoint: `http://localhost:3443/mcp` (Bearer token required unless `MCP_INSECURE=true`).

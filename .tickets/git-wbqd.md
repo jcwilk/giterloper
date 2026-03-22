@@ -1,6 +1,6 @@
 ---
 id: git-wbqd
-status: open
+status: closed
 deps: [git-kmr7]
 links: []
 created: 2026-03-22T02:43:33Z
@@ -19,3 +19,9 @@ Update tests that assume optional KNOWLEDGE_STORE_REMOTE, empty initial pins on 
 
 deno task test (or targeted manifests) passes; new or updated cases cover startup failure, session bootstrap, and pin_set without source where MCP is exercised.
 
+
+## Notes
+
+**2026-03-22T03:54:57Z**
+
+Added MCP integration test pin_set rejects source argument (specs/core.md, MCP.md). Regenerated tests/test-case-manifest.json. check_all.sh green.

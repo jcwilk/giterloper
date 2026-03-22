@@ -207,7 +207,7 @@ Deno.test(
       const sessionId = initRes.headers.get("mcp-session-id");
       assertEquals(sessionId !== null && sessionId.length > 0, true);
 
-      // Create session dir (state_inspect may not create it when no pins; touchSession guarantees it).
+      // Ensure session dir exists for DELETE cleanup (knowledgeStoreRemote null here; touchSession is authoritative).
       // Match createMcpAppForTest default mcpTestMode (test session base `.giterloper_test`).
       touchSession(sessionId!, true);
       const dirBefore = sessionDir(sessionId!, true);

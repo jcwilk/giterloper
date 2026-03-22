@@ -1,6 +1,6 @@
 ---
 id: git-nh06
-status: open
+status: closed
 deps: [git-a4f4, git-6lq1]
 links: []
 created: 2026-03-22T02:43:33Z
@@ -19,3 +19,9 @@ docs/ MUST NOT contradict specs/MCP.md (AGENTS deployment notes if they describe
 - Docs briefly describe that new MCP sessions **bootstrap `_session`** from the effective configured remote (default branch HEAD), consistent with **`specs/MCP.md`** — implement after **`git-6lq1`** lands so examples match behavior.
 - Docs mention test-mode env pair (**`GITERLOPER_MCP_TEST_MODE`**, **`TEST_KNOWLEDGE_STORE_REMOTE`**) where operators run MCP-like test stacks, without contradicting **`tests/README.md`**.
 
+
+## Notes
+
+**2026-03-22T03:54:57Z**
+
+AGENTS.md MCP config: required KNOWLEDGE_STORE_REMOTE, bootstrap _session, test-mode env pair. docs/FLY_IO_DEPLOYMENT.md, DEPLOYMENT_REQUIREMENTS.md, scripts/run-docker.sh aligned; cross-ref tests/README.md.

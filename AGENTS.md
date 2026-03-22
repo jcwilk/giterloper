@@ -183,7 +183,7 @@ deno task mcp:serve
 For stdio (one session per process): `deno task mcp:serve-stdio` or `deno run -A lib/gl-mcp-server-stdio.ts`.
 For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
-**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). `KNOWLEDGE_STORE_REMOTE` — when set (e.g. `https://github.com/owner/repo`), new MCP sessions auto-create the session pin (_session) at the remote repo's `main` HEAD; useful for agent workflows without manual pin setup. If unset, the session starts with no pins; use `pin_set` with source and branch/ref to create the session pin.
+**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server startup (non-empty valid Git remote URL, e.g. `https://github.com/owner/repo`). The server fails fast at boot if it is missing or invalid. Each new MCP session bootstraps the **`_session`** pin from that remote at its default branch HEAD before tool handlers run; repository identity is server-defined only (MCP tools do not accept a client `source` override). For automation or integration-style stacks that use session state under **`.giterloper_test`**, set **`GITERLOPER_MCP_TEST_MODE`** (truthy) and **`TEST_KNOWLEDGE_STORE_REMOTE`** instead—see [`specs/MCP.md`](./specs/MCP.md) and [`tests/README.md`](./tests/README.md).
 
 **Endpoints:** `GET /health` — health diagnostics (unauthenticated); `GET|POST /mcp` — MCP Streamable HTTP (requires auth unless insecure mode).
 

@@ -506,6 +506,10 @@
     },
     {
       "path": "tests/mcp/mcp-pin-set.test.ts",
+      "name": "pin_set rejects source argument"
+    },
+    {
+      "path": "tests/mcp/mcp-pin-set.test.ts",
       "name": "pin_set rejects unknown arguments"
     },
     {
