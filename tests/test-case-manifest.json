@@ -569,6 +569,62 @@
       "name": "touchSession creates dir and last_activity file, removeSessionData cleans up"
     },
     {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "Dockerfile CMD runs HTTP MCP entrypoint (startup validation applies in container)"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is invalid"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is invalid"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "mcpStartupState succeeds in-process when effective remote is valid (shared createServer path)"
+    },
+    {
       "path": "tests/mcp/mcp-stdio-smoke.test.ts",
       "name": "MCP stdio: initialize and tools/list succeed with process-scoped session"
     }
