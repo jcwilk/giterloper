@@ -12,13 +12,13 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **`.cursor/skills/`** is for procedures the **current** agent executes **inline** in this conversation: read the skill, follow it here, use normal tools.
 
-**`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`** (for example **`verifier`**, **`work-next`**). Pass a self-contained prompt; the subagent owns its loop.
+**`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`** (for example **`verifier`**, **`work-next`**, or the **`cross-critique-*`** critique lanes). Pass a self-contained prompt; the subagent owns its loop.
 
-**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. **Strong nudge:** when the user points at an **agent** definition or names **`verifier`** / **`work-next`**, **spawn the subagent** unless the user **explicitly** asks you to waive delegation and work inline. **Product spec edits** use the **`/spec-change`** skill (`.cursor/skills/spec-change/SKILL.md`) **inline**, not a subagent.
+**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. **Strong nudge:** when the user points at an **agent** definition or names **`verifier`**, **`work-next`**, **`/cross-critique`**, or the **`cross-critique-*`** lanes, **spawn via Task** as those workflows specify (for **`/cross-critique`**, four parallel read-only lanes per **`.cursor/skills/cross-critique/SKILL.md`**)—do **not** impersonate them inline—unless the user **explicitly** asks you to waive delegation and work inline. **Product spec edits** use the **`/spec-change`** skill (`.cursor/skills/spec-change/SKILL.md`) **inline**, not a subagent.
 
 ## Source-of-truth precedence (CRITICAL)
 
-When requirements conflict, follow this order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
+When requirements conflict, follow this order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md`, `.cursor/agents/verifier.md`, and the read-only **`cross-critique-*`** critics when they evaluate product behavior).
 
 **Within a product slice** (CLI, MCP, core pin semantics, etc.), normative order is:
 
@@ -59,6 +59,10 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 - `/archive-tickets` (`.cursor/skills/archive-tickets/SKILL.md`)
 - `/spec-change` (`.cursor/skills/spec-change/SKILL.md`) — edit **`specs/*`**, file **forward** alignment tickets only when owed, **never** start/close tickets in this flow
 - `/work-next` — spawn **`.cursor/agents/work-next.md`** as subagent (`work-next`), do not inline
+
+## Multi-model critique (review, not tickets)
+
+For **deep review**—correctness, design, spec alignment, or high-stakes decisions before you implement or file work—use **`/cross-critique`**: the parent spawns four read-only **`cross-critique-*`** Task lanes in one turn and reconciles their reports (**`.cursor/skills/cross-critique/SKILL.md`**). This flow is **not** part of the ticket lifecycle; it does not create, close, or replace `./tk` work.
 
 ## Run environment: native for dev/test, Docker for prod
 
