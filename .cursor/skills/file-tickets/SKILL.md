@@ -37,7 +37,9 @@ Turn the **conclusion of the current conversation** into a structured set of tic
    - **Subagent rules:** **Do not** edit `.tickets/*.md` or run `./tk` mutating commands. **Report only:** structured findings—gaps vs user intent, conflicts with other tickets in the batch, whether **deps** supply everything this ticket needs before it runs and whether it sets up downstream tickets, mis-structured scope, and **concrete** suggested description/acceptance/dep changes (wording only).
    - **Parent agent:** When all subagents return, **reconcile** their reports (merge overlapping advice, resolve tensions, decide what to adopt). Apply updates by editing `.tickets/*.md` and/or `./tk dep` / `./tk undep` as needed. Re-run `./tk dep cycle` after dep changes.
    - **Proportionality:** If the batch is a **single** ticket (no epic children), the **parent** may run the **same evaluation checklist** inline instead of spawning a subagent—still **before** commit.
-7. **Commit and push**: Stage **only** the new or updated `.tickets/*.md` files from this filing (including any edits from step 6). Commit as a group (e.g., `Add epic <id>: <title>` or `Refine tickets for epic <id>`). Push to remote.
+7. **Commit and push** (pick **one** path):
+   - **Default (/file-tickets from conversation only):** Stage **only** the new or updated `.tickets/*.md` files from this filing (including edits from step 6). Commit as a group (e.g., `Add epic <id>: <title>` or `Refine tickets for epic <id>`). Push to remote.
+   - **Bundled planning commit** (e.g. **spec-change** workflow in **git-rm4l** / `.cursor/agents`): When `specs/*` and/or `HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md` must land in the **same** commit as the new tickets, run steps **1–6** in full, then **do not** commit tickets alone. Stage those spec/mandate files **together with** the `.tickets/*.md` from this filing in **one** commit (still **no** implementation code or test changes). Push once for that bundle. This preserves **git-rm4l**’s “spec + tickets only” shape while keeping the pre-commit review.
 
 ## Rules
 
