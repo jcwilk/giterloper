@@ -14,7 +14,7 @@ This document is the canonical reference for test strategy, test execution, harn
 
 **Not** every assertion maps to a single spec bullet; the rule is that the **theme** (scenario, contract, or error shape under test) is **covered or implied** in the paired spec so the suite does not encode silent product law. If a test disagrees with its paired area spec, treat the spec as authoritative and align **implementation and tests** to it.
 
-**Harness and helpers** (`tests/helpers/`, the unified runner, manifest-only mechanics) are **not** product-behavior specs. Their contracts live **here** (runner, isolation, cleanup, collision rules). [specs/core.md](../specs/core.md) states that helper modules under **`tests/helpers/`** are harness-only and intentionally **not** mirrored in area specs—this README is the operational source for those details.
+**Harness and helpers** (`tests/helpers/`, the unified runner, AST discovery and scheduling mechanics) are **not** product-behavior specs. Their contracts live **here** (runner, isolation, cleanup, collision rules). [specs/core.md](../specs/core.md) states that helper modules under **`tests/helpers/`** are harness-only and intentionally **not** mirrored in area specs—this README is the operational source for those details.
 
 ## Hierarchical alignment
 
@@ -33,15 +33,15 @@ Treat the following as the **contract** for test layout, isolation, and the unif
 ### Runner and parallelism
 
 - **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
-  - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
-  - after validating the manifest, **deletes `<repository-root>/.giterloper`** and **`<repository-root>/.giterloper_test`** if they exist so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
-  - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
-  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
+  - runs a **fail-closed AST preflight** via **`scripts/discover-test-cases.ts`** (see **AST test discovery** below) and schedules one subprocess per discovered logical case—there is **no** `tests/test-case-manifest.json` and **no** `gen:test-manifest` task;
+  - **deletes `<repository-root>/.giterloper`** and **`<repository-root>/.giterloper_test`** if they exist before scheduling so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
+  - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes, **`--reporter junit`** to a temp report file, and a **JUnit gate**: parsed summary must show **≥1** executed testcase and **zero** failures/errors (Deno can exit 0 when a filter matches nothing—exit code alone is not sufficient). Harness diagnostics go to **stderr**; subprocess **stderr** is inherited for Deno messages.
+  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** discovered cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
 
 ### AST test discovery (fail-closed)
 
-The harness uses **`scripts/discover-test-cases.ts`** (TypeScript AST via pinned **`@swc/wasm`**) as a **fail-closed preflight** before scheduling: every `tests/` `*.test.ts` file must expose only **statically named** `Deno.test` registrations. The unified runner still reads **`tests/test-case-manifest.json`** for per-case subprocess work until the manifest is removed (see epic **git-snjk** / ticket **git-od4q**); discovery and manifest are expected to converge on the same logical cases once the manifest generator is dropped.
+The harness uses **`scripts/discover-test-cases.ts`** (TypeScript AST via pinned **`@swc/wasm`**) as a **fail-closed preflight** before scheduling: every `tests/` `*.test.ts` file must expose only **statically named** `Deno.test` registrations. Discovery is the **single** source of logical cases for subprocess scheduling.
 
 **Supported registrations**
 
@@ -63,7 +63,7 @@ Debug: `deno run -A scripts/discover-test-cases.ts` from the repo root prints di
 
 ### Isolation and helpers
 
-- **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other manifest cases run in parallel.
+- **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other harness cases run in parallel.
 - Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
 - **Transient retries:** Integration tests may trigger the same centralized git/GitHub retries as production; each retry appends one JSON line to **`logs/giterloper-retry.log`** under the repo root (or `GITERLOPER_PROJECT_ROOT`).
 - **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. **`runGl` / `runGlMaintenance`** pass **`--mcp-test-mode`** and merge **`integrationMcpModeChildEnv()`** from `tests/helpers/integration-mcp-env.ts` (sets **`TEST_KNOWLEDGE_STORE_REMOTE`**) so CLI subprocesses that write session state use **`.giterloper_test/<sessionId>/`** and the shared test knowledge remote, not **`.giterloper/`** with production-style configuration. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local **`.giterloper_test/<sessionId>/`** trees are removed under the test cwd.
@@ -77,7 +77,7 @@ Normative detail lives in **`specs/MCP.md`** and **`specs/core.md`**. For this r
 - **`TEST_KNOWLEDGE_STORE_REMOTE`** — non-empty valid Git remote for the shared test knowledge repo when MCP test mode is active (via flag or in-process **`mcpTestMode: true`**).
 - **`.giterloper_test`** — session base directory name in MCP test mode only; not configurable.
 
-**Requirement:** Any integration entrypoint that spawns **`gl`**, **`gl-maintenance`**, or an MCP server process and expects that process to write session state MUST either use **`runGl` / `runGlMaintenance`** from **`tests/helpers/gl.ts`**, **`createMcpAppForTest`** from **`lib/gl-mcp-server.ts`**, or pass **`--mcp-test-mode`** and merge the same **`integrationMcpModeChildEnv()`** values into the child **`env`** (see **`reference_client/test_helpers.ts`**). Do not let subprocesses default to **`.giterloper/`** while using the shared test remote.
+**Requirement:** Any integration entrypoint that spawns **`gl`**, **`gl-maintenance`**, or an MCP server process and expects that process to write session state MUST either use **`runGl` / `runGlMaintenance`** from **`tests/helpers/gl.ts`**, **`createMcpAppForTest`** from **`lib/gl-mcp-server.ts`**, or pass **`--mcp-test-mode`** and merge the same **`integrationMcpModeChildEnv()`** values from **`tests/helpers/integration-mcp-env.ts`** into the child **`env`** (see also **`tests/helpers/mcp-subprocess.ts`** for MCP server spawns). Do not let subprocesses default to **`.giterloper/`** while using the shared test remote.
 
 ### Cleanup
 
@@ -115,7 +115,7 @@ Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.
 **Required for (normative contract):**
 
 - Any **MCP server** process at startup ([specs/MCP.md](../specs/MCP.md)).
-- **`tests/mcp/`** and **`reference_client`** flows that exercise search—hosts must end up with **`memsearch` on `PATH`**; the default **`deno task`** / **`check_all`** paths arrange that automatically.
+- **`tests/mcp/`** cases that exercise search—hosts must end up with **`memsearch` on `PATH`**; the default **`deno task`** / **`check_all`** paths arrange that automatically.
 
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](../specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 

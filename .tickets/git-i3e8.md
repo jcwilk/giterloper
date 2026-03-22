@@ -1,6 +1,6 @@
 ---
 id: git-i3e8
-status: open
+status: closed
 deps: [git-ncc2]
 links: []
 created: 2026-03-22T18:53:06Z
