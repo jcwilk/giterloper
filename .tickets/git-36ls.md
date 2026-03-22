@@ -11,6 +11,8 @@ parent: git-zbfq
 ---
 # Update AGENTS.md for mandate, orthogonality, and new paths
 
+**Scope:** **One-time** epic alignment of **AGENTS.md** with the new hierarchy. **Do not** imply agents should run **file-tickets**, spec-change, or similar machinery for routine **AGENTS.md** updates—those remain **rare**, **human-directed**, and **outside** the tickets/specs/tests/code workflow (**git-zbfq**).
+
 **Depends on git-9btr** (mandate file + minimal prominent link) and **git-46zo** (canonical pin path + doc trims). **Transitive:** **git-46zo** requires **git-6g05**, so **specs/MCP.md** and root MCP demotion land before this closes—AGENTS must point MCP readers at **specs/MCP.md**, not normative root MCP.md.
 
 Revise AGENTS.md: **preserve and integrate** the prominent mandate link from **git-9btr** (this is the consolidating pass, not a second mandate rollout). State orthogonal relationship between root instruction files and `specs/*`; product-truth precedence **within a slice** (`specs/*` > tests > code); **docs/** demotion; use hierarchical alignment / hierarchical divergence vocabulary; instruct agents that **judgement** (vs past precedence) governs materially new behavior needing spec updates—no numeric metric. Replace pointers to `docs/PIN_SETTING_PARAM_BEHAVIOR.md` and similar with the **single** canonical specs path from **git-46zo**. Clarify spec edits are **task-scoped** only.

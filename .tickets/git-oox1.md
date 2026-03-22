@@ -11,6 +11,8 @@ parent: git-zbfq
 ---
 # Update tests/README.md for strict spec anchoring
 
+**Scope:** Under **`tests/`**—this is part of the **structured** tickets/specs/tests/code workflow (see **git-zbfq**), **not** root-level onboarding docs.
+
 **Deps:** **git-9btr** + **git-46zo** (implies **git-6uc2**, **git-e4x6**, **git-6g05** are done). Slimmer graph than listing each spec ticket separately.
 
 Document folder pairing **tests/cli↔specs/cli.md**, **tests/core↔specs/core.md**, **tests/mcp↔specs/MCP.md**; tests strengthen **coded behavior ↔ spec constraints**; **strict:** no **product-behavior** tests without spec representation; initial rollout requires every current **product** test theme in those folders mirrored in the matching spec. **Harness/helpers:** `tests/helpers` and pure harness tests—define home explicitly (e.g. documented in this README + conventions, **or** one short “test infra” subsection in **specs/core.md** if chosen—pick one approach and state it; avoid literal “every line of every test maps to a spec bullet” misread). Mention **hierarchical alignment:** group spec/test/code commits deliberately when touching the same behavior.
