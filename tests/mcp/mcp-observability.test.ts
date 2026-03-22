@@ -107,3 +107,79 @@ Deno.test("MCP giterloper_state_inspect matches /health observability fields (sh
   assertEquals(inspect.mcpTestMode, true);
   assertEquals(inspect.configuredKnowledgeStoreRemote, TEST_SOURCE);
 });
+
+Deno.test(
+  "MCP giterloper_state_inspect empty pins still exposes observability matching /health (skip-bootstrap harness)",
+  async () => {
+    const app = await createMcpAppForTest({
+      auth: MCP_INSECURE_TEST_AUTH,
+      mcpTestMode: true,
+      knowledgeStoreRemote: null,
+    });
+
+    const initRes = await app.request(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: MCP_ACCEPT,
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2024-11-05",
+            capabilities: {},
+            clientInfo: { name: "obs-empty-pins", version: "1.0.0" },
+          },
+        }),
+      })
+    );
+    assertEquals(initRes.status, 200);
+    const sessionId = initRes.headers.get("mcp-session-id");
+    assertEquals(sessionId !== null && sessionId.length > 0, true);
+
+    const healthRes = await app.request("http://localhost/health");
+    assertEquals(healthRes.status, 200);
+    const health = (await healthRes.json()) as Record<string, unknown>;
+
+    const toolRes = await app.request(
+      new Request(MCP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: MCP_ACCEPT,
+          "mcp-session-id": sessionId!,
+          "mcp-protocol-version": "2024-11-05",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: {
+            name: "giterloper_state_inspect",
+            arguments: {},
+          },
+        }),
+      })
+    );
+    assertEquals(toolRes.status, 200);
+    const parsed = (await parseMcpResponse(toolRes)) as {
+      result?: { content?: { text?: string }[] };
+    };
+    const text = parsed.result?.content?.[0]?.text;
+    assertEquals(typeof text, "string");
+    const inspect = JSON.parse(text!) as Record<string, unknown> & {
+      pins?: unknown[];
+    };
+    assertEquals(inspect.ok, true);
+    assertEquals(Array.isArray(inspect.pins), true);
+    assertEquals(inspect.pins!.length, 0);
+    assertEquals(inspect.mcpTestMode, health.mcpTestMode);
+    assertEquals(
+      inspect.configuredKnowledgeStoreRemote,
+      health.configuredKnowledgeStoreRemote
+    );
+  }
+);
