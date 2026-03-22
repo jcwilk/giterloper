@@ -23,5 +23,5 @@ Document folder pairing **tests/cli↔specs/cli.md**, **tests/core↔specs/core.
 
 ## Acceptance Criteria
 
-tests/README.md matches new model; strict anchoring for **product** tests clear; harness scope explicit; no stale pointers to removed docs; harness/manifest/DENO_JOBS content not regressed; **git-incv** (later) must cite/align with this README’s harness + anchoring story (oox1 precedes incv in the DAG).
+tests/README.md matches new model; strict anchoring for **product** tests clear; harness scope explicit; no stale pointers to removed docs; harness/manifest/DENO_JOBS content not regressed; **git-incv** (later) must **align substantively** with this README’s harness + anchoring story (same rules, not a second copy of the README or AGENTS)—oox1 precedes incv in the DAG.
 

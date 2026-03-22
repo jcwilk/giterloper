@@ -1,7 +1,7 @@
 ---
 id: git-qna1
 status: open
-deps: [git-9btr]
+deps: [git-9btr, git-46zo]
 links: []
 created: 2026-03-22T00:21:44Z
 type: chore
@@ -17,5 +17,5 @@ Review both files against **concrete** repo artifacts (e.g. Dockerfile, fly.toml
 
 ## Acceptance Criteria
 
-Both files reviewed against **named** deploy artifacts; inaccuracies fixed or closure documents **bullet list of checks** (commands run, files compared, env vars spot-checked)—not a vague “ticket note” only. Links valid relative to post-**git-46zo** layout. Wording consistent with mandate / AGENTS **docs/** demotion after **git-9btr**.
+Both files reviewed against **named** deploy artifacts; inaccuracies fixed or closure documents **bullet list of checks** (commands run, files compared, env vars spot-checked)—not a vague “ticket note” only. Links valid relative to post-**git-46zo** layout (**git-qna1** depends on **git-46zo**). Wording consistent with **docs/** as lowest layer per mandate after **git-9btr**; full **AGENTS.md** path alignment is **git-36ls** (demotion language must not contradict mandate).
 
