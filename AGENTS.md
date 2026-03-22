@@ -28,7 +28,7 @@ When requirements conflict, follow this order. This applies to humans and agents
 
 **Pairing slice specs with user-visible strings:** **[specs/cli.md](./specs/cli.md)** and **CLI help text** (and other user-visible CLI contract text) should stay **intentionally in sync**. **[specs/MCP.md](./specs/MCP.md)** and **MCP tool descriptions / user-visible MCP strings** should stay **intentionally in sync**. **A conflict between the slice spec and its paired user-facing strings is a bug**—fix help, descriptions, spec, or implementation **together**; do not silently prefer one side. Slice specs **do not** need to cite AGENTS or restate the full repo-wide stack.
 
-**`docs/`:** Deployment and operational notes may describe behavior incidentally but **must not lock** product truth. On conflict with `specs/*`, tests, or intentional product contracts, **update `docs/`** to conform. The root [MCP.md](./MCP.md) file is a **non-normative pointer** to [specs/MCP.md](./specs/MCP.md); behavior is defined only under `specs/`.
+**`docs/`:** Deployment and operational notes may describe behavior incidentally but **must not lock** product truth. On conflict with `specs/*`, tests, or intentional product contracts, **update `docs/`** to conform. **Normative MCP behavior** is defined only under **[specs/MCP.md](./specs/MCP.md)** (and related area specs); there is no separate MCP contract at the repository root.
 
 **Hierarchical alignment** means specs, tests, code, and (where used) tickets/commits are **kept intentionally in sync** for a slice. **Hierarchical divergence** is **drift** when layers disagree without an explicit decision to change.
 
