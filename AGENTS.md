@@ -2,6 +2,8 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
+**Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence, alignment vocabulary, and verifier expectations for area specs.
+
 ## Source-of-truth precedence (CRITICAL)
 
 When requirements conflict, follow this **numbered** precedence order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
