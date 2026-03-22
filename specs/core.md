@@ -2,7 +2,7 @@
 
 This document is the **normative** product-behavior spec for **shared library logic** exercised by **`tests/core/`** (executable checks do not override this text). It describes paths, pin file handling, reconciliation helpers, read/search adapters, external retry policy, and **pin configuration at the product boundary** that **CLI and MCP both rely on**. Day-to-day discovery SHOULD follow **`gl` / MCP tool help** and the **CLI** and **MCP** area specs for command- and transport-specific rules; this file states cross-cutting contracts those surfaces must stay aligned with.
 
-**[Pin configuration semantics](#pin-configuration-semantics)** (below) is the **single normative** home for the **`giterloper_pin_set`** decision tree, session vs named pins, and the **branch/ref matrix**, including how **CLI** flags and **MCP** parameters map to the same outcomes. **`specs/cli.md`** and **`specs/MCP.md`** link here; they MUST NOT restate that matrix as a second authoritative copy.
+**[Pin configuration semantics](#pin-configuration-semantics)** (below) is the **single normative** home for the **`giterloper_pin_set`** decision tree, session vs named pins, and the **branch/ref matrix**, including how **CLI** flags and **MCP** parameters map to outcomes. **MCP** never takes client **`source`**; repository identity is server-defined (**`specs/MCP.md`**). **CLI** MAY accept caller-supplied repository identity per **`specs/cli.md`**. **`specs/cli.md`** and **`specs/MCP.md`** link here; they MUST NOT restate that matrix as a second authoritative copy.
 
 Executable coverage for this slice lives under **`tests/core/`**; helper modules under **`tests/helpers/`** are harness-only and are not mirrored here.
 
@@ -21,7 +21,7 @@ Executable coverage for this slice lives under **`tests/core/`**; helper modules
 - **Formats:** The file supports **nested** entries (`repo`, `sha`, optional `branch`) and a **legacy one-line** form **`name: host/path@sha`**. Invalid entries MUST be rejected with a clear parse error. **`serializePins` / `parsePinned`** round-trip for supported shapes; an empty pin list serializes to an empty document.
 - **Missing file:** When **`pinned.yaml`** is absent, reads behave as **no configured pins** (empty list), not as a hard failure.
 - **Session pin name:** The internal session pin is stored as **`_session`**. User-supplied pin names MUST NOT be the literal **`_session`**; that name is **reserved** (callers target the session pin by **omitting** the pin argument at CLI/MCP boundaries—see **[Pin configuration semantics](#pin-configuration-semantics)**). Passing **`_session`** as an explicit user pin name MUST be rejected.
-- **`resolvePin`:** When no pin name is supplied, resolution selects the **`_session`** entry if present. If **`_session`** is missing, the product surfaces an error that guides recovery (including optional remote bootstrap where the product supports it). The **`_session`** entry MUST be findable regardless of its position in the YAML document order.
+- **`resolvePin`:** When no pin name is supplied, resolution selects the **`_session`** entry if present. If **`_session`** is missing, the product surfaces an error that guides recovery. For **MCP**, a missing **`_session`** on an active session indicates an invariant violation or corrupt state (the MCP contract requires **`_session`** to exist after session bootstrap—see **`specs/MCP.md`**). For **CLI**, recovery guidance MAY include commands that add or configure pins using caller-supplied repository identity. The **`_session`** entry MUST be findable regardless of its position in the YAML document order.
 - **Concurrency:** Pin file updates for a session go through **`mutatePins`** for that session’s **`pinned.yaml`** without cross-session locking (each session directory is independent).
 
 **Internal vs user-facing:** **`updatePinSha`** and similar **internal** lifecycle helpers MAY receive the session pin’s internal name when higher layers omitted an explicit pin; that path MUST NOT be confused with **user-facing** validation that forbids registering **`_session`** as a normal named pin.
@@ -81,7 +81,7 @@ This section defines the **exact** behavior of **`giterloper_pin_set`** (and equ
 
 | Surface | How pin configuration is expressed |
 |---------|-------------------------------------|
-| **MCP `giterloper_pin_set`** | Optional `pin`, `source`, `ref`, `branch` per tool schema. Omit `pin` → session pin. |
+| **MCP `giterloper_pin_set`** | Optional **`pin`**, **`ref`**, **`branch`** per tool schema only. Omit **`pin`** → session pin. **`source` MUST NOT** appear on MCP tool inputs; repository identity comes solely from server configuration (**`KNOWLEDGE_STORE_REMOTE`** — see **`specs/MCP.md`**). |
 | **MCP `giterloper_merge`** | Two pin arguments (source and target). **Merge tool exception** below. |
 | **Other MCP tools** (e.g. `giterloper_insert_pending`) | Optional pin name where the schema allows; same **Pin name** rules as `pin_set`. |
 | **CLI `gl pin add` / updates** | **`--ref`** and **`--branch`** combine into the same four **branch/ref** cases: branch-only, ref-only, both, neither (the latter is invalid for add). CLI help and **`specs/cli.md`** name the flags; outcomes MUST match the matrix in this section. |
@@ -168,11 +168,11 @@ This typically happens during clone/fetch. The error message should indicate tha
 | Scenario | Outcome |
 |----------|---------|
 | **`pin` omitted, session pin exists** | Operate on session pin. |
-| **`pin` omitted, no pins** | FAIL **`missing_pin`** unless creating: caller supplies **`source`** and at least one of **`ref`** or **`branch`** so the implementation can create the **`_session`** pin. |
+| **`pin` omitted, no pins** | **MCP:** MUST NOT occur for an active session after bootstrap (**`specs/MCP.md`**). If **`pinned.yaml`** is empty or lacks **`_session`** while the MCP session is active, treat as corrupt state or lifecycle bug; FAIL **`missing_pin`** (or explicit failure) with guidance—clients MUST NOT supply **`source`** to recover. **CLI / other surfaces** that allow caller-supplied repository identity MAY still create the session pin when the user provides that identity and at least one of **`ref`** or **`branch`** per CLI rules. |
 | **`pin` omitted, pins exist but none named `_session`** | FAIL **`missing_pin`** (no legacy “first pin is session” fallback for API surfaces). |
 | **`pin: "_session"`** | FAIL **`invalid_argument`** — reserved name; omit **`pin`** instead. |
 
-**MCP bootstrap:** When **`KNOWLEDGE_STORE_REMOTE`** is set, new MCP sessions MAY auto-create the **`_session`** pin at that remote’s default branch HEAD so tools are usable without a prior **`pin_set`**.
+**MCP bootstrap:** New MCP sessions MUST create or restore **`_session`** at **`KNOWLEDGE_STORE_REMOTE`** default branch HEAD before tool handling; see **`specs/MCP.md`**. **`giterloper_pin_set`** does not create the session pin’s repository binding from client **`source`**—that binding is server-defined.
 
 **Terminology:** Prefer **session pin** over “default pin”. Use **`_session`** when referring to the reserved stored name.
 
@@ -183,7 +183,7 @@ Structured failures use the MCP/tool error envelope; normative **`code`** values
 | Code | When |
 |------|------|
 | **`invalid_argument`** | Neither branch nor ref specified where mutation requires them; explicit **`pin: "_session"`**; invalid/empty parameters; unknown fields if the implementation rejects them. |
-| **`missing_pin`** | No session pin and the operation cannot create one (e.g. missing **`source`**); or no pins when the operation requires a session pin. |
+| **`missing_pin`** | No session pin when one is required; **MCP:** includes corrupt or empty session state where **`_session`** is missing after bootstrap. Not used on MCP to request client **`source`**—repository identity is server-side only. |
 | **`branch_sha_mismatch`** | Assigning a branch to a pin but the remote branch exists at a different SHA than required. Details SHOULD include pin name, pin SHA, remote SHA, and branch where applicable. |
 | **`external`** (or dedicated future code) | Resolved SHA does not exist on remote, if not mapped to a more specific code. |
 

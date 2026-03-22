@@ -21,6 +21,14 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 
 ---
 
+## Knowledge store configuration (MCP)
+
+- **`KNOWLEDGE_STORE_REMOTE`:** MUST be set to a non-empty, valid knowledge repository reference before the MCP server enters a serving state. If it is unset, empty, or unusable at **process startup**, the implementation MUST **fail immediately** (non-zero exit, clear error on stderr) and MUST NOT listen for connections, accept MCP sessions, or run tool handlers in a mode that lacks a defined store. Silent omission or lazy failure on first tool call is **not** compliant.
+
+- **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.
+
+---
+
 ## Sessions and state layout
 
 - **HTTP:** After `initialize`, the server issues an `mcp-session-id` response header. Subsequent tool requests MUST carry that header (and the negotiated protocol version header) or fail with actionable guidance.
@@ -30,7 +38,7 @@ Per-session working state (including `pinned.yaml` and clones) lives under **`.g
 
 **`giterloper_session_end`** removes session-local data for that id. On HTTP, **`DELETE /mcp`** with the same session and protocol headers the client uses for tool calls MUST run equivalent session cleanup (transport-level teardown before the session id is discarded). The server MAY scavenge stale session directories using a configurable TTL. Clients MUST tolerate losing server-side sessions after process restart or deploy (re-`initialize`).
 
-When **`KNOWLEDGE_STORE_REMOTE`** is set, new HTTP sessions MAY auto-bootstrap the session pin (`_session`) from that remote’s default branch HEAD so tools are usable without a prior `pin_set`.
+**Session pin bootstrap (MCP):** When a new MCP session becomes active (HTTP: after successful **`initialize`** for that session; stdio: when the transport attaches a session identity to the shared core), the implementation MUST **create or restore** the **`_session`** pin for that session so it references the **`KNOWLEDGE_STORE_REMOTE`** repository at that remote’s **default branch HEAD** (resolved to a stored SHA) **before** any tool handler runs for that session. Under normal operation, an active MCP session MUST **not** have an empty pin list or a missing **`_session`** entry. If on-disk state is corrupted so **`_session`** is absent while the session is otherwise active, tool calls that require pin resolution MUST fail with **`missing_pin`** (or an explicit, documented failure) rather than accepting client-supplied repository overrides.
 
 ---
 
