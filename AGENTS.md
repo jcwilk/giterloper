@@ -64,6 +64,34 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 
 **Development and tests** use **native Deno** (and git, Python, memsearch) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead.
 
+### memsearch (install and `PATH`)
+
+Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions.
+
+**Install** (Python 3 with `pip`):
+
+```bash
+pip install memsearch
+```
+
+To keep packages isolated, use a venv (then activate it in every shell where you run MCP or tests):
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install memsearch
+```
+
+Ensure **`memsearch` is on `PATH`** (`command -v memsearch` should succeed).
+
+**Provision memsearch before:**
+
+- Starting the **MCP server** natively (`deno task mcp:serve`, `mcp:serve-stdio`, and `:test` variants). Normative startup rules: [specs/MCP.md](./specs/MCP.md).
+- Running **`tests/mcp/`** cases and **`reference_client`** flows that exercise **`giterloper_search`** (and any other path that shells out to memsearch).
+- Running **`./scripts/check_all.sh`** or **`deno task check`** once MCP entrypoints **fail fast at boot** without memsearch (ticket `git-uqw4`); install it now so environments match production Docker and upcoming verification.
+
+The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](./specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
+
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
 - **MCP server:** `deno task mcp:serve` / `mcp:serve-stdio` from workspace root (loads repo-root **`.env`** via Deno **`--env-file`**; copy **`.env.example`** → **`.env`** and fill remotes first). For MCP test mode (session under **`.giterloper_test`**), use **`mcp:serve:test`** / **`mcp:serve-stdio:test`**. Raw **`deno run`** without **`--env-file`** does not load **`.env`**—either use the tasks or pass **`--env-file=.env`** yourself.
 - **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: each logical case is a separate `deno test` subprocess (see `tests/test-case-manifest.json`, regenerated via `deno task gen:test-manifest`). A **bounded worker pool** backfills from the queue; concurrency is capped only by **`DENO_JOBS`** (default **16**) for all manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`). Integration tests use per-case temp `cwd`, **`.giterloper/<sessionId>/`** state, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). The harness deletes **repo-root** **`.giterloper/`** once at suite start so session dirs from prior runs do not accumulate (disk hygiene, not the isolation model). Typecheck: `deno check lib/gl.ts`.
@@ -126,6 +154,7 @@ Branchless pins are read-only.
 ### Prerequisites
 
 - **Deno** and **Git** are available in the VM. If Deno is missing: `curl -fsSL https://deno.land/install.sh | sh`
+- For **MCP server** runs or tests that exercise search: **Python** + **`pip install memsearch`** with **`memsearch` on `PATH`** (see **Run environment** → **memsearch** above).
 
 ### Git access to knowledge repos
 
@@ -146,7 +175,7 @@ All `gl` commands run from the workspace root:
 ./.cursor/skills/gl/scripts/gl <command>
 ```
 
-**Setup:** Prerequisites are git and Deno. Use `gl pin add` to add a pin (clones automatically) or `gl pin load` to clone existing pins. Run `gl diagnostic` to verify state.
+**Setup:** For **`gl`** alone, git and Deno suffice. For the **MCP server** or suites that exercise **memsearch**-backed search, install **memsearch** on **`PATH`** first (see **Run environment** → **memsearch**). Use `gl pin add` to add a pin (clones automatically) or `gl pin load` to clone existing pins. Run `gl diagnostic` to verify state.
 
 ### gl maintenance (debugging and maintenance)
 

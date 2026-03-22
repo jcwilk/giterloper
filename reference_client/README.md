@@ -76,7 +76,7 @@ deno test -A tests/
 deno test -A reference_client/tests/
 ```
 
-**Note:** The search test is ignored when the `memsearch` binary is not installed. Install memsearch to exercise the `giterloper_search` tool.
+**Note:** The search test is ignored when the `memsearch` binary is not installed. Install memsearch to exercise the `giterloper_search` tool — see [AGENTS.md](../AGENTS.md) (memsearch) and [tests/README.md](../tests/README.md) for `pip install memsearch` and `PATH`.
 
 ## Tools exercised
 

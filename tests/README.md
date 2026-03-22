@@ -82,6 +82,24 @@ Tests under `tests/cli/` and `tests/mcp/` are especially valuable as executable 
 
 Use native Deno for development and tests.
 
+### Memsearch (`PATH`)
+
+Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.ts`). Install it before running flows that shell out to memsearch:
+
+```bash
+pip install memsearch
+```
+
+(Optional: `python3 -m venv .venv && source .venv/bin/activate && pip install memsearch`.) Confirm **`memsearch` is on `PATH`** (`command -v memsearch`).
+
+**Required for:**
+
+- **`tests/mcp/`** cases that exercise memsearch-backed search or indexing.
+- **`reference_client`** tests and demos that call **`giterloper_search`** (see [reference_client/README.md](../reference_client/README.md)).
+- **`./scripts/check_all.sh`** and **`deno task check`** once MCP startup **verifies memsearch** at boot (ticket `git-uqw4`); install now to match production and future CI.
+
+Normative MCP vs CLI rules: [specs/MCP.md](../specs/MCP.md), [specs/cli.md](../specs/cli.md). Install steps also appear in [AGENTS.md](../AGENTS.md).
+
 ### Running all checks
 
 From the repository root, run every check (typecheck, then the full test harness) in the canonical order; the script exits on first failure:

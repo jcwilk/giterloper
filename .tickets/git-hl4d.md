@@ -1,6 +1,6 @@
 ---
 id: git-hl4d
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T15:12:13Z
@@ -17,3 +17,8 @@ Prerequisite for implementing and verifying git-uqw4. Normative: specs/MCP.md (m
 
 Docs clearly state **how to install** memsearch (e.g. `pip install memsearch`) and that the **`memsearch` CLI is on `PATH`** for dev/test before running MCP, **reference_client** search tests, and (once **git-uqw4** lands) full **`./scripts/check_all.sh`**. **AGENTS.md** and **tests/README.md** carry that prerequisite; root **README** test blurb updated if it contradicts. **Normative** “optional vs mandatory” product wording for MCP vs CLI may be completed in **git-r51w**—here, focus on **install + PATH + where it is required**. CI: add a **pip install memsearch** (or equivalent) step when **`.github/workflows`** exist; if none, add a short **closed-ticket note** that CI must install memsearch when added. **git-uqw4** can assume this documented baseline. **reference_client** ignore removal and **reference_client/README** contract edits stay in **git-r51w** unless a trivial cross-link is needed here.
 
+## Closure (2026-03-22)
+
+Contributor docs updated: **AGENTS.md**, **tests/README.md**, root **README.md**, and a cross-link in **reference_client/README.md** — install via `pip install memsearch` (optional venv), keep **`memsearch` on `PATH`**, required for MCP server runs, `tests/mcp/` / **reference_client** search flows, and full **`./scripts/check_all.sh`** once MCP boot enforces memsearch (**git-uqw4**).
+
+**CI:** This repository has **no** `.github/workflows` today. When GitHub Actions (or other CI) is added, the pipeline **must** install memsearch before jobs that run MCP or search coverage — e.g. **`pip install memsearch`** (or equivalent) so the CLI is on **`PATH`** for tests and server startup checks.
