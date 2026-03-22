@@ -9,7 +9,6 @@ import { fileURLToPath } from "node:url";
 
 import { mcpStartupState } from "../../lib/gl-mcp-server.ts";
 import {
-  GITERLOPER_MCP_TEST_MODE_ENV,
   KNOWLEDGE_STORE_REMOTE_ENV,
   TEST_KNOWLEDGE_STORE_REMOTE_ENV,
 } from "../../lib/session-layout.ts";
@@ -33,11 +32,12 @@ function minimalChildEnv(overrides: Record<string, string | undefined>): Record<
 
 async function runEntrypoint(
   scriptRelative: string,
-  env: Record<string, string>
+  env: Record<string, string>,
+  scriptArgs: string[] = []
 ): Promise<{ code: number; stderr: string }> {
   const script = join(ROOT, scriptRelative);
   const cmd = new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", script],
+    args: ["run", "-A", script, ...scriptArgs],
     cwd: ROOT,
     env,
     stdout: "null",
@@ -52,7 +52,6 @@ async function runEntrypoint(
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset", async () => {
   const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "0",
     [KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
   }));
@@ -62,7 +61,6 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is u
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty", async () => {
   const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "",
     [KNOWLEDGE_STORE_REMOTE_ENV]: "   ",
   }));
   assertEquals(code, 1);
@@ -71,7 +69,6 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is e
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is invalid", async () => {
   const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "false",
     [KNOWLEDGE_STORE_REMOTE_ENV]: "not:::a:::remote",
   }));
   assertEquals(code, 1);
@@ -80,56 +77,74 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is i
 });
 
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "1",
-    [KNOWLEDGE_STORE_REMOTE_ENV]: toRemoteUrl(TEST_SOURCE),
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server.ts",
+    minimalChildEnv({
+      [KNOWLEDGE_STORE_REMOTE_ENV]: toRemoteUrl(TEST_SOURCE),
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
 });
 
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "1",
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "  ",
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server.ts",
+    minimalChildEnv({
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "  ",
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
 });
 
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "true",
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "@@@",
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server.ts",
+    minimalChildEnv({
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "@@@",
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
 });
 
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "1",
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server-stdio.ts",
+    minimalChildEnv({
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
 });
 
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "1",
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "",
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server-stdio.ts",
+    minimalChildEnv({
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "",
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
 });
 
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: "1",
-    [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "not:::valid",
-  }));
+  const { code, stderr } = await runEntrypoint(
+    "lib/gl-mcp-server-stdio.ts",
+    minimalChildEnv({
+      [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "not:::valid",
+    }),
+    ["--mcp-test-mode"]
+  );
   assertEquals(code, 1);
   assert(stderr.includes(TEST_KNOWLEDGE_STORE_REMOTE_ENV), stderr);
   assert(stderr.includes("not a usable Git remote"), stderr);
@@ -137,7 +152,6 @@ Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE 
 
 Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset", async () => {
   const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
-    [GITERLOPER_MCP_TEST_MODE_ENV]: undefined,
     [KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
   }));

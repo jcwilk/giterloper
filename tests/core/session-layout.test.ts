@@ -21,17 +21,11 @@ Deno.test("session base segment literals are fixed (not env-derived)", () => {
   );
 });
 
-Deno.test("resolveMcpTestMode override wins over env", () => {
-  const k = "GITERLOPER_MCP_TEST_MODE";
-  const prev = Deno.env.get(k);
-  Deno.env.set(k, "1");
-  try {
-    assertEquals(resolveMcpTestMode(false), false);
-    assertEquals(resolveMcpTestMode(true), true);
-  } finally {
-    if (prev === undefined) Deno.env.delete(k);
-    else Deno.env.set(k, prev);
-  }
+Deno.test("resolveMcpTestMode is explicit only (no env inference)", () => {
+  assertEquals(resolveMcpTestMode(), false);
+  assertEquals(resolveMcpTestMode(undefined), false);
+  assertEquals(resolveMcpTestMode(false), false);
+  assertEquals(resolveMcpTestMode(true), true);
 });
 
 Deno.test("effectiveKnowledgeStoreRemote reads mode-appropriate env key", () => {

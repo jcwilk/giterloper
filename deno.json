@@ -6,8 +6,10 @@
     "test:core": "deno test -A --parallel tests/core/",
     "test:cli": "deno test -A tests/cli/",
     "test:mcp": "deno test -A tests/mcp/",
-    "mcp:serve": "deno run -A lib/gl-mcp-server.ts",
-    "mcp:serve-stdio": "deno run -A lib/gl-mcp-server-stdio.ts"
+    "mcp:serve": "deno run -A --env-file=.env lib/gl-mcp-server.ts",
+    "mcp:serve-stdio": "deno run -A --env-file=.env lib/gl-mcp-server-stdio.ts",
+    "mcp:serve:test": "deno run -A --env-file=.env lib/gl-mcp-server.ts --mcp-test-mode",
+    "mcp:serve-stdio:test": "deno run -A --env-file=.env lib/gl-mcp-server-stdio.ts --mcp-test-mode"
   },
   "imports": {
     "@modelcontextprotocol/sdk": "npm:@modelcontextprotocol/sdk@^1.27.1",

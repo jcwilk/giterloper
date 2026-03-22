@@ -40,6 +40,7 @@ import {
 } from "./branch.ts";
 import { clonePin, teardownPinData, updatePinSha, verifyCloneAtSha } from "./pin-lifecycle.ts";
 import { reconcile } from "./reconcile.ts";
+import { consumeBooleanFlag } from "./cli.ts";
 import {
   getSessionTtlMs,
   isSafeSessionId,
@@ -87,8 +88,8 @@ export interface CreateServerOptions {
    */
   testFsSessionId?: string;
   /**
-   * When set, wins over env `GITERLOPER_MCP_TEST_MODE` for this server (session root + effective knowledge remote).
-   * Stdio and HTTP entrypoints MUST pass the same resolution for parity when not using this override.
+   * When set, selects MCP test mode (`.giterloper_test` + `TEST_KNOWLEDGE_STORE_REMOTE`) for this server.
+   * Production entrypoints use the `--mcp-test-mode` CLI flag; stdio and HTTP MUST resolve parity the same way.
    */
   mcpTestMode?: boolean;
   /**
@@ -1132,7 +1133,16 @@ let mcpApp: Hono = libraryImportMcpStub;
 export { mcpApp };
 
 if (import.meta.main) {
-  const sharedMcpTestMode = resolveMcpTestMode();
+  let argv = [...Deno.args];
+  const mcpTestFlag = consumeBooleanFlag(argv, "--mcp-test-mode");
+  argv = mcpTestFlag.args;
+  if (argv.length > 0) {
+    console.error(
+      `giterloper MCP: unexpected argument(s): ${argv.map((a) => JSON.stringify(a)).join(" ")}`
+    );
+    Deno.exit(1);
+  }
+  const sharedMcpTestMode = mcpTestFlag.found;
   const httpStartup = mcpStartupState({ mcpTestMode: sharedMcpTestMode });
   const { server: mcpServer, onHttpSessionInitialized } = createServer({
     mcpTestMode: sharedMcpTestMode,

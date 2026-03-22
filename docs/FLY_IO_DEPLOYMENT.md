@@ -102,7 +102,7 @@ Use `fly platform vm-sizes` and the [pricing page](https://fly.io/docs/about/pri
 
   Optional: `MCP_SESSION_TTL_MS`. **Required (non-secret):** set **`KNOWLEDGE_STORE_REMOTE`** (e.g. `https://github.com/owner/repo`) in `[env]` or via `fly secrets set`—the MCP server **exits at startup** if it is unset, empty, or not a valid remote URL. That remote is the sole knowledge-store identity for the server; each new HTTP MCP session bootstraps **`_session`** at the remote’s default branch HEAD before any tool runs—see [`specs/MCP.md`](../specs/MCP.md). Do **not** set `MCP_INSECURE=true` in production.
 
-  **Harness / automation only:** to run an MCP-like stack with session state under **`.giterloper_test`**, use **`GITERLOPER_MCP_TEST_MODE`** (truthy) and **`TEST_KNOWLEDGE_STORE_REMOTE`** instead of the normal pair; see [`tests/README.md`](../tests/README.md). Do not use test mode for production Fly apps.
+  **Harness / automation only:** to run an MCP-like stack with session state under **`.giterloper_test`**, run the MCP entrypoint with **`--mcp-test-mode`** and set **`TEST_KNOWLEDGE_STORE_REMOTE`** (see [`tests/README.md`](../tests/README.md)). Do not use test mode for production Fly apps.
 
 - **Apply:** Redeploy to pick up secret changes: `fly deploy` (or `fly secrets deploy` to deploy without rebuilding).
 

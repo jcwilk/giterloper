@@ -30,7 +30,7 @@ function readLine(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<stri
 
 Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped session", async () => {
   const cmd = new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", join(ROOT, "lib", "gl-mcp-server-stdio.ts")],
+    args: ["run", "-A", join(ROOT, "lib", "gl-mcp-server-stdio.ts"), "--mcp-test-mode"],
     cwd: ROOT,
     env: {
       ...Deno.env.toObject(),

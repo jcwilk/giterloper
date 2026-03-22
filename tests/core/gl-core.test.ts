@@ -33,37 +33,6 @@ Deno.test("makeState({ mcpTestMode: true }) uses .giterloper_test/<sessionId>", 
   assertEquals(state.rootDir, sessionRoot);
 });
 
-Deno.test("makeState follows GITERLOPER_MCP_TEST_MODE when option omitted", () => {
-  const k = "GITERLOPER_MCP_TEST_MODE";
-  const prev = Deno.env.get(k);
-  Deno.env.set(k, "true");
-  try {
-    const state = makeState("env-sess");
-    assertEquals(state.mcpTestMode, true);
-    assertEquals(
-      state.rootDir,
-      path.join(PROJECT_ROOT, ".giterloper_test", "env-sess")
-    );
-  } finally {
-    if (prev === undefined) Deno.env.delete(k);
-    else Deno.env.set(k, prev);
-  }
-});
-
-Deno.test("makeState explicit mcpTestMode false overrides truthy GITERLOPER_MCP_TEST_MODE", () => {
-  const k = "GITERLOPER_MCP_TEST_MODE";
-  const prev = Deno.env.get(k);
-  Deno.env.set(k, "1");
-  try {
-    const state = makeState("override", { mcpTestMode: false });
-    assertEquals(state.mcpTestMode, false);
-    assertEquals(state.rootDir, path.join(PROJECT_ROOT, ".giterloper", "override"));
-  } finally {
-    if (prev === undefined) Deno.env.delete(k);
-    else Deno.env.set(k, prev);
-  }
-});
-
 Deno.test("validateSessionId accepts UUID-like sessionId", () => {
   const id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
   assertEquals(validateSessionId(id), id);

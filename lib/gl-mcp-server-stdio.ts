@@ -6,12 +6,21 @@
  */
 import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { consumeBooleanFlag } from "./cli.ts";
 import { createServer } from "./gl-mcp-server.ts";
 import { getSessionTtlMs, scavengeStaleSessions } from "./mcp-session-store.ts";
-import { resolveMcpTestMode } from "./session-layout.ts";
 
 const stdioSessionId = randomUUID();
-const stdioMcpTestMode = resolveMcpTestMode();
+let argv = [...Deno.args];
+const mcpTestFlag = consumeBooleanFlag(argv, "--mcp-test-mode");
+argv = mcpTestFlag.args;
+if (argv.length > 0) {
+  console.error(
+    `giterloper MCP (stdio): unexpected argument(s): ${argv.map((a) => JSON.stringify(a)).join(" ")}`
+  );
+  Deno.exit(1);
+}
+const stdioMcpTestMode = mcpTestFlag.found;
 const { server, eagerBootstrapStdioSession } = createServer({
   getSessionId: () => stdioSessionId,
   mcpTestMode: stdioMcpTestMode,

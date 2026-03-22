@@ -1,7 +1,7 @@
 /**
  * Test helpers for reference_client E2E tests.
  * Uses relative ../ paths to giterloper workspace. Spawns processes; imports `lib/session-layout` for the
- * test session base name and `tests/helpers/integration-mcp-env` for MCP test mode env parity with CLI tests.
+ * test session base name and `tests/helpers/integration-mcp-env` for `TEST_KNOWLEDGE_STORE_REMOTE` parity with CLI tests (plus `--mcp-test-mode` on spawned processes).
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -55,7 +55,7 @@ function runGit(args: string[], opts: { cwd?: string; silent?: boolean } = {}): 
 }
 
 function runGlJson(args: string[], sessionId: string): unknown {
-  const result = spawnSync(GL_SCRIPT, ["--json", "--session-id", sessionId, ...args], {
+  const result = spawnSync(GL_SCRIPT, ["--json", "--mcp-test-mode", "--session-id", sessionId, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -70,7 +70,7 @@ function runGlJson(args: string[], sessionId: string): unknown {
 }
 
 function runGlMaintenanceJson(args: string[], sessionId: string): unknown {
-  const result = spawnSync(GL_MAINTENANCE, ["--json", "--session-id", sessionId, ...args], {
+  const result = spawnSync(GL_MAINTENANCE, ["--json", "--mcp-test-mode", "--session-id", sessionId, ...args], {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -195,7 +195,7 @@ export interface ServerHandle {
 export function startServer(port: number, sessionId: string): ServerHandle {
   const proc = spawn(
     "deno",
-    ["run", "-A", path.join(WORKSPACE_ROOT, "lib", "gl-mcp-server.ts")],
+    ["run", "-A", path.join(WORKSPACE_ROOT, "lib", "gl-mcp-server.ts"), "--mcp-test-mode"],
     {
       cwd: WORKSPACE_ROOT,
       env: {

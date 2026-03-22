@@ -27,7 +27,7 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 
 - **`mcpTestMode` (boolean):** Default **`false`**. When **`true`**, the server is in **MCP test mode**: it MUST use the **test** session root directory and the **test** knowledge remote env var (below). When **`false`**, it MUST use the **normal** session root and the **production/dev** remote env var.
 
-- **Activating MCP test mode:** The implementation MUST determine **`mcpTestMode`** the same way on **stdio** and **HTTP** entrypoints (parity). **Primary signal:** environment variable **`GITERLOPER_MCP_TEST_MODE`** — when set to a **truthy** value (e.g. **`1`**, **`true`**, case-insensitive), MCP test mode is **`true`**; when unset or non-truthy, **`false`**. **Secondary signal (tests / in-process):** `createServer` (or equivalent **`CreateServerOptions`**) MAY expose an explicit boolean override that wins over the env signal when provided, so the unified test harness can force test mode without mutating process-global env.
+- **Activating MCP test mode:** The implementation MUST determine **`mcpTestMode`** the same way on **stdio** and **HTTP** entrypoints (parity). **Primary signal:** process command line — when the **`--mcp-test-mode`** flag is present on the MCP entrypoint (**`lib/gl-mcp-server.ts`** or **`lib/gl-mcp-server-stdio.ts`**), MCP test mode is **`true`**; when the flag is absent, **`false`**. There is **no** environment variable that toggles this mode. **In-process / tests:** `createServer` (or equivalent **`CreateServerOptions`**) MAY pass an explicit boolean **`mcpTestMode`** so factories and the unified harness can force test mode without argv.
 
 ### Environment variables for repository identity
 

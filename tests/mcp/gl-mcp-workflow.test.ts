@@ -1,6 +1,6 @@
 /**
  * MCP integration workflow: session-driven, minimal setup (higher-level agent path).
- * Uses MCP test mode env (see `integrationMcpModeChildEnv`) for session auto-bootstrap. No CLI; session-scoped state only.
+ * Uses `--mcp-test-mode` + `integrationMcpModeChildEnv()` (`TEST_KNOWLEDGE_STORE_REMOTE`) for session auto-bootstrap. No CLI; session-scoped state only.
  * Verifies SHA chain and snapshot isolation via MCP tools only.
  */
 import { assertEquals, assertExists } from "jsr:@std/assert";
@@ -37,7 +37,12 @@ interface ServerHandle {
 }
 
 function startMcpServer(port: number, projectRoot: string): ServerHandle {
-  const proc = spawn("deno", ["run", "-A", path.join(GITERLOPER_REPO_ROOT, "lib", "gl-mcp-server.ts")], {
+  const proc = spawn("deno", [
+    "run",
+    "-A",
+    path.join(GITERLOPER_REPO_ROOT, "lib", "gl-mcp-server.ts"),
+    "--mcp-test-mode",
+  ], {
     cwd: GITERLOPER_REPO_ROOT,
     env: {
       ...Deno.env.toObject(),

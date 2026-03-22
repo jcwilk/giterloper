@@ -122,14 +122,6 @@
     },
     {
       "path": "tests/core/gl-core.test.ts",
-      "name": "makeState explicit mcpTestMode false overrides truthy GITERLOPER_MCP_TEST_MODE"
-    },
-    {
-      "path": "tests/core/gl-core.test.ts",
-      "name": "makeState follows GITERLOPER_MCP_TEST_MODE when option omitted"
-    },
-    {
-      "path": "tests/core/gl-core.test.ts",
       "name": "makeState with sessionId roots mutable paths under .giterloper/<sessionId>"
     },
     {
@@ -354,7 +346,7 @@
     },
     {
       "path": "tests/core/session-layout.test.ts",
-      "name": "resolveMcpTestMode override wins over env"
+      "name": "resolveMcpTestMode is explicit only (no env inference)"
     },
     {
       "path": "tests/core/session-layout.test.ts",
@@ -471,6 +463,10 @@
     {
       "path": "tests/mcp/mcp-merge.test.ts",
       "name": "merge with same sourcePin and targetPin fails"
+    },
+    {
+      "path": "tests/mcp/mcp-observability.test.ts",
+      "name": "MCP giterloper_state_inspect empty pins still exposes observability matching /health (skip-bootstrap harness)"
     },
     {
       "path": "tests/mcp/mcp-observability.test.ts",

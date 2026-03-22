@@ -34,7 +34,7 @@ const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
 /**
  * Returns the directory path for a session. Does not validate sessionId.
- * @param mcpTestMode When omitted, uses env `GITERLOPER_MCP_TEST_MODE` (see `session-layout.ts`).
+ * @param mcpTestMode When omitted, **normal** session layout (see `resolveMcpTestMode` in `session-layout.ts`).
  */
 export function sessionDir(sessionId: string, mcpTestMode?: boolean): string {
   return path.join(giterloperRootPath(mcpTestMode), sessionId);

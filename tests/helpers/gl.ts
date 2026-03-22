@@ -77,7 +77,7 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
 
 export function runGl(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
-  const cliArgs = ["--json", "--session-id", sessionId, ...args];
+  const cliArgs = ["--json", "--mcp-test-mode", "--session-id", sessionId, ...args];
   const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
   const maxAttempts = 2;
 
@@ -138,7 +138,7 @@ export function runGlJson(args: string[], opts: GlCliRunOpts): unknown {
 /** Run gl-maintenance commands (status, verify, clone, teardown, stage, stage-cleanup, promote). */
 export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson } = resolveGlRun(opts);
-  const sessionArgs = ["--session-id", sessionId];
+  const sessionArgs = ["--mcp-test-mode", "--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
   const maxAttempts = 2;

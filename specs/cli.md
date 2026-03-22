@@ -11,7 +11,7 @@ For **pin/ref/branch matrices, session-pin targeting, and `giterloper_pin_set`-e
 - **`gl`** exposes: `diagnostic`, `pin …`, `insert`, `install-remote`, `reconcile`, `merge`.
 - **`gl-maintenance`** (also shown in help as “gl maintenance”) exposes: `status`, `verify`, `clone`, `teardown`, `stage`, `stage-cleanup`, `promote`.
 
-Global option: **`--session-id <id>`** (default **`_cli`**). Session-scoped working state for both entrypoints lives under **`.giterloper/<sessionId>/`** at the project root.
+Global options: **`--session-id <id>`** (default **`_cli`**) and optional **`--mcp-test-mode`**. Session-scoped working state lives under **`.giterloper/<sessionId>/`** at the project root in normal mode, or **`.giterloper_test/<sessionId>/`** when **`--mcp-test-mode`** is set (integration / harness alignment with MCP test mode; see **`specs/MCP.md`**).
 
 Commands that advertise **`--json`** emit structured results suitable for automation; human-oriented text mode remains available where help lists `--json`.
 

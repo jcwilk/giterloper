@@ -225,12 +225,17 @@ async function main() {
   args = helpJsonParsed.args;
   const sessionIdParsed = parseFlag(args, "--session-id");
   args = sessionIdParsed.args;
+  const mcpTestParsed = consumeBooleanFlag(args, "--mcp-test-mode");
+  args = mcpTestParsed.args;
   const sessionId = sessionIdParsed.found && sessionIdParsed.value ? sessionIdParsed.value : "_cli";
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     printMaintenanceHelp();
     return;
   }
-  const state = makeState(sessionId, { retryLogRole: "cli" });
+  const state = makeState(sessionId, {
+    retryLogRole: "cli",
+    mcpTestMode: mcpTestParsed.found ? true : undefined,
+  });
   state.globalJson = helpJsonParsed.found;
 
   const [cmd, ...rest] = args;
