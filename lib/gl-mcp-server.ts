@@ -18,7 +18,7 @@ import { retryLogFromGlState } from "./retry-external.ts";
 import type { GlState, Pin } from "./types.ts";
 import { mutatePins, readPins, resolvePin, SESSION_PIN_NAME, validatePinName } from "./pinned.ts";
 import { makeQueueFilename, safeName } from "./add-queue.ts";
-import { search as memsearchSearch } from "./memsearch-adapter.ts";
+import { probeMemsearchCliAvailable, search as memsearchSearch } from "./memsearch-adapter.ts";
 import { mergeBranchesRemotely, parseGithubSource } from "./github.ts";
 import { mapErrorToMcp } from "./mcp-error-mapping.ts";
 import {
@@ -97,6 +97,11 @@ export interface CreateServerOptions {
    * (`KNOWLEDGE_STORE_REMOTE` vs `TEST_KNOWLEDGE_STORE_REMOTE`); `null` → do not auto-bootstrap; non-empty string → use as source.
    */
   knowledgeStoreRemote?: string | null;
+  /**
+   * Test-only: skip memsearch PATH probe (specs/MCP.md — narrow hook for startup failure tests).
+   * Production entrypoints MUST NOT set this.
+   */
+  skipMemsearchVerification?: boolean;
 }
 
 /**
@@ -150,6 +155,13 @@ export function mcpStartupState(
       console.error(
         `giterloper MCP: ${key} is not a usable Git remote: ${JSON.stringify(trimmed)}`
       );
+      Deno.exit(1);
+    }
+  }
+  if (!options?.skipMemsearchVerification) {
+    const mem = probeMemsearchCliAvailable();
+    if (!mem.ok) {
+      console.error(`giterloper MCP: ${mem.message}`);
       Deno.exit(1);
     }
   }

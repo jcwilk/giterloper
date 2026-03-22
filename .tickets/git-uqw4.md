@@ -1,6 +1,6 @@
 ---
 id: git-uqw4
-status: open
+status: closed
 deps: [git-hl4d]
 links: []
 created: 2026-03-22T15:05:27Z

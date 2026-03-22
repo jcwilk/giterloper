@@ -76,6 +76,15 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is i
   assert(stderr.includes("not a usable Git remote"), stderr);
 });
 
+Deno.test("MCP HTTP: exits non-zero when memsearch is not on PATH (remote valid)", async () => {
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
+    [KNOWLEDGE_STORE_REMOTE_ENV]: "https://github.com/o/r",
+    PATH: "/usr/bin:/bin",
+  }));
+  assertEquals(code, 1);
+  assert(stderr.includes("memsearch"), stderr);
+});
+
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server.ts",
@@ -176,11 +185,20 @@ Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is 
   assert(stderr.includes("not a usable Git remote"), stderr);
 });
 
+Deno.test("MCP stdio: exits non-zero when memsearch is not on PATH (remote valid)", async () => {
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
+    [KNOWLEDGE_STORE_REMOTE_ENV]: "https://github.com/o/r",
+    PATH: "/usr/bin:/bin",
+  }));
+  assertEquals(code, 1);
+  assert(stderr.includes("memsearch"), stderr);
+});
+
 Deno.test("mcpStartupState succeeds in-process when effective remote is valid (shared createServer path)", () => {
   const normalEnv = {
     get: (key: string) => (key === KNOWLEDGE_STORE_REMOTE_ENV ? "https://github.com/o/r" : undefined),
   };
-  const snap = mcpStartupState({ mcpTestMode: false }, normalEnv);
+  const snap = mcpStartupState({ mcpTestMode: false, skipMemsearchVerification: true }, normalEnv);
   assertEquals(snap.mcpTestMode, false);
   assertEquals(snap.configuredKnowledgeStoreRemote, "https://github.com/o/r");
 
@@ -188,9 +206,19 @@ Deno.test("mcpStartupState succeeds in-process when effective remote is valid (s
     get: (key: string) =>
       key === TEST_KNOWLEDGE_STORE_REMOTE_ENV ? "https://github.com/t/k" : undefined,
   };
-  const snapTest = mcpStartupState({ mcpTestMode: true }, testEnv);
+  const snapTest = mcpStartupState({ mcpTestMode: true, skipMemsearchVerification: true }, testEnv);
   assertEquals(snapTest.mcpTestMode, true);
   assertEquals(snapTest.configuredKnowledgeStoreRemote, "https://github.com/t/k");
+});
+
+Deno.test("mcpStartupState skips memsearch probe when skipMemsearchVerification", () => {
+  const snap = mcpStartupState({
+    mcpTestMode: false,
+    knowledgeStoreRemote: "https://github.com/o/r",
+    skipMemsearchVerification: true,
+  });
+  assertEquals(snap.mcpTestMode, false);
+  assertEquals(snap.configuredKnowledgeStoreRemote, "https://github.com/o/r");
 });
 
 Deno.test("Dockerfile CMD runs HTTP MCP entrypoint (startup validation applies in container)", () => {

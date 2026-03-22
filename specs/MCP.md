@@ -48,7 +48,7 @@ Search and on-demand indexing are implemented by invoking the **memsearch** CLI 
 
 - **Executable tests:** **`tests/mcp/`** cases and **`reference_client/`** flows that exercise **`giterloper_search`** MUST **not** be marked **ignored**, **skipped**, or otherwise bypassed solely because **memsearch** is missing from the environment. Those tests assume a correctly provisioned host (including **memsearch** on **`PATH`**), consistent with this contract.
 
-- **Test factories:** In-process or subprocess test helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule above, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints.
+- **Test factories:** In-process or subprocess test helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule above, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints. The implementation exposes this as **`skipMemsearchVerification`** on **`CreateServerOptions`** (`lib/gl-mcp-server.ts`); production HTTP and stdio entrypoints MUST NOT pass it.
 
 ### Integration tests and repository identity (MCP)
 

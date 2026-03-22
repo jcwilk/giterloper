@@ -41,7 +41,7 @@ export interface BuildIndexOptions {
   force?: boolean;
 }
 
-const MEMSEARCH_CMD = "memsearch";
+export const MEMSEARCH_CMD = "memsearch";
 const METADATA_FILE = "metadata.json";
 const MILVUS_FILE = "milvus.db";
 
@@ -51,6 +51,30 @@ const BUILD_FINGERPRINT = "giterloper_v1";
 /** Path to metadata.json for a given pin+sha. */
 export function metadataPath(state: GlState, pinName: string, sha: string): string {
   return path.join(indexDir(state, pinName, sha), METADATA_FILE);
+}
+
+/**
+ * Probes that the memsearch CLI is executable on PATH (specs/MCP.md — MCP startup).
+ * Uses the current process environment for resolution.
+ */
+export function probeMemsearchCliAvailable(): { ok: true } | { ok: false; message: string } {
+  const r = runSoft(MEMSEARCH_CMD, ["--help"]);
+  if (r.error) {
+    return {
+      ok: false,
+      message:
+        `memsearch CLI is not available (${r.error.message}). Install with \`pip install memsearch\` and ensure it is on PATH.`,
+    };
+  }
+  if (!r.ok) {
+    return {
+      ok: false,
+      message: `memsearch CLI failed startup probe: ${
+        r.stderr || r.stdout || `exit code ${r.status}`
+      }`,
+    };
+  }
+  return { ok: true };
 }
 
 /** Path to milvus.db for a given pin+sha. */
