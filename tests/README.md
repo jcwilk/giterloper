@@ -39,6 +39,28 @@ Treat the following as the **contract** for test layout, isolation, and the unif
   - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
 
+### AST test discovery (fail-closed)
+
+The harness uses **`scripts/discover-test-cases.ts`** (TypeScript AST via pinned **`@swc/wasm`**) as a **fail-closed preflight** before scheduling: every `tests/` `*.test.ts` file must expose only **statically named** `Deno.test` registrations. The unified runner still reads **`tests/test-case-manifest.json`** for per-case subprocess work until the manifest is removed (see epic **git-snjk** / ticket **git-od4q**); discovery and manifest are expected to converge on the same logical cases once the manifest generator is dropped.
+
+**Supported registrations**
+
+- `Deno.test("name", …)` with a string literal first argument.
+- `Deno.test({ name: "…", … })` (or `"name": "…"`) with a **string literal** `name` property.
+
+**Rejected (harness exits non-zero before workers)**
+
+- Any `Deno.test` call where the name cannot be resolved statically (template literals, computed `name`, non-literal `name`, spread in the **call** argument list, wrong first-argument shape).
+- Any `*.test.ts` file with **zero** discovered cases.
+- **Duplicate** resolved names in the **same file** (anchored `--filter` is ambiguous).
+
+**Not discovered**
+
+- Calls through an alias (`const t = Deno.test; t(…)`) or other indirection.
+- `Deno.test.only` / `Deno.test.ignore` and other variants are **not** matched (this suite uses plain `Deno.test` only).
+
+Debug: `deno run -A scripts/discover-test-cases.ts` from the repo root prints discovered `{ path, name }` JSON or a non-zero exit with an error message.
+
 ### Isolation and helpers
 
 - **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other manifest cases run in parallel.

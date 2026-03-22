@@ -1,6 +1,6 @@
 ---
 id: git-k9pg
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T18:53:00Z
@@ -32,3 +32,9 @@ Hard errors before any workers: (1) any `Deno.test(...)` where a **static** test
 - Module documents violation categories (README subsection + script header).
 - No `tests/discover-*.test.ts` (or similar) added.
 
+
+## Notes
+
+**2026-03-22T18:57:01Z**
+
+Added scripts/discover-test-cases.ts (SWC AST), pinned @swc/wasm@1.10.18 in deno.json + deno.lock, README AST subsection, run-tests preflight discoverTestCases(root). 162 cases vs manifest 161 (gl-mcp object form).

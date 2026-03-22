@@ -15,10 +15,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ensureMemsearchOnPath } from "./bootstrap-memsearch.ts";
+import { discoverTestCases } from "./discover-test-cases.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 await ensureMemsearchOnPath();
+// AST fail-closed preflight (see scripts/discover-test-cases.ts). Full harness still uses the manifest until git-od4q switches scheduling to discovery + JUnit.
+await discoverTestCases(root);
 const manifestPath = path.join(root, "tests", "test-case-manifest.json");
 
 interface ManifestCase {
