@@ -84,19 +84,22 @@ Use native Deno for development and tests.
 
 ### Memsearch (`PATH`)
 
-Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.ts`). Install it before running flows that shell out to memsearch:
+Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.ts`). The **MCP server** verifies **`memsearch`** at process startup ([specs/MCP.md](../specs/MCP.md)); install it before running flows that shell out to memsearch or starting the server for search coverage.
 
 ```bash
 pip install memsearch
 ```
 
-(Optional: `python3 -m venv .venv && source .venv/bin/activate && pip install memsearch`.) Confirm **`memsearch` is on `PATH`** (`command -v memsearch`).
+(Optional venv: `python3 -m venv .venv && source .venv/bin/activate && pip install memsearch`.) Confirm **`memsearch` is on `PATH`** (`command -v memsearch`).
 
 **Required for:**
 
+- Starting the **MCP server** (HTTP/SSE or stdio) for normal operation or tests.
 - **`tests/mcp/`** cases that exercise memsearch-backed search or indexing.
-- **`reference_client`** tests and demos that call **`giterloper_search`** (see [reference_client/README.md](../reference_client/README.md)).
-- **`./scripts/check_all.sh`** and **`deno task check`** once MCP startup **verifies memsearch** at boot (ticket `git-uqw4`); install now to match production and future CI.
+- **`reference_client`** tests and any flow that calls **`giterloper_search`** (see [reference_client/README.md](../reference_client/README.md)); those tests are **not** ignored when memsearch is absent—they assume a provisioned host.
+- **`./scripts/check_all.sh`** and **`deno task check`** (full suite including MCP/search paths).
+
+The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](../specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
 Normative MCP vs CLI rules: [specs/MCP.md](../specs/MCP.md), [specs/cli.md](../specs/cli.md). Install steps also appear in [AGENTS.md](../AGENTS.md).
 

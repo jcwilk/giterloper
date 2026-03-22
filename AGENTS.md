@@ -62,7 +62,7 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 
 ## Run environment: native for dev/test, Docker for prod
 
-**Development and tests** use **native Deno** (and git, Python, memsearch) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead.
+**Development and tests** use **native Deno** (and git; **Python + memsearch** when running the MCP server or search-related tests) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead. **MCP** treats **memsearch** as mandatory at server startup ([specs/MCP.md](./specs/MCP.md)); **`gl`** / **`gl-maintenance`** do not require it at CLI boot ([specs/cli.md](./specs/cli.md)).
 
 ### memsearch (install and `PATH`)
 
@@ -86,9 +86,9 @@ Ensure **`memsearch` is on `PATH`** (`command -v memsearch` should succeed).
 
 **Provision memsearch before:**
 
-- Starting the **MCP server** natively (`deno task mcp:serve`, `mcp:serve-stdio`, and `:test` variants). Normative startup rules: [specs/MCP.md](./specs/MCP.md).
-- Running **`tests/mcp/`** cases and **`reference_client`** flows that exercise **`giterloper_search`** (and any other path that shells out to memsearch).
-- Running **`./scripts/check_all.sh`** or **`deno task check`** once MCP entrypoints **fail fast at boot** without memsearch (ticket `git-uqw4`); install it now so environments match production Docker and upcoming verification.
+- Starting the **MCP server** natively (`deno task mcp:serve`, `mcp:serve-stdio`, and `:test` variants). The server **exits at startup** if **memsearch** is not on **`PATH`** ([specs/MCP.md](./specs/MCP.md)).
+- Running **`tests/mcp/`** cases and **`reference_client`** flows that exercise **`giterloper_search`** (and any other path that shells out to memsearch). Executable tests **must not** be skipped solely for missing memsearch ([specs/MCP.md](./specs/MCP.md)).
+- Running **`./scripts/check_all.sh`** or **`deno task check`** when those paths include MCP/search coverage—install **memsearch** so environments match production Docker.
 
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](./specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
@@ -166,7 +166,7 @@ When GITERLOPER_GH_TOKEN is set, gl and the integration test helpers embed it in
 - **Read** access to `jcwilk/giterloper_knowledge` (for clone, e.g. via `gl pin add` or `gl-maintenance clone`)
 - **Read + Write** access to `jcwilk/giterloper_test_knowledge` (for CLI/MCP integration tests)
 
-CLI and MCP integration tests will run successfully in this environment when the token is available.
+CLI and MCP integration tests will run successfully in this environment when the token is available. Flows that start the MCP server or exercise **`giterloper_search`** also need **`memsearch` on `PATH`** (see **Run environment** → **memsearch** above).
 
 ### Running the CLI
 

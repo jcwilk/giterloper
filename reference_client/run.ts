@@ -23,18 +23,14 @@ try {
     const first = state.pins[0] as { name?: string };
     const name = first?.name ?? "";
     if (name) {
-      try {
-        const searchResult = await search(client, { pin: name, query: "knowledge", limit: 3 });
-        console.log("Search:", JSON.stringify(searchResult, null, 2));
-        if (searchResult.results.length > 0) {
-          const path = (searchResult.results[0] as { path?: string }).path;
-          if (path) {
-            const ret = await retrieve(client, { pin: name, path });
-            console.log("Retrieve snippet:", ret.content.slice(0, 200) + "...");
-          }
+      const searchResult = await search(client, { pin: name, query: "knowledge", limit: 3 });
+      console.log("Search:", JSON.stringify(searchResult, null, 2));
+      if (searchResult.results.length > 0) {
+        const path = (searchResult.results[0] as { path?: string }).path;
+        if (path) {
+          const ret = await retrieve(client, { pin: name, path });
+          console.log("Retrieve snippet:", ret.content.slice(0, 200) + "...");
         }
-      } catch (e) {
-        console.warn("Search skipped (memsearch may not be installed):", (e as Error).message);
       }
     }
   }

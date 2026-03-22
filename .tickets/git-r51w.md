@@ -1,6 +1,6 @@
 ---
 id: git-r51w
-status: open
+status: closed
 deps: [git-uqw4]
 links: []
 created: 2026-03-22T15:05:28Z

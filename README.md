@@ -29,7 +29,7 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
 
 ## Quick start
 
-1. Prerequisites: git and [Deno](https://deno.land). To run the **MCP server** or the full **`./scripts/check_all.sh`** / **`deno task check`** path (once the server enforces memsearch at boot), install **`memsearch`** on **`PATH`** — for example `pip install memsearch` (venv optional). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
+1. Prerequisites: git and [Deno](https://deno.land). To run the **MCP server** or the full **`./scripts/check_all.sh`** / **`deno task check`** path, install **`memsearch`** on **`PATH`** — for example `pip install memsearch` (venv optional). The MCP server **fails fast at startup** without it ([specs/MCP.md](./specs/MCP.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
 2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
@@ -42,7 +42,7 @@ Production deploys use the Docker image on Fly.io. To run the MCP server in Dock
 
 ## Tests
 
-Run the full suite (typecheck + unified test harness). **`memsearch`** on **`PATH`** is required for MCP/search coverage and for **`./scripts/check_all.sh`** once the MCP server fails fast without it at startup (see [AGENTS.md](./AGENTS.md), [tests/README.md](./tests/README.md)).
+Run the full suite (typecheck + unified test harness). **`memsearch`** on **`PATH`** is required for MCP/search coverage and for **`./scripts/check_all.sh`** (see [AGENTS.md](./AGENTS.md), [tests/README.md](./tests/README.md)).
 
 ```bash
 ./scripts/check_all.sh

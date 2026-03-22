@@ -215,16 +215,6 @@ export function startServer(port: number, sessionId: string): ServerHandle {
   return { port, process: proc, kill };
 }
 
-/** Check if memsearch binary is available (required for search tool). */
-export function hasMemsearch(): boolean {
-  const result = spawnSync("which", ["memsearch"], {
-    cwd: WORKSPACE_ROOT,
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-  return result.status === 0 && (result.stdout?.trim() ?? "").length > 0;
-}
-
 /** Wait for server to be ready (health endpoint). */
 export async function waitForServer(port: number, timeoutMs = 5000): Promise<void> {
   const url = `http://127.0.0.1:${port}/health`;

@@ -9,7 +9,6 @@ import {
   cleanupTestRepo,
   createRemoteBranch,
   ensurePinRemoved,
-  hasMemsearch,
   newTestCliSessionId,
   randomPin,
   startServer,
@@ -66,10 +65,9 @@ Deno.test({ name: "state_inspect lists pins", fn: async () => {
   }
 }});
 
-/** Requires `memsearch` on PATH (optional tool); not the old session-path skip. */
+/** Assumes `memsearch` on PATH; MCP and this suite require it ([specs/MCP.md](../specs/MCP.md)). */
 Deno.test({
   name: "search returns results",
-  ignore: !hasMemsearch(),
   fn: async () => {
     const port = randomPort();
     const pinName = randomPin("search");

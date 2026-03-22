@@ -11,6 +11,7 @@ Minimal external MCP client for giterloper. Exercises read, intake, and reconcil
 ## Prerequisites
 
 - Deno
+- **`memsearch` on `PATH`** (required for the MCP server process and for tests that call `giterloper_search`); see [AGENTS.md](../AGENTS.md) and [tests/README.md](../tests/README.md) for `pip install memsearch`.
 - Giterloper MCP server running (or tests start it automatically)
 - For E2E: push access to `github.com/jcwilk/giterloper_test_knowledge`, `GITERLOPER_GH_TOKEN` set
 
@@ -76,7 +77,7 @@ deno test -A tests/
 deno test -A reference_client/tests/
 ```
 
-**Note:** The search test is ignored when the `memsearch` binary is not installed. Install memsearch to exercise the `giterloper_search` tool — see [AGENTS.md](../AGENTS.md) (memsearch) and [tests/README.md](../tests/README.md) for `pip install memsearch` and `PATH`.
+Executable tests that exercise **`giterloper_search`** are not skipped when memsearch is missing; the host must provision **`memsearch`** on **`PATH`** per [specs/MCP.md](../specs/MCP.md).
 
 ## Tools exercised
 
