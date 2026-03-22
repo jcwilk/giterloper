@@ -1,12 +1,9 @@
 {
   "mcpServers": {
     "giterloper": {
-      "command": "deno",
+      "command": "bash",
       "args": [
-        "run",
-        "-A",
-        "--env-file=.env",
-        "lib/gl-mcp-server-stdio.ts"
+        "scripts/cursor-mcp-giterloper-stdio.sh"
       ],
       "cwd": "/home/user/workspace/giterloper"
     }

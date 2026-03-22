@@ -1,6 +1,9 @@
 .giterloper/
 .giterloper_test/
 
+# Python venv (memsearch, local MCP); recreate with `python3 -m venv .venv && pip install memsearch`
+.venv/
+
 .env
 
 .cursor/plans/
