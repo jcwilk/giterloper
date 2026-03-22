@@ -11,7 +11,7 @@ parent: git-amyx
 ---
 # MCP: bootstrap _session on every new session before tools
 
-Normative: specs/MCP.md Sessions — when a session becomes active (HTTP after initialize; stdio on attach), ensure _session exists at KNOWLEDGE_STORE_REMOTE default branch HEAD (SHA stored) before any tool handler runs. Active MCP session must not have empty pins or missing _session under normal operation.
+Normative: specs/MCP.md Sessions — when a session becomes active (HTTP after initialize; stdio on attach), ensure **`_session`** exists at the **effective configured knowledge remote** for that server (per **`mcpTestMode`**) at default branch HEAD (SHA stored) before any tool handler runs. Active MCP session must not have empty pins or missing **`_session`** under normal operation.
 
 ## Design
 

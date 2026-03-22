@@ -13,6 +13,8 @@ parent: git-amyx
 
 Update tests that assume optional KNOWLEDGE_STORE_REMOTE, empty initial pins on MCP, or client source on pin_set. Keep CLI tests valid. Cite specs/MCP.md and specs/core.md as authority.
 
+**Boundary vs `git-jkpb`:** harness-level test mode defaults and **`tests/README.md`** for **`.giterloper_test`** land in **`git-jkpb`**; this ticket updates **product-behavior assertions** and scenarios for the pin/bootstrap contract.
+
 ## Acceptance Criteria
 
 deno task test (or targeted manifests) passes; new or updated cases cover startup failure, session bootstrap, and pin_set without source where MCP is exercised.

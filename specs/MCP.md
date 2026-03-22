@@ -23,9 +23,33 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 
 ## Knowledge store configuration (MCP)
 
-- **`KNOWLEDGE_STORE_REMOTE`:** MUST be set to a non-empty, valid knowledge repository reference before the MCP server enters a serving state. If it is unset, empty, or unusable at **process startup**, the implementation MUST **fail immediately** (non-zero exit, clear error on stderr) and MUST NOT listen for connections, accept MCP sessions, or run tool handlers in a mode that lacks a defined store. Silent omission or lazy failure on first tool call is **not** compliant.
+### Modes: normal vs MCP test mode
 
-- **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.
+- **`mcpTestMode` (boolean):** Default **`false`**. When **`true`**, the server is in **MCP test mode**: it MUST use the **test** session root directory and the **test** knowledge remote env var (below). When **`false`**, it MUST use the **normal** session root and the **production/dev** remote env var.
+
+- **Activating MCP test mode:** The implementation MUST determine **`mcpTestMode`** the same way on **stdio** and **HTTP** entrypoints (parity). **Primary signal:** environment variable **`GITERLOPER_MCP_TEST_MODE`** — when set to a **truthy** value (e.g. **`1`**, **`true`**, case-insensitive), MCP test mode is **`true`**; when unset or non-truthy, **`false`**. **Secondary signal (tests / in-process):** `createServer` (or equivalent **`CreateServerOptions`**) MAY expose an explicit boolean override that wins over the env signal when provided, so the unified test harness can force test mode without mutating process-global env.
+
+### Environment variables for repository identity
+
+| Mode | Env var supplying the knowledge Git remote | Required at MCP server startup |
+|------|--------------------------------------------|--------------------------------|
+| Normal (`mcpTestMode` **false**) | **`KNOWLEDGE_STORE_REMOTE`** | MUST be non-empty and valid |
+| MCP test (`mcpTestMode` **true**) | **`TEST_KNOWLEDGE_STORE_REMOTE`** | MUST be non-empty and valid |
+
+- **Startup failure:** If the env var for the active mode is unset, empty, or unusable at **process startup**, the implementation MUST **fail immediately** (non-zero exit, clear error on stderr) and MUST NOT listen for connections, accept MCP sessions, or run tool handlers without a defined store. Silent omission or lazy failure on first tool call is **not** compliant.
+
+- **Explicit server options (integration tests):** `createServer` / **`CreateServerOptions`** MAY accept an explicit knowledge remote string (and/or aligned override fields) that satisfies startup validation **as if** the corresponding env var for the active mode were set, so subprocess and in-process tests do not rely on polluting parent env. Such overrides MUST only be used in test-oriented factories; production entrypoints continue to read env.
+
+- **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store for a mode. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.
+
+### Session root directory names (normative, not env-configurable)
+
+Under the configured project root (see **`specs/core.md`** and **`GITERLOPER_PROJECT_ROOT`**), session directories MUST live under exactly one of these **literal** single-segment names (no trailing slash in the contract name):
+
+- **Normal mode:** **`.giterloper`**
+- **MCP test mode:** **`.giterloper_test`**
+
+The implementation MUST treat these as fixed constants (not derived from user env) so dev/prod and automated tests never accidentally point at the same on-disk tree when modes differ. Full path shape: **`<projectRoot>/<literal>/<sessionId>/`**.
 
 ---
 
@@ -34,11 +58,23 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 - **HTTP:** After `initialize`, the server issues an `mcp-session-id` response header. Subsequent tool requests MUST carry that header (and the negotiated protocol version header) or fail with actionable guidance.
 - **stdio:** The session id is **process-scoped**; the transport wires a fixed session identity into the shared core.
 
-Per-session working state (including `pinned.yaml` and clones) lives under **`.giterloper/<sessionId>/`** at the configured project root. Session directories MUST use only safe path segments (no `..`, separators, or empty ids).
+Per-session working state (including `pinned.yaml` and clones) lives under **`<projectRoot>/.giterloper/<sessionId>/`** in normal mode or **`<projectRoot>/.giterloper_test/<sessionId>/`** in MCP test mode. Session directories MUST use only safe path segments (no `..`, separators, or empty ids). Shared library code that resolves session paths (**`makeState`**, MCP session store, scavenging, cleanup) MUST use the same mode → directory mapping.
 
 **`giterloper_session_end`** removes session-local data for that id. On HTTP, **`DELETE /mcp`** with the same session and protocol headers the client uses for tool calls MUST run equivalent session cleanup (transport-level teardown before the session id is discarded). The server MAY scavenge stale session directories using a configurable TTL. Clients MUST tolerate losing server-side sessions after process restart or deploy (re-`initialize`).
 
-**Session pin bootstrap (MCP):** When a new MCP session becomes active (HTTP: after successful **`initialize`** for that session; stdio: when the transport attaches a session identity to the shared core), the implementation MUST **create or restore** the **`_session`** pin for that session so it references the **`KNOWLEDGE_STORE_REMOTE`** repository at that remote’s **default branch HEAD** (resolved to a stored SHA) **before** any tool handler runs for that session. Under normal operation, an active MCP session MUST **not** have an empty pin list or a missing **`_session`** entry. If on-disk state is corrupted so **`_session`** is absent while the session is otherwise active, tool calls that require pin resolution MUST fail with **`missing_pin`** (or an explicit, documented failure) rather than accepting client-supplied repository overrides.
+**Session pin bootstrap (MCP):** When a new MCP session becomes active (HTTP: after successful **`initialize`** for that session; stdio: when the transport attaches a session identity to the shared core), the implementation MUST **create or restore** the **`_session`** pin for that session so it references the **effective configured knowledge remote** for that server (normal: **`KNOWLEDGE_STORE_REMOTE`** / its override; MCP test: **`TEST_KNOWLEDGE_STORE_REMOTE`** / its override) at that remote’s **default branch HEAD** (resolved to a stored SHA) **before** any tool handler runs for that session. Under normal operation, an active MCP session MUST **not** have an empty pin list or a missing **`_session`** entry. If on-disk state is corrupted so **`_session`** is absent while the session is otherwise active, tool calls that require pin resolution MUST fail with **`missing_pin`** (or an explicit, documented failure) rather than accepting client-supplied repository overrides.
+
+---
+
+## Observability (effective mode and remote)
+
+Operators and tests MUST be able to read which mode and remote the running MCP server instance uses **without** relying on client-supplied **`source`**.
+
+- **`GET /health` (HTTP/SSE app):** The JSON body MUST include **`mcpTestMode`** (boolean) and **`configuredKnowledgeStoreRemote`** (string, the effective remote used for session bootstrap and pin identity for that process).
+
+- **`giterloper_state_inspect`:** On **successful** tool results (including empty pin list), the JSON body MUST include the same **`mcpTestMode`** and **`configuredKnowledgeStoreRemote`** fields alongside existing fields (e.g. **`sessionId`**, **`pins`**, **`checks`**), so **stdio** clients observe parity with **`/health`** for these diagnostics.
+
+Both transports MUST report **identical semantics** for these fields for a given server instance.
 
 ---
 

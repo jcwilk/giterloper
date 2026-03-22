@@ -11,7 +11,7 @@ parent: git-amyx
 ---
 # MCP: remove source from giterloper_pin_set; server-only repo identity
 
-Normative: specs/core.md Surfaces table — MCP pin_set accepts only pin, ref, branch; KNOWLEDGE_STORE_REMOTE defines repo. Remove source from Zod schema, handlers, and any code paths that read client source for MCP.
+Normative: specs/core.md Surfaces table — MCP pin_set accepts only pin, ref, branch; **effective configured knowledge remote** (per **`mcpTestMode`**, **`specs/MCP.md`**) defines repo. Remove source from Zod schema, handlers, and any code paths that read client source for MCP.
 
 ## Design
 

@@ -11,10 +11,11 @@ parent: git-amyx
 ---
 # docs: operator notes for mandatory KNOWLEDGE_STORE_REMOTE and MCP bootstrap
 
-docs/ MUST NOT contradict specs/MCP.md (AGENTS deployment notes if they describe MCP env). Update Fly/docker/local run docs so operators set KNOWLEDGE_STORE_REMOTE before MCP serve.
+docs/ MUST NOT contradict specs/MCP.md (AGENTS deployment notes if they describe MCP env). Update Fly/docker/local run docs so operators set **`KNOWLEDGE_STORE_REMOTE`** for normal MCP. Document **`GITERLOPER_MCP_TEST_MODE`** + **`TEST_KNOWLEDGE_STORE_REMOTE`** for harness/automation only (session root **`.giterloper_test`**).
 
 ## Acceptance Criteria
 
-- Docs state **`KNOWLEDGE_STORE_REMOTE`** is **required** for the MCP server; no wording that it is optional for MCP.
-- Docs briefly describe that new MCP sessions **bootstrap `_session`** from that remote (default branch HEAD), consistent with **`specs/MCP.md`** — implement after **`git-6lq1`** lands so examples match behavior.
+- Docs state **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server operation; no wording that it is optional for MCP in production/dev defaults.
+- Docs briefly describe that new MCP sessions **bootstrap `_session`** from the effective configured remote (default branch HEAD), consistent with **`specs/MCP.md`** — implement after **`git-6lq1`** lands so examples match behavior.
+- Docs mention test-mode env pair (**`GITERLOPER_MCP_TEST_MODE`**, **`TEST_KNOWLEDGE_STORE_REMOTE`**) where operators run MCP-like test stacks, without contradicting **`tests/README.md`**.
 

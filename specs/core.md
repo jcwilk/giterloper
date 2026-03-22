@@ -10,8 +10,9 @@ Executable coverage for this slice lives under **`tests/core/`**; helper modules
 
 ## Session layout and path algebra
 
-- **Session root:** Working state for a session id lives under **`.giterloper/<sessionId>/`** at the project root (same layout as described in the CLI and MCP area specs).
+- **Session root:** Working state for a session id lives under **`<projectRoot>/<sessionBase>/<sessionId>/`**, where **`<sessionBase>`** is **`.giterloper`** by default. When **MCP test mode** is **`true`** (see **`specs/MCP.md`**: **`GITERLOPER_MCP_TEST_MODE`** and in-process overrides), **`<sessionBase>`** MUST be **`.giterloper_test`**, using these **literal** directory names (not configurable via environment). **Shared core** used by **both** MCP and **CLI** MUST apply the same mapping so integration tests that spawn **`gl`** and MCP with test mode enabled keep all session state under **`.giterloper_test`** and off **`.giterloper`**.
 - **Derived paths:** Under that session root, **version clones** are rooted at **`versions/`**, **staged** working trees at **`staged/`**, **`pinned.yaml`** at the session root, and **search indexes** at **`indexes/<pinName>/<sha>/`** (full 40-character SHA in the path segment).
+- **Project root:** **`GITERLOPER_PROJECT_ROOT`** (non-empty) redirects **`<projectRoot>`** for **`makeState`**, MCP session store paths, and related helpers; otherwise **`cwd`** resolves the project root. Session **base** (`.giterloper` vs `.giterloper_test`) still follows MCP test mode per **`specs/MCP.md`**.
 - **Session id validation:** A session id MUST be non-empty and MUST NOT contain characters that would break a single safe path segment (including **`..`**, path separators, or other disallowed characters as enforced by validation).
 
 ---
@@ -81,7 +82,7 @@ This section defines the **exact** behavior of **`giterloper_pin_set`** (and equ
 
 | Surface | How pin configuration is expressed |
 |---------|-------------------------------------|
-| **MCP `giterloper_pin_set`** | Optional **`pin`**, **`ref`**, **`branch`** per tool schema only. Omit **`pin`** → session pin. **`source` MUST NOT** appear on MCP tool inputs; repository identity comes solely from server configuration (**`KNOWLEDGE_STORE_REMOTE`** — see **`specs/MCP.md`**). |
+| **MCP `giterloper_pin_set`** | Optional **`pin`**, **`ref`**, **`branch`** per tool schema only. Omit **`pin`** → session pin. **`source` MUST NOT** appear on MCP tool inputs; repository identity comes solely from server configuration (normal: **`KNOWLEDGE_STORE_REMOTE`**; MCP test: **`TEST_KNOWLEDGE_STORE_REMOTE`** — see **`specs/MCP.md`**). |
 | **MCP `giterloper_merge`** | Two pin arguments (source and target). **Merge tool exception** below. |
 | **Other MCP tools** (e.g. `giterloper_insert_pending`) | Optional pin name where the schema allows; same **Pin name** rules as `pin_set`. |
 | **CLI `gl pin add` / updates** | **`--ref`** and **`--branch`** combine into the same four **branch/ref** cases: branch-only, ref-only, both, neither (the latter is invalid for add). CLI help and **`specs/cli.md`** name the flags; outcomes MUST match the matrix in this section. |
@@ -172,7 +173,7 @@ This typically happens during clone/fetch. The error message should indicate tha
 | **`pin` omitted, pins exist but none named `_session`** | FAIL **`missing_pin`** (no legacy “first pin is session” fallback for API surfaces). |
 | **`pin: "_session"`** | FAIL **`invalid_argument`** — reserved name; omit **`pin`** instead. |
 
-**MCP bootstrap:** New MCP sessions MUST create or restore **`_session`** at **`KNOWLEDGE_STORE_REMOTE`** default branch HEAD before tool handling; see **`specs/MCP.md`**. **`giterloper_pin_set`** does not create the session pin’s repository binding from client **`source`**—that binding is server-defined.
+**MCP bootstrap:** New MCP sessions MUST create or restore **`_session`** at the **effective configured knowledge remote** for that server (per mode: **`KNOWLEDGE_STORE_REMOTE`** vs **`TEST_KNOWLEDGE_STORE_REMOTE`**) at default branch HEAD before tool handling; see **`specs/MCP.md`**. **`giterloper_pin_set`** does not create the session pin’s repository binding from client **`source`**—that binding is server-defined.
 
 **Terminology:** Prefer **session pin** over “default pin”. Use **`_session`** when referring to the reserved stored name.
 
