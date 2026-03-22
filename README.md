@@ -2,11 +2,17 @@
 
 Giterloper manages git-based knowledge stores. It runs from this repository.
 
+## Specs, tests, and code
+
+This README is **human** onboarding for the repo layout. **Product behavior** is defined under **`specs/`** (area specs such as CLI, MCP, and core pin semantics). **`tests/`** holds the executable harness and topic slices (`tests/core/`, `tests/cli/`, `tests/mcp/`); see [`tests/README.md`](./tests/README.md). **Implementation** lives primarily in **`lib/`** (CLI and MCP server).
+
+For AI agent and contributor workflow and conventions, see [`AGENTS.md`](./AGENTS.md).
+
 ## What's here
 
 - **Constitution** — `CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
-- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. See [`specs/MCP.md`](./specs/MCP.md) and `AGENTS.md`.
+- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. MCP tool contracts and transport behavior: [`specs/MCP.md`](./specs/MCP.md).
 
 ## Knowledge stores
 
@@ -27,8 +33,6 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
 2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
-
-See [AGENTS.md](./AGENTS.md) for contributor and agent guidance (including [source-of-truth precedence](./AGENTS.md#source-of-truth-precedence-critical) when docs, tests, and code disagree).
 
 **Run environment:** Development and tests use **native Deno** (and git) on the host for fast feedback. **Docker** is for production (Fly.io) and optional local run when you want to match the container environment.
 

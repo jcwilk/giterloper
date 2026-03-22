@@ -1,6 +1,6 @@
 ---
 id: git-mpl2
-status: open
+status: closed
 deps: [git-9btr, git-6g05]
 links: []
 created: 2026-03-22T00:21:44Z
