@@ -1,36 +1,50 @@
 #!/usr/bin/env -S deno run -A
 /**
  * Unified test harness: bounded worker pool schedules one `deno test` subprocess per logical case
- * (see tests/test-case-manifest.json). Per-case isolation matches Deno 2.x concurrency model (one runnable
- * module per case). Concurrency: **`DENO_JOBS`** concurrent workers (default 16).
+ * discovered via AST (`scripts/discover-test-cases.ts`). Per-case isolation matches Deno 2.x concurrency
+ * model (one runnable module per case). Concurrency: **`DENO_JOBS`** concurrent workers (default 16).
+ *
+ * Each subprocess uses `--reporter junit` and a temp report file; the harness requires ≥1 executed
+ * testcase and zero failures/errors (Deno 2.7 exits 0 when all tests are filtered out—exit code alone
+ * is not sufficient).
  *
  * Before scheduling cases, the harness removes **`<repo>/.giterloper`** and **`<repo>/.giterloper_test`**
  * if present. That is only to keep leftover session trees from piling up on disk across repeated
  * full-suite runs—not a substitute for per-case isolation (tests still must use their own `cwd` /
  * session ids as documented in tests/README.md).
- *
- * Regenerate the manifest after adding or renaming tests: `deno task gen:test-manifest`
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { ensureMemsearchOnPath } from "./bootstrap-memsearch.ts";
-import { discoverTestCases } from "./discover-test-cases.ts";
+import { type DiscoveredTestCase, discoverTestCases } from "./discover-test-cases.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-await ensureMemsearchOnPath();
-// AST fail-closed preflight (see scripts/discover-test-cases.ts). Full harness still uses the manifest until git-od4q switches scheduling to discovery + JUnit.
-await discoverTestCases(root);
-const manifestPath = path.join(root, "tests", "test-case-manifest.json");
-
-interface ManifestCase {
-  path: string;
-  name: string;
-}
-
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseJUnitAttr(tag: string, name: string): number | undefined {
+  const m = tag.match(new RegExp(`\\b${name}="(\\d+)"`));
+  return m ? parseInt(m[1]!, 10) : undefined;
+}
+
+/** Parse Deno JUnit XML: aggregate failures/errors from root `<testsuites>`; ran = sum(tests - disabled) per `<testsuite `. */
+function parseJUnitSummary(xml: string): { failures: number; errors: number; ran: number } {
+  const rootMatch = xml.match(/<testsuites\s[^>]*>/);
+  if (!rootMatch) throw new Error("missing <testsuites>");
+  const rootTag = rootMatch[0]!;
+  const failures = parseJUnitAttr(rootTag, "failures") ?? 0;
+  const errors = parseJUnitAttr(rootTag, "errors") ?? 0;
+  let ran = 0;
+  for (const m of xml.matchAll(/<testsuite\s[^>]*>/g)) {
+    const tag = m[0]!;
+    const tests = parseJUnitAttr(tag, "tests") ?? 0;
+    const disabled = parseJUnitAttr(tag, "disabled") ?? 0;
+    ran += Math.max(0, tests - disabled);
+  }
+  return { failures, errors, ran };
 }
 
 function workerCount(): number {
@@ -42,24 +56,80 @@ function workerCount(): number {
   return 16;
 }
 
-async function runOne(c: ManifestCase): Promise<number> {
-  // Deno expects a /pattern/ regexp for anchored full-name match (plain string is substring).
-  const filter = `/^${escapeRegExp(c.name)}$/`;
-  const cmd = new Deno.Command("deno", {
-    args: ["test", "-A", "--filter", filter, c.path],
-    cwd: root,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const { code } = await cmd.output();
-  return code;
+function formatCase(c: DiscoveredTestCase): string {
+  return `(${c.path}, ${JSON.stringify(c.name)})`;
 }
 
-const raw = await Deno.readTextFile(manifestPath);
-const manifest = JSON.parse(raw) as { cases: ManifestCase[] };
-const cases = manifest.cases;
+async function runOne(c: DiscoveredTestCase): Promise<number> {
+  const filter = `/^${escapeRegExp(c.name)}$/`;
+  const junitPath = await Deno.makeTempFile({ prefix: "giterloper-junit-", suffix: ".xml" });
+  try {
+    const cmd = new Deno.Command("deno", {
+      args: [
+        "test",
+        "-A",
+        "--reporter",
+        "junit",
+        "--junit-path",
+        junitPath,
+        "--filter",
+        filter,
+        c.path,
+      ],
+      cwd: root,
+      // JUnit reporter echoes the full XML to stdout; suppress noise while keeping stderr for Deno diagnostics.
+      stdout: "null",
+      stderr: "inherit",
+    });
+    const { code: denoCode } = await cmd.output();
+
+    let xml: string;
+    try {
+      xml = await Deno.readTextFile(junitPath);
+    } catch {
+      console.error(`${formatCase(c)}: JUnit report missing or unreadable (deno exit ${denoCode})`);
+      return 1;
+    }
+
+    let summary: { failures: number; errors: number; ran: number };
+    try {
+      summary = parseJUnitSummary(xml);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`${formatCase(c)}: invalid JUnit XML: ${msg}`);
+      return 1;
+    }
+
+    if (summary.failures > 0 || summary.errors > 0 || summary.ran < 1) {
+      console.error(
+        `${formatCase(c)}: JUnit gate failed (failures=${summary.failures} errors=${summary.errors} ran=${summary.ran}; deno exit ${denoCode})`,
+      );
+      return 1;
+    }
+    return 0;
+  } finally {
+    try {
+      await Deno.remove(junitPath);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+await ensureMemsearchOnPath();
+
+let cases: DiscoveredTestCase[];
+try {
+  cases = await discoverTestCases(root);
+} catch (e) {
+  console.error(e instanceof Error ? e.message : e);
+  Deno.exit(1);
+}
+
+console.error(`Harness: discovered ${cases.length} test case(s).`);
+
 if (cases.length === 0) {
-  console.error("No test cases in manifest; run: deno task gen:test-manifest");
+  console.error("No test cases discovered under tests/; add *.test.ts files with static Deno.test names.");
   Deno.exit(1);
 }
 
@@ -81,7 +151,7 @@ async function worker(): Promise<void> {
   while (true) {
     const i = nextIndex++;
     if (i >= cases.length) return;
-    const c = cases[i];
+    const c = cases[i]!;
     const code = await runOne(c);
     if (code !== 0) failures++;
   }

@@ -1,6 +1,6 @@
 ---
 id: git-od4q
-status: open
+status: closed
 deps: [git-k9pg]
 links: []
 created: 2026-03-22T18:53:03Z

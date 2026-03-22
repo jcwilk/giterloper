@@ -1,7 +1,6 @@
 {
   "tasks": {
     "check": "deno run -A scripts/check-all.ts",
-    "gen:test-manifest": "deno run -A scripts/build-test-case-manifest.ts",
     "test": "deno run -A scripts/run-tests.ts",
     "test:core": "deno test -A --parallel tests/core/",
     "test:cli": "deno test -A tests/cli/",
