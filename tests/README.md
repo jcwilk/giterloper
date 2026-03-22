@@ -34,7 +34,7 @@ Treat the following as the **contract** for test layout, isolation, and the unif
 
 - **`deno run -A scripts/run-tests.ts`** (and **`deno task test`**) is the full suite entrypoint. The harness:
   - reads **`tests/test-case-manifest.json`** (one entry per `Deno.test` name + source file). Regenerate after adding or renaming tests: **`deno task gen:test-manifest`**;
-  - after validating the manifest, **deletes `<repository-root>/.giterloper`** if it exists so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
+  - after validating the manifest, **deletes `<repository-root>/.giterloper`** and **`<repository-root>/.giterloper_test`** if they exist so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
   - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes;
   - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
@@ -44,13 +44,23 @@ Treat the following as the **contract** for test layout, isolation, and the unif
 - **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other manifest cases run in parallel.
 - Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
 - **Transient retries:** Integration tests may trigger the same centralized git/GitHub retries as production; each retry appends one JSON line to **`logs/giterloper-retry.log`** under the repo root (or `GITERLOPER_PROJECT_ROOT`).
-- **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local `.giterloper/` trees are removed under the test cwd.
-- **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env.
+- **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. **`runGl` / `runGlMaintenance`** merge **`integrationMcpModeChildEnv()`** from `tests/helpers/integration-mcp-env.ts` into the child environment (**`GITERLOPER_MCP_TEST_MODE`**, **`TEST_KNOWLEDGE_STORE_REMOTE`**) so CLI subprocesses that write session state use **`.giterloper_test/<sessionId>/`** and the shared test knowledge remote, not **`.giterloper/`** with production-style configuration. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local **`.giterloper_test/<sessionId>/`** trees are removed under the test cwd.
+- **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env. **`createMcpAppForTest`** defaults **`mcpTestMode`** to **`true`** when omitted so in-process MCP integration tests use **`.giterloper_test`** and **`TEST_KNOWLEDGE_STORE_REMOTE`** semantics unless a case explicitly passes **`mcpTestMode: false`**. Pair **`mcpTestMode: true`** with **`knowledgeStoreRemote`** (or rely on **`TEST_KNOWLEDGE_STORE_REMOTE`** in env) per **`specs/MCP.md`**.
+
+### MCP test mode env (integration harness)
+
+Normative detail lives in **`specs/MCP.md`** and **`specs/core.md`**. For this repo’s integration suite:
+
+- **`GITERLOPER_MCP_TEST_MODE`** — when truthy, session state uses the literal directory **`.giterloper_test`** under the project root (or **`GITERLOPER_PROJECT_ROOT`** when set), and the effective knowledge remote is read from **`TEST_KNOWLEDGE_STORE_REMOTE`** (unless overridden in-process).
+- **`TEST_KNOWLEDGE_STORE_REMOTE`** — non-empty valid Git remote for the shared test knowledge repo when MCP test mode is active.
+- **`.giterloper_test`** — session base directory name in MCP test mode only; not configurable.
+
+**Requirement:** Any integration entrypoint that spawns **`gl`**, **`gl-maintenance`**, or an MCP server process and expects that process to write session state MUST either use **`runGl` / `runGlMaintenance`** from **`tests/helpers/gl.ts`**, **`createMcpAppForTest`** from **`lib/gl-mcp-server.ts`**, or merge the same **`integrationMcpModeChildEnv()`** values into the child **`env`** (see **`reference_client/test_helpers.ts`**). Do not let subprocesses default to **`.giterloper/`** while using the shared test remote.
 
 ### Cleanup
 
 - Cleanup is **scoped to the current test**: branches, pins, temp dirs, and session dirs that **that test** created.
-- The harness **does** remove **repo-root** **`.giterloper/`** once at suite start (see runner bullets above) so old session trees do not pile up locally; that is unrelated to cross-test isolation guarantees.
+- The harness **does** remove **repo-root** **`.giterloper/`** and **`.giterloper_test/`** once at suite start (see runner bullets above) so old session trees do not pile up locally; that is unrelated to cross-test isolation guarantees.
 - Aside from that, the default runner path does **not** perform other suite-wide sweeps across remote branches or shared-remote state. A separate **debug-only** leak cleaner may exist for manual recovery; it is not part of the parallel happy path.
 
 ---
@@ -87,7 +97,7 @@ Use this before persisting ticket work (for example verifier and work-next use i
 ### Parallel execution
 
 - Cap subprocess concurrency with **`DENO_JOBS`** (integer; default 16 in the harness) for every logical case.
-- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root `.giterloper/` or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext`; MCP uses injected `createMcpAppForTest` options).
+- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root **`.giterloper/`** or **`.giterloper_test/`** or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext` plus **`integrationMcpModeChildEnv`** in subprocesses; MCP uses **`createMcpAppForTest`** with default test mode).
 
 ### Layout and individual commands
 
@@ -105,7 +115,7 @@ Tests are grouped by **topic**, not by duration:
 
 ## CLI / MCP integration tests: collision avoidance (CRITICAL)
 
-Tests that hit `giterloper_test_knowledge` use a shared remote repository. Local state must remain **per session** and **per test case** under **`<cwd>/.giterloper/<sessionId>/`**.
+Tests that hit `giterloper_test_knowledge` use a shared remote repository. Local state must remain **per session** and **per test case** under **`<cwd>/.giterloper_test/<sessionId>/`** when using the integration helpers (MCP test mode).
 
 Use the shared helpers (`tests/helpers/gl.ts`, `tests/helpers/test-runtime-context.ts`, `tests/helpers/cleanup.ts`) so every case gets:
 
@@ -143,7 +153,7 @@ Every test must be self-contained. No test may depend on another test's side eff
 
 ### 3) Session-isolated state
 
-- Each logical case has its own `sessionId` and cwd; state lives under **`.giterloper/<sessionId>/`** beneath that cwd.
+- Each logical case has its own `sessionId` and cwd; state lives under **`.giterloper_test/<sessionId>/`** beneath that cwd when helpers set MCP test mode (default for CLI/MCP integration paths documented above).
 - Unique session ids prevent contention on the same `pinned.yaml`; unique pin names isolate resources on the shared remote and under `versions/` and `staged/`.
 
 ### 4) Cleanup and branch isolation

@@ -1054,7 +1054,8 @@ export async function createMcpAppForTest(
   opts?: CreateMcpAppForTestOptions
 ): Promise<ReturnType<typeof createHttpMcpApp>> {
   const { auth: authOpt, ...serverOpts } = opts ?? {};
-  const mcpTestMode = resolveMcpTestMode(serverOpts.mcpTestMode);
+  const mcpTestMode =
+    serverOpts.mcpTestMode !== undefined ? serverOpts.mcpTestMode : true;
   const testStartup = mcpStartupState({ ...serverOpts, mcpTestMode });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),

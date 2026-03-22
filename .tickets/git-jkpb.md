@@ -1,6 +1,6 @@
 ---
 id: git-jkpb
-status: open
+status: closed
 deps: [git-nyh6]
 links: []
 created: 2026-03-22T03:10:24Z

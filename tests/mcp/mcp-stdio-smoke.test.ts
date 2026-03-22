@@ -7,7 +7,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { TEST_SOURCE } from "../helpers/config.ts";
+import { integrationMcpModeChildEnv } from "../helpers/integration-mcp-env.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -34,7 +34,7 @@ Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped sess
     cwd: ROOT,
     env: {
       ...Deno.env.toObject(),
-      KNOWLEDGE_STORE_REMOTE: TEST_SOURCE,
+      ...integrationMcpModeChildEnv(),
     },
     stdin: "piped",
     stdout: "piped",

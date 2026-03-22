@@ -7,8 +7,8 @@ import { E2E_MARKER } from "./config.ts";
 
 /**
  * Per logical test case (or per test file until cases are split): isolated cwd, session id, and
- * collision token for remote resources. State lives at `<cwd>/.giterloper/<sessionId>/` (see
- * tests/README.md).
+ * collision token for remote resources. With integration helpers, state lives at
+ * `<cwd>/.giterloper_test/<sessionId>/` (see tests/README.md).
  */
 export type TestRuntimeContext = {
   cwd: string;

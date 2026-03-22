@@ -4,9 +4,10 @@
  * (see tests/test-case-manifest.json). Per-case isolation matches Deno 2.x concurrency model (one runnable
  * module per case). Concurrency: **`DENO_JOBS`** concurrent workers (default 16).
  *
- * Before scheduling cases, the harness removes **`<repo>/.giterloper`** if present. That is only to keep
- * leftover session trees from piling up on disk across repeated full-suite runs—not a substitute for
- * per-case isolation (tests still must use their own `cwd` / session ids as documented in tests/README.md).
+ * Before scheduling cases, the harness removes **`<repo>/.giterloper`** and **`<repo>/.giterloper_test`**
+ * if present. That is only to keep leftover session trees from piling up on disk across repeated
+ * full-suite runs—not a substitute for per-case isolation (tests still must use their own `cwd` /
+ * session ids as documented in tests/README.md).
  *
  * Regenerate the manifest after adding or renaming tests: `deno task gen:test-manifest`
  */
@@ -55,11 +56,13 @@ if (cases.length === 0) {
   Deno.exit(1);
 }
 
-const giterloperDir = path.join(root, ".giterloper");
-try {
-  await Deno.remove(giterloperDir, { recursive: true });
-} catch (e) {
-  if (!(e instanceof Deno.errors.NotFound)) throw e;
+for (const base of [".giterloper", ".giterloper_test"] as const) {
+  const dir = path.join(root, base);
+  try {
+    await Deno.remove(dir, { recursive: true });
+  } catch (e) {
+    if (!(e instanceof Deno.errors.NotFound)) throw e;
+  }
 }
 
 const jobs = workerCount();

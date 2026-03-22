@@ -1,6 +1,7 @@
 /**
  * Test helpers for reference_client E2E tests.
- * Uses relative ../ paths to giterloper workspace. Spawns processes only — no lib/ imports.
+ * Uses relative ../ paths to giterloper workspace. Spawns processes; imports `lib/session-layout` for the
+ * test session base name and `tests/helpers/integration-mcp-env` for MCP test mode env parity with CLI tests.
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -8,6 +9,9 @@ import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
+import { GITERLOPER_SESSION_BASE_TEST } from "../lib/session-layout.ts";
+import { integrationMcpModeChildEnv } from "../tests/helpers/integration-mcp-env.ts";
 
 const _dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REF_CLIENT_DIR = _dirname;
@@ -55,6 +59,7 @@ function runGlJson(args: string[], sessionId: string): unknown {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() },
   });
   if (result.error) throw new Error(`Failed to run gl: ${result.error.message}`);
   if (result.status !== 0) {
@@ -69,6 +74,7 @@ function runGlMaintenanceJson(args: string[], sessionId: string): unknown {
     cwd: WORKSPACE_ROOT,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() },
   });
   if (result.error) throw new Error(`Failed to run gl-maintenance: ${result.error.message}`);
   if (result.status !== 0) {
@@ -91,8 +97,8 @@ export function ensurePinRemoved(name: string, sessionId: string): void {
 }
 
 function cleanupLocalCopies(pinName: string, sessionId: string): void {
-  const versionsDir = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "versions", pinName);
-  const stagedDirPath = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "staged", pinName);
+  const versionsDir = path.join(WORKSPACE_ROOT, GITERLOPER_SESSION_BASE_TEST, sessionId, "versions", pinName);
+  const stagedDirPath = path.join(WORKSPACE_ROOT, GITERLOPER_SESSION_BASE_TEST, sessionId, "staged", pinName);
   try {
     rmSync(versionsDir, { recursive: true, force: true });
   } catch {
@@ -168,7 +174,7 @@ export function addTestPin(
 ): void {
   runGlJson(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch], sessionId);
   runGlMaintenanceJson(["stage", branch, "--pin", pinName], sessionId);
-  const stagedPath = path.join(WORKSPACE_ROOT, ".giterloper", sessionId, "staged", pinName, branch);
+  const stagedPath = path.join(WORKSPACE_ROOT, GITERLOPER_SESSION_BASE_TEST, sessionId, "staged", pinName, branch);
   if (!existsSync(stagedPath)) {
     throw new Error(`Stage failed: ${stagedPath} does not exist`);
   }
@@ -194,6 +200,7 @@ export function startServer(port: number, sessionId: string): ServerHandle {
       cwd: WORKSPACE_ROOT,
       env: {
         ...Deno.env.toObject(),
+        ...integrationMcpModeChildEnv(),
         MCP_PORT: String(port),
         MCP_INSECURE: "true",
         /** Align MCP tool pin state with CLI session used by addTestPin / ensurePinRemoved. */

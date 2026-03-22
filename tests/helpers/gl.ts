@@ -4,9 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GITERLOPER_SESSION_BASE_TEST } from "../../lib/session-layout.ts";
 import type { TestRuntimeContext } from "./test-runtime-context.ts";
+import { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 
 export type { TestRuntimeContext } from "./test-runtime-context.ts";
+export { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 export {
   createTestRuntimeContext,
   destroyTestRuntimeContext,
@@ -20,9 +23,9 @@ export const GITERLOPER_REPO_ROOT = path.join(path.dirname(fileURLToPath(import.
 const GL_SCRIPT = path.join(GITERLOPER_REPO_ROOT, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE_SCRIPT = path.join(GITERLOPER_REPO_ROOT, "scripts", "gl-maintenance");
 
-/** Session state directory under `cwd`: `.giterloper/<sessionId>/` (see `tests/README.md`). */
+/** Session state directory under `cwd`: `.giterloper_test/<sessionId>/` when using integration helpers (see `tests/README.md`). */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
-  return path.join(cwd, ".giterloper", sessionId);
+  return path.join(cwd, GITERLOPER_SESSION_BASE_TEST, sessionId);
 }
 
 type GlCliRunOptsBase = {
@@ -32,7 +35,7 @@ type GlCliRunOptsBase = {
 
 /**
  * CLI / gl-maintenance subprocess opts: pass `ctx` or explicit `cwd` + `sessionId`.
- * Integration helpers do not default `cwd` to the repo root (avoids shared `.giterloper` contention).
+ * Integration helpers do not default `cwd` to the repo root (avoids shared session-root contention).
  */
 export type GlCliRunOpts = GlCliRunOptsBase &
   ({ ctx: TestRuntimeContext } | { cwd: string; sessionId: string });
@@ -75,7 +78,7 @@ function normalizeOutput(stdout: string, parseJson: boolean): unknown {
 export function runGl(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
   const cliArgs = ["--json", "--session-id", sessionId, ...args];
-  const env = { ...Deno.env.toObject() };
+  const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
   const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -137,7 +140,7 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson } = resolveGlRun(opts);
   const sessionArgs = ["--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
-  const env = { ...Deno.env.toObject() };
+  const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
   const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

@@ -1,6 +1,6 @@
 /**
  * MCP integration workflow: session-driven, minimal setup (higher-level agent path).
- * Uses KNOWLEDGE_STORE_REMOTE for session auto-bootstrap. No CLI; session-scoped state only.
+ * Uses MCP test mode env (see `integrationMcpModeChildEnv`) for session auto-bootstrap. No CLI; session-scoped state only.
  * Verifies SHA chain and snapshot isolation via MCP tools only.
  */
 import { assertEquals, assertExists } from "jsr:@std/assert";
@@ -11,7 +11,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 
 import { TEST_SOURCE, toRemoteUrl } from "../helpers/config.ts";
-import { GITERLOPER_REPO_ROOT } from "../helpers/gl.ts";
+import { GITERLOPER_REPO_ROOT, integrationMcpModeChildEnv } from "../helpers/gl.ts";
 import { runGit } from "../helpers/run-git.ts";
 import {
   createClient,
@@ -41,9 +41,9 @@ function startMcpServer(port: number, projectRoot: string): ServerHandle {
     cwd: GITERLOPER_REPO_ROOT,
     env: {
       ...Deno.env.toObject(),
+      ...integrationMcpModeChildEnv(),
       MCP_PORT: String(port),
       MCP_INSECURE: "true",
-      KNOWLEDGE_STORE_REMOTE: TEST_SOURCE,
       GITERLOPER_PROJECT_ROOT: projectRoot,
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -82,7 +82,7 @@ Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, sn
     });
 
     try {
-      // 1. Get session SHA (session auto-bootstrapped at main via KNOWLEDGE_STORE_REMOTE)
+      // 1. Get session SHA (session auto-bootstrapped at main via TEST_KNOWLEDGE_STORE_REMOTE in test mode)
       const inspectRes = await stateInspect(client);
       assertEquals(inspectRes.ok, true);
       assertExists(inspectRes.pins);
