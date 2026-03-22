@@ -1,6 +1,6 @@
 ---
 id: git-x31b
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T06:18:03Z
@@ -17,3 +17,6 @@ Define repo convention for local env used when running MCP entrypoints (stdio/HT
 
 Root `.gitignore` ignores **`.env`**; committed **`.env.example`** contains exactly the two knowledge remote keys (empty values); no secrets in repo; scope is this ticket title plus description and acceptance above.
 
+## Resolution
+
+Closed 2026-03-21. **`.env.example`** and **`.gitignore`** (`.env`) match acceptance; **`--mcp-test-mode`** / no **`GITERLOPER_MCP_TEST_MODE`** documented in **specs/MCP.md**.

@@ -1,6 +1,6 @@
 ---
 id: git-ej14
-status: open
+status: closed
 deps: [git-x31b]
 links: []
 created: 2026-03-22T06:18:04Z
@@ -16,4 +16,8 @@ Wire `deno.json` so **`mcp:serve`** and **`mcp:serve-stdio`** use **`--env-file=
 ## Acceptance Criteria
 
 `deno.json` task definitions include **`--env-file=.env`** for default MCP tasks; **`mcp:serve:test`** / **`mcp:serve-stdio:test`** append **`--mcp-test-mode`**; `./scripts/check_all.sh` green.
+
+## Resolution
+
+Closed 2026-03-21. **`deno.json`** tasks **`mcp:serve`**, **`mcp:serve-stdio`**, **`mcp:serve:test`**, **`mcp:serve-stdio:test`** as specified; suite green.
 

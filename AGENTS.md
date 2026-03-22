@@ -65,7 +65,7 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 **Development and tests** use **native Deno** (and git, Python, memsearch) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead.
 
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
-- **MCP server:** `deno task mcp:serve` or `deno run -A lib/gl-mcp-server.ts` from workspace root.
+- **MCP server:** `deno task mcp:serve` / `mcp:serve-stdio` from workspace root (loads repo-root **`.env`** via Deno **`--env-file`**; copy **`.env.example`** → **`.env`** and fill remotes first). For MCP test mode (session under **`.giterloper_test`**), use **`mcp:serve:test`** / **`mcp:serve-stdio:test`**. Raw **`deno run`** without **`--env-file`** does not load **`.env`**—either use the tasks or pass **`--env-file=.env`** yourself.
 - **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: each logical case is a separate `deno test` subprocess (see `tests/test-case-manifest.json`, regenerated via `deno task gen:test-manifest`). A **bounded worker pool** backfills from the queue; concurrency is capped only by **`DENO_JOBS`** (default **16**) for all manifest cases (`tests/core/`, `tests/cli/`, `tests/mcp/`). Integration tests use per-case temp `cwd`, **`.giterloper/<sessionId>/`** state, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). The harness deletes **repo-root** **`.giterloper/`** once at suite start so session dirs from prior runs do not accumulate (disk hygiene, not the isolation model). Typecheck: `deno check lib/gl.ts`.
 
 **Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
@@ -175,16 +175,26 @@ The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `lib/memsearch-adapter.ts`.
 
-**Run (native; default for dev):**
+**Local env file (operational):** Committed **`.env.example`** lists **`KNOWLEDGE_STORE_REMOTE`** and **`TEST_KNOWLEDGE_STORE_REMOTE`** (empty placeholders). Copy to gitignored **`.env`** and set values. Variable **semantics** and mode rules are normative in [`specs/MCP.md`](./specs/MCP.md); there is **no** env var that toggles MCP test mode—use the **`--mcp-test-mode`** flag on the server entrypoint (or the **`:test`** `deno` tasks below).
+
+**Run (native; default for dev):** Prefer `deno task` so **`--env-file=.env`** is applied (requires a Deno build that supports **`deno run --env-file=...`**—current stable Deno satisfies this).
 ```bash
-deno run -A lib/gl-mcp-server.ts
-# or
 deno task mcp:serve
+# or
+deno task mcp:serve-stdio
 ```
-For stdio (one session per process): `deno task mcp:serve-stdio` or `deno run -A lib/gl-mcp-server-stdio.ts`.
+MCP test mode (uses **`TEST_KNOWLEDGE_STORE_REMOTE`**, state under **`.giterloper_test`**):
+```bash
+deno task mcp:serve:test
+deno task mcp:serve-stdio:test
+```
+Equivalent manual invocations load the same file: `deno run -A --env-file=.env lib/gl-mcp-server.ts` (append **`--mcp-test-mode`** for test mode).
+
+**Cursor (stdio MCP):** The MCP server process does **not** read the repo **`.env`** automatically. Put the same **names** and **values** (including both knowledge remotes if you use test-mode commands) into **Cursor Settings → MCP** for this server, or export them in the parent environment before Cursor starts the server.
+
 For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
-**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server startup (non-empty valid Git remote URL, e.g. `https://github.com/owner/repo`). The server fails fast at boot if it is missing or invalid. Each new MCP session bootstraps the **`_session`** pin from that remote at its default branch HEAD before tool handlers run; repository identity is server-defined only (MCP tools do not accept a client `source` override). For automation or integration-style stacks that use session state under **`.giterloper_test`**, start the MCP entrypoint with **`--mcp-test-mode`** and set **`TEST_KNOWLEDGE_STORE_REMOTE`** (non-empty valid remote)—see [`specs/MCP.md`](./specs/MCP.md) and [`tests/README.md`](./tests/README.md). Use the same flag on **`gl`** / **`gl-maintenance`** when subprocesses must write under **`.giterloper_test`**.
+**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server startup (non-empty valid Git remote URL, e.g. `https://github.com/owner/repo`). The server fails fast at boot if it is missing or invalid. Each new MCP session bootstraps the **`_session`** pin from that remote at its default branch HEAD before tool handlers run; repository identity is server-defined only (MCP tools do not accept a client `source` override). For automation or integration-style stacks that use session state under **`.giterloper_test`**, start the MCP entrypoint with **`--mcp-test-mode`** (or a **`:test`** task) and set **`TEST_KNOWLEDGE_STORE_REMOTE`**—see [`specs/MCP.md`](./specs/MCP.md) and [`tests/README.md`](./tests/README.md). Use the same flag on **`gl`** / **`gl-maintenance`** when subprocesses must write under **`.giterloper_test`**.
 
 **Endpoints:** `GET /health` — health diagnostics (unauthenticated); `GET|POST /mcp` — MCP Streamable HTTP (requires auth unless insecure mode).
 
