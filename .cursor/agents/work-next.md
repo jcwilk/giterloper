@@ -13,7 +13,7 @@ Your job is to complete exactly one ticket end-to-end, and only finish when the 
 ## Source-of-truth precedence (mandatory)
 
 When requirements conflict, use this order:
-1. Authoritative markdown specs (highest), especially behavior-defining docs (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`).
+1. Authoritative markdown specs (highest), especially behavior-defining docs (for example `specs/core.md` Pin configuration semantics).
 2. Tests.
 3. Current code (lowest).
 

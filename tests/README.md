@@ -2,11 +2,11 @@
 
 This document is the canonical reference for test strategy, test execution, and integration-test safety constraints.
 
-It is **not** the canonical source for product behavior semantics. Behavior semantics are defined by authoritative markdown specs (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`). If tests conflict with those specs, update tests (and code) to match the authoritative markdown contract.
+It is **not** the canonical source for product behavior semantics. Behavior semantics are defined by authoritative markdown specs (for example [specs/core.md — Pin configuration semantics](../specs/core.md#pin-configuration-semantics)). If tests conflict with those specs, update tests (and code) to match the authoritative markdown contract.
 
 ## Target architecture (canonical)
 
-The repository is converging on the layout and runner described in [docs/TEST_PARALLELISM_PLAN.md](../docs/TEST_PARALLELISM_PLAN.md). Treat the following as the **contract** for new test and product work:
+Treat the following as the **contract** for test layout, isolation, and the unified runner:
 
 ### On-disk session layout
 
@@ -154,4 +154,4 @@ CLI and MCP tests that mutate the shared test repo require push access to `githu
 - In Cursor Cloud, assume `GITERLOPER_GH_TOKEN` is set.
 - Locally, use `GITERLOPER_GH_TOKEN` or authenticate with `gh auth login`.
 
-Optional future work to reduce live GitHub traffic in MCP tests is outlined in [docs/MCP_TEST_REMOTE_MOCKING.md](../docs/MCP_TEST_REMOTE_MOCKING.md).
+Optional future work to reduce live GitHub traffic in MCP tests (fixtures, local bare repos, record/replay, tiered CI) is deferred; no separate design doc is checked in.

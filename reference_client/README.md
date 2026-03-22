@@ -83,7 +83,7 @@ deno test -A reference_client/tests/
 | Tool | Purpose |
 |------|---------|
 | `giterloper_state_inspect` | List pins, verify clone health |
-| `giterloper_pin_set` | Configure pins per `docs/PIN_SETTING_PARAM_BEHAVIOR.md`: omit `pin` for session pin (never pass literal `_session`); named pin + branch/ref per contract |
+| `giterloper_pin_set` | Configure pins per `specs/core.md` (Pin configuration semantics): omit `pin` for session pin (never pass literal `_session`); named pin + branch/ref per contract |
 | `giterloper_search` | Search knowledge at pinned version |
 | `giterloper_retrieve` | Retrieve content by path |
 | `giterloper_insert_pending` | Queue knowledge into `knowledge/_pending/` |

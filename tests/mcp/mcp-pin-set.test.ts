@@ -1,6 +1,6 @@
 /**
  * Unit tests for giterloper_pin_set.
- * Assert exact behavior per docs/PIN_SETTING_PARAM_BEHAVIOR.md.
+ * Assert exact behavior per specs/core.md (Pin configuration semantics).
  */
 import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
@@ -12,7 +12,7 @@ import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
-const PIN_SETTING_DOC = "docs/PIN_SETTING_PARAM_BEHAVIOR.md";
+const PIN_CONFIG_SPEC = "specs/core.md (Pin configuration semantics)";
 
 /** Collision-resistant names for shared-remote MCP tests under `deno test --parallel`. */
 function mcpUnique(label: string): string {
@@ -116,7 +116,7 @@ async function setupSession(
 }
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md § Summary: inputSchema must include branch and ref.
+ * specs/core.md § Summary: inputSchema must include branch and ref.
  */
 Deno.test("pin_set inputSchema includes branch and ref parameters", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -140,12 +140,12 @@ Deno.test("pin_set inputSchema includes branch and ref parameters", async () => 
     assertEquals(
       props.branch !== undefined && typeof (props.branch as { type?: string })?.type === "string",
       true,
-      `pin_set must have branch param (${PIN_SETTING_DOC}); got: ${JSON.stringify(props)}`
+      `pin_set must have branch param (${PIN_CONFIG_SPEC}); got: ${JSON.stringify(props)}`
     );
     assertEquals(
       props.ref !== undefined && typeof (props.ref as { type?: string })?.type === "string",
       true,
-      `pin_set must have ref param (${PIN_SETTING_DOC}); got: ${JSON.stringify(props)}`
+      `pin_set must have ref param (${PIN_CONFIG_SPEC}); got: ${JSON.stringify(props)}`
     );
   });
 });
@@ -186,7 +186,7 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   });
 });
 
-/** pin_set with pin _session is rejected; omit pin to target session pin. Per PIN_SETTING_PARAM_BEHAVIOR.md. */
+/** pin_set with pin _session is rejected; omit pin to target session pin. Per specs/core.md. */
 Deno.test("pin_set with pin _session is rejected", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -217,7 +217,7 @@ Deno.test("pin_set with pin _session is rejected", async () => {
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md: No pin + no modifiers = view session pin. Named pin + no branch/ref = FAIL.
+ * specs/core.md: No pin + no modifiers = view session pin. Named pin + no branch/ref = FAIL.
  */
 Deno.test("pin_set with no branch and no ref fails", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -255,7 +255,7 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md § Pin Storage: session pin's name is always _session.
+ * specs/core.md § Pin Storage: session pin's name is always _session.
  */
 Deno.test("session pin name is _session after bootstrap", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -278,13 +278,13 @@ Deno.test("session pin name is _session after bootstrap", async () => {
     assertEquals(
       sessionRow !== undefined,
       true,
-      `Session pin must be named _session (${PIN_SETTING_DOC})`
+      `Session pin must be named _session (${PIN_CONFIG_SPEC})`
     );
   });
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §1: Branch specified, ref not — use session pin SHA, update branch.
+ * specs/core.md §1: Branch specified, ref not — use session pin SHA, update branch.
  */
 Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -342,7 +342,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §1 + Pin Name: Branch + pin name — copy session SHA to named pin with branch.
+ * specs/core.md §1 + Pin Name: Branch + pin name — copy session SHA to named pin with branch.
  */
 Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unchanged", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -412,7 +412,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §2: ref specified, branch not — set pin branchlessly (read-only).
+ * specs/core.md §2: ref specified, branch not — set pin branchlessly (read-only).
  */
 Deno.test("pin_set ref-only sets pin branchlessly", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -467,7 +467,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §2: ref may be a branch name; we resolve it to SHA from remote.
+ * specs/core.md §2: ref may be a branch name; we resolve it to SHA from remote.
  */
 Deno.test("pin_set ref as branch name resolves to SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -527,7 +527,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md §3: Both ref and branch — use resolved ref SHA, not session SHA.
+ * specs/core.md §3: Both ref and branch — use resolved ref SHA, not session SHA.
  */
 Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {

@@ -8,7 +8,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 When requirements conflict, follow this **numbered** precedence order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
 
-1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md) for `pin_set` semantics and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
+1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics) for `pin_set` / session-pin / branch-ref rules and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
 2. **Tests** (middle): tests override **current implementation** when the two disagree, but tests **do not** override (1). Tests are executable checks; they must not redefine a contract already fixed by (1).
 3. **Current implementation** (lowest): code may drift; update it to match (1) and keep (2) aligned with the same contract.
 
@@ -56,7 +56,7 @@ A rigorous, thoughtfully designed test suite is essential for agentic coding. It
 
 Topic integration tests—especially MCP workflow tests against a live remote—are especially valuable as executable workflow documentation for both humans and agents. Keep that coverage high-signal and intentionally scoped: less is more. Avoid overlapping scenarios and competing sources of truth. CLI-facing behavior lives in `tests/cli/` (real `gl` / `gl-maintenance`); higher-level agent paths live in `tests/mcp/`.
 
-Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, and cleanup rules). The target end state for the test harness and flattened `.giterloper/<sessionId>/` layout is spelled out in [docs/TEST_PARALLELISM_PLAN.md](./docs/TEST_PARALLELISM_PLAN.md); `tests/README.md` is kept aligned with that plan as the implementation lands.
+Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, cleanup rules, and the target harness layout under `.giterloper/<sessionId>/`).
 
 ## External retries (git, GitHub)
 
@@ -95,7 +95,7 @@ Branchless pins are read-only.
 
 ### MCP session pin (_session) and pin_set semantics
 
-`giterloper_pin_set` semantics are defined in [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md). Treat that document as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
+`giterloper_pin_set` semantics are defined in [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics). Treat that section as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
 
 ## Cursor Cloud specific instructions
 

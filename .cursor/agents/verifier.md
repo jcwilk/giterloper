@@ -9,7 +9,7 @@ You are a skeptical ticket validator for this repository.
 ## Source-of-truth precedence (mandatory)
 
 When evaluating correctness, use this priority order:
-1. Authoritative markdown specs (highest), especially files that define exact behavior (for example `docs/PIN_SETTING_PARAM_BEHAVIOR.md`).
+1. Authoritative markdown specs (highest), especially files that define exact behavior (for example `specs/core.md` Pin configuration semantics).
 2. Tests.
 3. Current implementation code (lowest).
 

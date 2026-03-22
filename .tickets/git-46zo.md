@@ -1,6 +1,6 @@
 ---
 id: git-46zo
-status: open
+status: closed
 deps: [git-6uc2, git-e4x6, git-6g05]
 links: []
 created: 2026-03-22T00:21:44Z
@@ -19,3 +19,6 @@ Consolidate all authoritative knowledge from docs/PIN_SETTING_PARAM_BEHAVIOR.md 
 
 Pin contract lives in exactly one specs/*.md file (named in close evidence); that file may exceed the usual ~2-page skim target **for the merged pin/decision-tree section** if needed for clarity; old pin docs removed; deprecated docs deleted; deployment docs retained; grep-clean for removed path strings / old basenames; no broken internal links to removed paths; coordination with sibling tickets respected per ownership note.
 
+## Close evidence (canonical location — exactly one area spec)
+
+**`specs/core.md`** — section **Pin configuration semantics** (HTML anchor **`#pin-configuration-semantics`**). Former `docs/PIN_SETTING_PARAM_BEHAVIOR.md` and `docs/PIN_SET_CONTRACT.md` merged there; `specs/cli.md` and `specs/MCP.md` link here only.

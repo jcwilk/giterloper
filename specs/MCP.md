@@ -2,7 +2,7 @@
 
 This document is the **normative** product-behavior spec for the Model Context Protocol slice. It pairs with `tests/mcp/` (executable checks do not override this text). Day-to-day agent discovery SHOULD rely on **live MCP tool schemas, titles, and descriptions** and on observed server behavior; this file states cross-cutting contracts those surfaces must stay aligned with.
 
-For **pin and `giterloper_pin_set` semantics** (session vs named pins, branch/ref matrix, merge-tool exceptions), the detailed decision tree remains in [`docs/PIN_SETTING_PARAM_BEHAVIOR.md`](../docs/PIN_SETTING_PARAM_BEHAVIOR.md) until consolidated under a single area spec in tracked work.
+For **pin and `giterloper_pin_set` semantics** (session vs named pins, branch/ref matrix, merge-tool exceptions), see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** (normative; no second copy here).
 
 ---
 

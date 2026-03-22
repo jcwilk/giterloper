@@ -2,7 +2,7 @@
 
 This document is the **normative** product-behavior spec for the **main `gl` CLI** and the separate **`gl-maintenance`** entrypoint. It pairs with `tests/cli/` (executable checks do not override this text). Day-to-day discovery SHOULD rely on **`gl` / `gl-maintenance --help`** and observed behavior; this file states cross-cutting contracts those surfaces must stay aligned with.
 
-For **pin/ref/branch matrices and session-pin tooling**, the full decision tree is shared with other product surfaces and is being consolidated under a single area specification in tracked work. Here, only behaviors **exercised by CLI integration tests** and **stated in CLI help** are spelled out—this slice MUST NOT restate that full matrix.
+For **pin/ref/branch matrices, session-pin targeting, and `giterloper_pin_set`-equivalent rules**, see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)**. This slice keeps **CLI help** and **CLI-tested** behaviors; it MUST NOT duplicate that matrix as a second authoritative copy.
 
 ---
 

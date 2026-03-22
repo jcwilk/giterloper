@@ -1,6 +1,6 @@
 /**
  * Unit tests for giterloper_merge.
- * Assert pin-name behavior per docs/PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception.
+ * Assert pin-name behavior per specs/core.md (Pin configuration semantics) — Merge tool exception.
  */
 import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
@@ -10,7 +10,7 @@ import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
-const PIN_SETTING_DOC = "docs/PIN_SETTING_PARAM_BEHAVIOR.md";
+const PIN_CONFIG_SPEC = "specs/core.md (Pin configuration semantics)";
 
 async function mcpRequest(
   body: object,
@@ -51,7 +51,7 @@ async function parseToolResult(res: Response): Promise<unknown> {
 }
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception: Both omitted → merge into itself → FAIL.
+ * specs/core.md § Merge Tool Exception: Both omitted → merge into itself → FAIL.
  */
 Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
     const app = await createMcpAppForTest({
@@ -99,12 +99,12 @@ Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
         ((result.message ?? "").toLowerCase().includes("itself") ||
           (result.message ?? "").toLowerCase().includes("same")),
       true,
-      `Expected "cannot merge a pin into itself" or similar (${PIN_SETTING_DOC})`
+      `Expected "cannot merge a pin into itself" or similar (${PIN_CONFIG_SPEC})`
     );
 });
 
 /**
- * PIN_SETTING_PARAM_BEHAVIOR.md § Merge Tool Exception: Both same pin name → merge into itself → FAIL.
+ * specs/core.md § Merge Tool Exception: Both same pin name → merge into itself → FAIL.
  * Use a named pin (not _session) since _session is rejected before the merge handler.
  */
 Deno.test("merge with same sourcePin and targetPin fails", async () => {
@@ -168,6 +168,6 @@ Deno.test("merge with same sourcePin and targetPin fails", async () => {
       (result.message ?? "").toLowerCase().includes("itself") ||
         (result.message ?? "").toLowerCase().includes("same"),
       true,
-      `Expected "cannot merge a pin into itself" or similar (${PIN_SETTING_DOC})`
+      `Expected "cannot merge a pin into itself" or similar (${PIN_CONFIG_SPEC})`
     );
 });
