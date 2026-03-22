@@ -1,6 +1,6 @@
 ---
 id: git-oox1
-status: open
+status: closed
 deps: [git-9btr, git-46zo]
 links: []
 created: 2026-03-22T00:21:44Z

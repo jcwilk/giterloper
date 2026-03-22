@@ -1,8 +1,26 @@
 # Testing Guide
 
-This document is the canonical reference for test strategy, test execution, and integration-test safety constraints.
+This document is the canonical reference for test strategy, test execution, harness layout, and integration-test safety constraints.
 
-It is **not** the canonical source for product behavior semantics. Behavior semantics are defined by authoritative markdown specs (for example [specs/core.md — Pin configuration semantics](../specs/core.md#pin-configuration-semantics)). If tests conflict with those specs, update tests (and code) to match the authoritative markdown contract.
+## Spec anchoring and scope (strict)
+
+**Product-behavior** tests—assertions about what the product **must** do—live only under **`tests/core/`**, **`tests/cli/`**, and **`tests/mcp/`**. Each directory is paired with one **area spec**; tests strengthen the link between **coded behavior** and **normative spec constraints**. Do not add or keep product-behavior coverage in those trees that has **no** representation in the matching spec (new themes need spec updates in the same change set, unless the user explicitly directs a spec change separately).
+
+| Test folder | Authoritative product spec |
+|-------------|----------------------------|
+| `tests/core/` | [specs/core.md](../specs/core.md) |
+| `tests/cli/` | [specs/cli.md](../specs/cli.md) |
+| `tests/mcp/` | [specs/MCP.md](../specs/MCP.md) |
+
+**Not** every assertion maps to a single spec bullet; the rule is that the **theme** (scenario, contract, or error shape under test) is **covered or implied** in the paired spec so the suite does not encode silent product law. If a test disagrees with its paired area spec, treat the spec as authoritative and align **implementation and tests** to it.
+
+**Harness and helpers** (`tests/helpers/`, the unified runner, manifest-only mechanics) are **not** product-behavior specs. Their contracts live **here** (runner, isolation, cleanup, collision rules). [specs/core.md](../specs/core.md) states that helper modules under **`tests/helpers/`** are harness-only and intentionally **not** mirrored in area specs—this README is the operational source for those details.
+
+## Hierarchical alignment
+
+When you touch **behavior** that belongs under a slice spec, treat **spec**, **tests**, and **implementation** as one story: prefer commits or PRs that keep them aligned together (or clearly sequenced) so the layers do not drift without an explicit decision.
+
+---
 
 ## Target architecture (canonical)
 
@@ -25,7 +43,7 @@ Treat the following as the **contract** for test layout, isolation, and the unif
 
 - **Test-only env:** `GITERLOPER_PROJECT_ROOT` (non-empty trimmed path) redirects session state for **`makeState`** and **`lib/mcp-session-store.ts`** to `<GITERLOPER_PROJECT_ROOT>/.giterloper/<sessionId>/` instead of `<cwd>/.giterloper/`. Used by `tests/mcp/mcp-session-store.test.ts` so short-TTL `scavengeStaleSessions` cases do not delete live workspace sessions while other manifest cases run in parallel.
 - Each logical test case uses a shared **test runtime context**: unique **`sessionId`**, unique **`runId`**, dedicated **`cwd`** (typically a temp directory), state under **`<cwd>/.giterloper/<sessionId>/`**, and **injected** MCP/server/CLI configuration.
-- **Transient retries:** Integration tests may trigger the same centralized git/GitHub retries as production; each retry appends one JSON line to **`logs/giterloper-retry.log`** under the repo root (or `GITERLOPER_PROJECT_ROOT`). Fields and semantics are summarized in [AGENTS.md](../AGENTS.md) (see epic `git-0kbo`).
+- **Transient retries:** Integration tests may trigger the same centralized git/GitHub retries as production; each retry appends one JSON line to **`logs/giterloper-retry.log`** under the repo root (or `GITERLOPER_PROJECT_ROOT`).
 - **CLI and gl-maintenance tests** must not rely on the implicit `_cli` session for isolation. Use **`TestRuntimeContext`** from `tests/helpers/test-runtime-context.ts`: `createTestRuntimeContext()` yields a temp **`cwd`**, unique **`sessionId`**, and **`runId`** (for pin/branch/file names). Pass **`{ ctx }`** into `runGl` / `runGlJson` / `runGlMaintenance` / `runGlMaintenanceJson` from `tests/helpers/gl.ts`, or pass explicit **`cwd`** + **`sessionId`**—helpers do **not** default subprocess `cwd` to the repo root. Use **`scratchPinName(ctx, prefix)`** for scratch pins; tear down with **`destroyTestRuntimeContext(ctx)`** (often from an **`unload`** listener on the context created for that file or case). For **`cleanupTestKnowledgeRepo`**, pass **`cwd: ctx.cwd`** when **`pinName`** + **`sessionId`** are set so local `.giterloper/` trees are removed under the test cwd.
 - **MCP tests** must not use **`Deno.env.set` / `delete`** to configure auth, insecure mode, or knowledge-store bootstrap. Pass explicit config into server/app constructors and test factories (see seams in `lib/gl-mcp-server.ts`, `lib/mcp-auth.ts`, `lib/gl-core.ts`, `lib/mcp-session-store.ts`). Production entrypoints may still read env **once** at startup; tests inject config objects instead of mutating process-global env.
 
@@ -64,7 +82,7 @@ From the repository root, run every check (typecheck, then the full test harness
 
 Or via Deno: `deno task check`
 
-Use this before persisting ticket work (e.g. verifier and work-next use it to validate changes).
+Use this before persisting ticket work (for example verifier and work-next use it to validate changes).
 
 ### Parallel execution
 
