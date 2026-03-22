@@ -92,4 +92,4 @@ deno test -A reference_client/tests/
 
 **Migration:** `giterloper_reconcile` was renamed to `giterloper_merge` to avoid confusion with `giterloper_reconcile_pending`. Update callers to use `giterloper_merge`.
 
-See [`MCP.md`](../MCP.md) in the giterloper repo for transport parity, tool list, and pointers to pin semantics.
+See [`specs/MCP.md`](../specs/MCP.md) in the giterloper repo for transport parity, tool list, and pointers to pin semantics.

@@ -1,6 +1,6 @@
 /**
  * Maps giterloper errors to MCP API contract error codes.
- * See MCP.md for error envelope and codes.
+ * See specs/MCP.md for error envelope and codes.
  *
  * Error code producers:
  * - Auth middleware (mcp-auth): `unauthorized` (HTTP 401).

@@ -1,6 +1,6 @@
 ---
 id: git-6g05
-status: open
+status: closed
 deps: [git-9btr]
 links: []
 created: 2026-03-22T00:21:38Z

@@ -8,7 +8,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 When requirements conflict, follow this **numbered** precedence order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
 
-1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md) for `pin_set` semantics and [MCP.md](./MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
+1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [docs/PIN_SETTING_PARAM_BEHAVIOR.md](./docs/PIN_SETTING_PARAM_BEHAVIOR.md) for `pin_set` semantics and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
 2. **Tests** (middle): tests override **current implementation** when the two disagree, but tests **do not** override (1). Tests are executable checks; they must not redefine a contract already fixed by (1).
 3. **Current implementation** (lowest): code may drift; update it to match (1) and keep (2) aligned with the same contract.
 
@@ -147,7 +147,7 @@ See [tests/README.md](./tests/README.md) for canonical test execution commands a
 
 ### MCP server
 
-The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [MCP.md](./MCP.md) for tool names, error shape, and the dual-transport parity contract. Omitting the `pin` argument targets the **session pin** (stored as `_session`); do not pass `_session` as the pin name—it is reserved. Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [specs/MCP.md](./specs/MCP.md) for tool names, error shape, and the dual-transport parity contract. Omitting the `pin` argument targets the **session pin** (stored as `_session`); do not pass `_session` as the pin name—it is reserved. Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `lib/memsearch-adapter.ts`.
 

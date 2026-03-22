@@ -6,7 +6,7 @@
  * explicit failure (fail closed), never fallback to another version's index.
  *
  * Runtime: invokes memsearch CLI via subprocess. Requires memsearch installed (pip install memsearch).
- * See MCP.md (index isolation) for product boundary; assumptions are documented in this module.
+ * See specs/MCP.md (index isolation) for product boundary; assumptions are documented in this module.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";

@@ -9,7 +9,7 @@ This note captures **design options and suggested acceptance** for a future chan
 ## Non-goals
 
 - Replacing every integration test with mocks. Executable workflow tests against a shared test repo remain valuable; see [tests/README.md](../tests/README.md).
-- Relaxing MCP or CLI contracts documented in authoritative specs (for example [MCP.md](../MCP.md)); any mock layer must preserve observable behavior for the scenarios it claims to cover.
+- Relaxing MCP or CLI contracts documented in authoritative specs (for example [specs/MCP.md](../specs/MCP.md)); any mock layer must preserve observable behavior for the scenarios it claims to cover.
 
 ## Candidate approaches
 
@@ -53,7 +53,7 @@ Use these as a checklist when implementing optional mocking; adjust if product o
 
 1. **Scope:** Document which test files or scenarios run against the mock vs live remote, and why (speed vs contract confidence).
 2. **Offline / token:** Mock-covered paths run without relying on `GITERLOPER_GH_TOKEN` for GitHub (or document a single local-only auth story if unavoidable).
-3. **Contracts:** No intentional drift from [MCP.md](../MCP.md) or other normative docs; HTTP and stdio transports stay in sync if server behavior is touched.
+3. **Contracts:** No intentional drift from [specs/MCP.md](../specs/MCP.md) or other normative docs; HTTP and stdio transports stay in sync if server behavior is touched.
 4. **Suite:** `deno run -A scripts/run-tests.ts` (or an explicitly documented split, e.g. nightly full-remote) passes in CI.
 5. **Isolation:** Session and pin isolation rules in [tests/README.md](../tests/README.md) still hold; no new cross-test flakiness.
 6. **Impact:** Brief note on reduced external calls or wall time for the default path (qualitative is fine).
