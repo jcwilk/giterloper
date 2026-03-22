@@ -28,5 +28,3 @@ Paths are relative to the **knowledge store repository** root (not the Giterlope
 | ------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Knowledge store** | Expose `/knowledge`, accept or allow `/knowledge/_pending`, process assets by commit order.                 |
 | **Giterloper**      | Write titled Markdown files into `/knowledge/_pending`, use opaque filenames, rely on commits for ordering. |
-
-

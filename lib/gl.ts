@@ -277,7 +277,7 @@ function cmdInstallRemote(state: GlState, args: string[]) {
     args,
     [
       "Usage: gl install-remote <pin>",
-      "Copies CONSTITUTION.md to GITERLOPER.md at the root of the pin's repo. Branched pins only.",
+      "Copies docs/CONSTITUTION.md to GITERLOPER.md at the root of the pin's repo. Branched pins only.",
     ].join("\n")
   );
   if (args.length !== 1) fail("usage: gl install-remote <pin>", EXIT.USER);
@@ -286,9 +286,9 @@ function cmdInstallRemote(state: GlState, args: string[]) {
   const dir = ensureWorkingClone(state, pin, { infoFn: info });
   assertBranchFresh(state, pin, dir);
 
-  const constitutionPath = path.join(state.projectRoot, "CONSTITUTION.md");
+  const constitutionPath = path.join(state.projectRoot, "docs", "CONSTITUTION.md");
   if (!existsSync(constitutionPath)) {
-    fail("CONSTITUTION.md not found in project root", EXIT.STATE);
+    fail("docs/CONSTITUTION.md not found in project root", EXIT.STATE);
   }
   const content = readFileSync(constitutionPath, "utf8");
   const destPath = path.join(dir, "GITERLOPER.md");

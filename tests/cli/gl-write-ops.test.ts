@@ -92,16 +92,18 @@ Deno.test("insert queues content in knowledge/_pending and advances pin sha", ()
   }
 });
 
-Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha", () => {
+Deno.test("install-remote copies docs/CONSTITUTION.md to GITERLOPER.md and advances pin sha", () => {
   const pinName = scratchPinName(ctx, "install-remote");
   const branch = `${pinName}-branch`;
   try {
     createRemoteBranchFromMain(branch, "knowledge/scratch.md", "# scratch");
     glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
     const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
+    const docsDir = path.join(ctx.cwd, "docs");
+    mkdirSync(docsDir, { recursive: true });
     copyFileSync(
-      path.join(GITERLOPER_REPO_ROOT, "CONSTITUTION.md"),
-      path.join(ctx.cwd, "CONSTITUTION.md")
+      path.join(GITERLOPER_REPO_ROOT, "docs", "CONSTITUTION.md"),
+      path.join(docsDir, "CONSTITUTION.md")
     );
     const result = glj(["install-remote", pinName]) as {
       action?: string;
@@ -112,7 +114,7 @@ Deno.test("install-remote copies CONSTITUTION.md to GITERLOPER.md and advances p
     assertEquals(result.file, "GITERLOPER.md");
     const destPath = path.join(stagedDir(pinName, branch), "GITERLOPER.md");
     assertEquals(existsSync(destPath), true);
-    const constitutionPath = path.join(GITERLOPER_REPO_ROOT, "CONSTITUTION.md");
+    const constitutionPath = path.join(GITERLOPER_REPO_ROOT, "docs", "CONSTITUTION.md");
     const expected = readFileSync(constitutionPath, "utf8");
     const actual = readFileSync(destPath, "utf8");
     assertEquals(actual, expected);

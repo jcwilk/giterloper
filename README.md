@@ -10,7 +10,7 @@ For AI agent and contributor workflow and conventions, see [`AGENTS.md`](./AGENT
 
 ## What's here
 
-- **Constitution** — `CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
+- **Constitution** — `docs/CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
 - **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. MCP tool contracts and transport behavior: [`specs/MCP.md`](./specs/MCP.md).
 

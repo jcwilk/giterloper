@@ -117,7 +117,7 @@ Processes **`knowledge/_pending/`** into topic files under **`knowledge/`**, the
 
 ### `install-remote <pin>`
 
-Copies **`CONSTITUTION.md`** from the **current working directory** (the user’s project root where the command is run) to **`GITERLOPER.md`** at the **root of the pin’s staged repo**. **Branched pins only.** Success **advances the pin SHA**.
+Copies **`docs/CONSTITUTION.md`** from the **project root** (where the command is run) to **`GITERLOPER.md`** at the **root of the pin’s staged repo**. **Branched pins only.** Success **advances the pin SHA**.
 
 ### `merge <source-pin> <target-pin>`
 

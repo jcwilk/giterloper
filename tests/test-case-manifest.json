@@ -90,7 +90,7 @@
     },
     {
       "path": "tests/cli/gl-write-ops.test.ts",
-      "name": "install-remote copies CONSTITUTION.md to GITERLOPER.md and advances pin sha"
+      "name": "install-remote copies docs/CONSTITUTION.md to GITERLOPER.md and advances pin sha"
     },
     {
       "path": "tests/cli/gl-write-ops.test.ts",
@@ -353,10 +353,6 @@
       "name": "session base segment literals are fixed (not env-derived)"
     },
     {
-      "path": "tests/mcp/gl-mcp-workflow.test.ts",
-      "name": "MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation"
-    },
-    {
       "path": "tests/mcp/mcp-auth.test.ts",
       "name": "extractBearerToken extracts token from header"
     },
@@ -582,6 +578,10 @@
     },
     {
       "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP HTTP: exits non-zero when memsearch is not on PATH (remote valid)"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
       "name": "MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty"
     },
     {
@@ -606,6 +606,10 @@
     },
     {
       "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "MCP stdio: exits non-zero when memsearch is not on PATH (remote valid)"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
       "name": "MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty"
     },
     {
@@ -627,6 +631,10 @@
     {
       "path": "tests/mcp/mcp-startup-remote.test.ts",
       "name": "MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset"
+    },
+    {
+      "path": "tests/mcp/mcp-startup-remote.test.ts",
+      "name": "mcpStartupState skips memsearch probe when skipMemsearchVerification"
     },
     {
       "path": "tests/mcp/mcp-startup-remote.test.ts",
