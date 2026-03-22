@@ -15,5 +15,5 @@ Create specs/MCP.md as the top of the product-truth hierarchy for MCP (not a qui
 
 ## Acceptance Criteria
 
-specs/MCP.md exists, **links to** HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md, and is canonical for MCP product behavior; root MCP.md no longer competes as normative; references updated; strict coverage vs tests/mcp themes.
+specs/MCP.md exists, is canonical for MCP product behavior, and **does not** cite root instruction/onboarding filenames as hooks; root MCP.md no longer competes as normative; **in-repo** pointer updates completed as in description (may touch AGENTS/README/etc. as mechanical link fixes—that is not the same as embedding those names inside **specs/MCP.md** body); strict coverage vs tests/mcp themes.
 

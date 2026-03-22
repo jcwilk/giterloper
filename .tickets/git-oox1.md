@@ -19,7 +19,7 @@ Document folder pairing **tests/cli↔specs/cli.md**, **tests/core↔specs/core.
 
 **Handoff with git-46zo:** **46zo** may perform repo-wide link hygiene for removed `docs/*` paths; **git-oox1** owns the **substantive** testing-guide rewrite (model + harness + anchoring). Run after **46zo** (or same integration window) so you do not fight duplicate edits.
 
-**Non-regression:** Preserve (or restate) harness docs: `tests/test-case-manifest.json`, `deno task gen:test-manifest`, `DENO_JOBS`, bounded worker pool, `tests/helpers` / isolation rules—when `docs/TEST_PARALLELISM_PLAN.md` is deleted, **inline or repoint** any unique content here rather than dropping it.
+**Non-regression:** Preserve (or restate) harness docs: `tests/test-case-manifest.json`, `deno task gen:test-manifest`, `DENO_JOBS`, bounded worker pool, `tests/helpers` / isolation rules—when `docs/TEST_PARALLELISM_PLAN.md` is deleted, **inline or repoint** any unique content here rather than dropping it. **Root instruction files:** assume agents already honor universal law; **do not** pepper this README with “see AGENTS.md / mandate” hooks—at most **one** short deferral if essential (**git-zbfq**, **git-36ls** owns nudges).
 
 ## Acceptance Criteria
 
