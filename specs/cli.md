@@ -15,6 +15,10 @@ Global options: **`--session-id <id>`** (default **`_cli`**) and optional **`--m
 
 Commands that advertise **`--json`** emit structured results suitable for automation; human-oriented text mode remains available where help lists `--json`.
 
+### memsearch (not required for CLI startup)
+
+The **`gl`** and **`gl-maintenance`** entrypoints MUST **not** fail at process startup solely because the **memsearch** CLI is missing from **`PATH`**. Operators MAY use CLI-only workflows (for example maintenance or pin operations against a remote knowledge store) in environments without **memsearch**. Any future CLI command that performs search- or index-backed work MAY fail at **invocation** time when **memsearch** is unavailable; that failure is **command-scoped**, not a global boot gate. Contrast **`specs/MCP.md`**, where the MCP server MUST verify **memsearch** before accepting traffic.
+
 ---
 
 ## Pins (CLI)

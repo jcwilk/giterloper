@@ -38,6 +38,20 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 
 - **Startup failure:** If the env var for the active mode is unset, empty, or unusable at **process startup**, the implementation MUST **fail immediately** (non-zero exit, clear error on stderr) and MUST NOT listen for connections, accept MCP sessions, or run tool handlers without a defined store. Silent omission or lazy failure on first tool call is **not** compliant.
 
+### memsearch CLI (mandatory at MCP startup)
+
+Search and on-demand indexing are implemented by invoking the **memsearch** CLI (see **`specs/core.md`** — Search index adapter). For MCP, **memsearch** is a **core runtime dependency**, not an optional add-on.
+
+- **Startup verification:** On **both** HTTP/SSE and **stdio** entrypoints, the implementation MUST verify that **memsearch** is **available to invoke** (for example resolvable on **`PATH`**) at the same phase as knowledge-remote validation—**before** binding listen ports (HTTP) or advertising readiness, and **before** accepting MCP sessions or running tool handlers. Failure MUST be **immediate**: non-zero process exit and a **clear error on stderr**. Lazy failure only when a client first calls **`giterloper_search`** is **not** compliant.
+
+- **Parity:** Stdio and HTTP paths MUST use the **same** check (shared factory or shared helper called from both entrypoints) so one transport cannot start without **memsearch** while the other does.
+
+- **Executable tests:** **`tests/mcp/`** cases and **`reference_client/`** flows that exercise **`giterloper_search`** MUST **not** be marked **ignored**, **skipped**, or otherwise bypassed solely because **memsearch** is missing from the environment. Those tests assume a correctly provisioned host (including **memsearch** on **`PATH`**), consistent with this contract.
+
+- **Test factories:** In-process or subprocess test helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule above, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints.
+
+### Integration tests and repository identity (MCP)
+
 - **Explicit server options (integration tests):** `createServer` / **`CreateServerOptions`** MAY accept an explicit knowledge remote string (and/or aligned override fields) that satisfies startup validation **as if** the corresponding env var for the active mode were set, so subprocess and in-process tests do not rely on polluting parent env. Such overrides MUST only be used in test-oriented factories; production entrypoints continue to read env.
 
 - **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store for a mode. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.

@@ -56,6 +56,8 @@ Executable coverage for this slice lives under **`tests/core/`**; helper modules
 
 ## Search index adapter (on-demand index)
 
+The adapter invokes the **memsearch** CLI for index build and search. **MCP** servers MUST treat **memsearch** as mandatory at startup (**`specs/MCP.md`** — memsearch CLI). The **`gl`** / **`gl-maintenance`** CLIs do **not** require **memsearch** at process startup (**`specs/cli.md`**).
+
 - **Metadata location:** Per-index metadata lives beside the index store as **`metadata.json`** under **`indexes/<pinName>/<sha>/`**.
 - **Metadata handling:** Missing metadata file yields **null** / absent metadata for readers; **invalid JSON** is treated as absent metadata for read purposes. **Write then read** of metadata round-trips the recorded fields (**pin name**, **SHA**, **source path**, **build fingerprint**).
 - **Fail closed on mismatch:** Search MUST **not** use an index whose stored metadata **pin name or SHA** does not match the **requested** pin and SHA. The same pin with a **different SHA** in metadata MUST **not** be reused (no cross-version index reuse). When on-disk index files exist but metadata is missing or unusable, search MUST fail with guidance that **rebuild** is required rather than silently reading the wrong snapshot.
