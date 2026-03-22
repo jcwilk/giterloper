@@ -66,29 +66,16 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 
 ### memsearch (install and `PATH`)
 
-Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions.
+Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions. **MCP** still **fails fast** if `memsearch` is not on **`PATH`** at process start ([specs/MCP.md](./specs/MCP.md)).
 
-**Install** (Python 3 with `pip`):
+**Default ingress (no manual venv step):** **`./scripts/check_all.sh`**, **`deno task check`**, **`deno task test`**, and the **`mcp:serve` / `mcp:serve-stdio` / `mcp:serve:test` / `mcp:serve-stdio:test`** **`deno.json`** tasks run through **`scripts/bootstrap-memsearch.ts`** / **`scripts/with-memsearch.ts`**. If `memsearch` is not already available, they create **repo-root `.venv`**, **`pip install memsearch`** there, and prepend **`.venv/bin`** (or **`.venv/Scripts`** on Windows) to **`PATH`** for that process and its children. **Python 3** must be on **`PATH`** (`python3 -m venv`).
+
+**Manual install** (optional—for shells where you invoke **`deno run lib/gl-mcp-server.ts`** directly without **`with-memsearch`**, or to match production Docker):
 
 ```bash
 pip install memsearch
+# or: python3 -m venv .venv && .venv/bin/pip install memsearch
 ```
-
-To keep packages isolated, use a venv (then activate it in every shell where you run MCP or tests):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install memsearch
-```
-
-Ensure **`memsearch` is on `PATH`** (`command -v memsearch` should succeed).
-
-**Provision memsearch before:**
-
-- Starting the **MCP server** natively (`deno task mcp:serve`, `mcp:serve-stdio`, and `:test` variants). The server **exits at startup** if **memsearch** is not on **`PATH`** ([specs/MCP.md](./specs/MCP.md)).
-- Running **`tests/mcp/`** cases and **`reference_client`** flows that exercise **`giterloper_search`** (and any other path that shells out to memsearch). Executable tests **must not** be skipped solely for missing memsearch ([specs/MCP.md](./specs/MCP.md)).
-- Running **`./scripts/check_all.sh`** or **`deno task check`** when those paths include MCP/search coverage—install **memsearch** so environments match production Docker.
 
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](./specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 

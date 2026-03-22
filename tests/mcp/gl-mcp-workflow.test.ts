@@ -12,6 +12,7 @@ import { spawn } from "node:child_process";
 
 import { TEST_SOURCE, toRemoteUrl } from "../helpers/config.ts";
 import { GITERLOPER_REPO_ROOT, integrationMcpModeChildEnv } from "../helpers/gl.ts";
+import { denoArgsForMcpHttpServer } from "../helpers/mcp-subprocess.ts";
 import { runGit } from "../helpers/run-git.ts";
 import {
   createClient,
@@ -37,12 +38,7 @@ interface ServerHandle {
 }
 
 function startMcpServer(port: number, projectRoot: string): ServerHandle {
-  const proc = spawn("deno", [
-    "run",
-    "-A",
-    path.join(GITERLOPER_REPO_ROOT, "lib", "gl-mcp-server.ts"),
-    "--mcp-test-mode",
-  ], {
+  const proc = spawn(Deno.execPath(), denoArgsForMcpHttpServer(["--mcp-test-mode"]), {
     cwd: GITERLOPER_REPO_ROOT,
     env: {
       ...Deno.env.toObject(),
@@ -51,7 +47,7 @@ function startMcpServer(port: number, projectRoot: string): ServerHandle {
       MCP_INSECURE: "true",
       GITERLOPER_PROJECT_ROOT: projectRoot,
     },
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "ignore", "ignore"],
   });
   return { kill: () => proc.kill("SIGTERM") };
 }
@@ -72,7 +68,12 @@ async function waitForServer(port: number, timeoutMs = 8000): Promise<void> {
   throw new Error(`Server not ready at ${url} within ${timeoutMs}ms`);
 }
 
-Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation", async () => {
+Deno.test({
+  name: "MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation",
+  // StreamableHTTP MCP SDK + nested deno subprocess: Deno leak sanitizer flags unconsumed fetch/SSE streams on close.
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
   const port = randomPort();
   let server: ServerHandle | null = null;
   const projectRoot = mkdtempSync(path.join(tmpdir(), "giterloper-mcp-workflow-"));
@@ -187,4 +188,5 @@ Deno.test("MCP session-driven workflow: pin_set, insert, reconcile, retrieve, sn
       /* ignore */
     }
   }
+},
 });

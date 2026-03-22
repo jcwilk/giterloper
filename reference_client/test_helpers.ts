@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { GITERLOPER_SESSION_BASE_TEST } from "../lib/session-layout.ts";
 import { integrationMcpModeChildEnv } from "../tests/helpers/integration-mcp-env.ts";
+import { denoArgsForMcpHttpServer } from "../tests/helpers/mcp-subprocess.ts";
 
 const _dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REF_CLIENT_DIR = _dirname;
@@ -193,10 +194,7 @@ export interface ServerHandle {
 
 /** Start giterloper MCP server on a given port. Uses relative path to lib/gl-mcp-server.ts. */
 export function startServer(port: number, sessionId: string): ServerHandle {
-  const proc = spawn(
-    "deno",
-    ["run", "-A", path.join(WORKSPACE_ROOT, "lib", "gl-mcp-server.ts"), "--mcp-test-mode"],
-    {
+  const proc = spawn(Deno.execPath(), denoArgsForMcpHttpServer(["--mcp-test-mode"]), {
       cwd: WORKSPACE_ROOT,
       env: {
         ...Deno.env.toObject(),

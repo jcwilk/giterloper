@@ -8,6 +8,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { integrationMcpModeChildEnv } from "../helpers/integration-mcp-env.ts";
+import { denoArgsForMcpStdioServer } from "../helpers/mcp-subprocess.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -30,7 +31,7 @@ function readLine(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<stri
 
 Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped session", async () => {
   const cmd = new Deno.Command(Deno.execPath(), {
-    args: ["run", "-A", join(ROOT, "lib", "gl-mcp-server-stdio.ts"), "--mcp-test-mode"],
+    args: denoArgsForMcpStdioServer(["--mcp-test-mode"]),
     cwd: ROOT,
     env: {
       ...Deno.env.toObject(),

@@ -14,7 +14,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ensureMemsearchOnPath } from "./bootstrap-memsearch.ts";
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+await ensureMemsearchOnPath();
 const manifestPath = path.join(root, "tests", "test-case-manifest.json");
 
 interface ManifestCase {

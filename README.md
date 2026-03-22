@@ -29,12 +29,12 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
 
 ## Quick start
 
-1. Prerequisites: git and [Deno](https://deno.land). To run the **MCP server** or the full **`./scripts/check_all.sh`** / **`deno task check`** path, install **`memsearch`** on **`PATH`** — for example `pip install memsearch` (venv optional). The MCP server **fails fast at startup** without it ([specs/MCP.md](./specs/MCP.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
+1. Prerequisites: git, [Deno](https://deno.land), and **Python 3** (for **`memsearch`**). **`deno task check`**, **`deno task test`**, **`deno task mcp:serve`**, and **`./scripts/check_all.sh`** auto-provision **`.venv`** + **`memsearch`** when needed; raw **`deno run lib/gl-mcp-server.ts`** without **`scripts/with-memsearch.ts`** still requires **`memsearch` on `PATH`** ([specs/MCP.md](./specs/MCP.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
 2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
 
-**Run environment:** Development and tests use **native Deno** (and git) on the host for fast feedback. MCP and search-related tests need **memsearch** on **`PATH`** (see [AGENTS.md](./AGENTS.md)). **Docker** is for production (Fly.io) and optional local run when you want to match the container environment.
+**Run environment:** Development and tests use **native Deno** (and git) on the host for fast feedback. Default **`deno task`** / **`check_all`** paths bootstrap **memsearch** into **`.venv`** when missing (see [AGENTS.md](./AGENTS.md)). **Docker** is for production (Fly.io) and optional local run when you want to match the container environment.
 
 ## Docker (production and optional local run)
 
@@ -42,7 +42,7 @@ Production deploys use the Docker image on Fly.io. To run the MCP server in Dock
 
 ## Tests
 
-Run the full suite (typecheck + unified test harness). **`memsearch`** on **`PATH`** is required for MCP/search coverage and for **`./scripts/check_all.sh`** (see [AGENTS.md](./AGENTS.md), [tests/README.md](./tests/README.md)).
+Run the full suite (typecheck + unified test harness). The harness bootstraps **`memsearch`** when needed; you need **Python 3** on **`PATH`** (see [AGENTS.md](./AGENTS.md), [tests/README.md](./tests/README.md)).
 
 ```bash
 ./scripts/check_all.sh

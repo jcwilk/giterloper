@@ -84,20 +84,16 @@ Use native Deno for development and tests.
 
 ### Memsearch (`PATH`)
 
-Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.ts`). The **MCP server** verifies **`memsearch`** at process startup ([specs/MCP.md](../specs/MCP.md)); install it before running flows that shell out to memsearch or starting the server for search coverage.
+Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.ts`). The **MCP server** verifies **`memsearch`** at process startup ([specs/MCP.md](../specs/MCP.md)).
 
-```bash
-pip install memsearch
-```
+**Harness and tasks:** **`deno task test`**, **`deno task check`**, **`./scripts/check_all.sh`**, and the **`mcp:serve` / `mcp:serve-stdio` / `mcp:serve:test` / `mcp:serve-stdio:test`** tasks auto-bootstrap a repo **`.venv`** and **`pip install memsearch`** when the CLI is missing (**`scripts/bootstrap-memsearch.ts`** / **`with-memsearch.ts`**). You still need **Python 3** on **`PATH`**. Subprocess tests that intentionally use a **stripped `PATH`** (for example startup failure cases) are unchanged.
 
-(Optional venv: `python3 -m venv .venv && source .venv/bin/activate && pip install memsearch`.) Confirm **`memsearch` is on `PATH`** (`command -v memsearch`).
+**Manual install** (only if you bypass those entrypoints): `pip install memsearch`, or a venv under **`.venv`** as in [AGENTS.md](../AGENTS.md).
 
-**Required for:**
+**Required for (normative contract):**
 
-- Starting the **MCP server** (HTTP/SSE or stdio) for normal operation or tests.
-- **`tests/mcp/`** cases that exercise memsearch-backed search or indexing.
-- **`reference_client`** tests and any flow that calls **`giterloper_search`** (see [reference_client/README.md](../reference_client/README.md)); those tests are **not** ignored when memsearch is absent—they assume a provisioned host.
-- **`./scripts/check_all.sh`** and **`deno task check`** (full suite including MCP/search paths).
+- Any **MCP server** process at startup ([specs/MCP.md](../specs/MCP.md)).
+- **`tests/mcp/`** and **`reference_client`** flows that exercise search—hosts must end up with **`memsearch` on `PATH`**; the default **`deno task`** / **`check_all`** paths arrange that automatically.
 
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](../specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
