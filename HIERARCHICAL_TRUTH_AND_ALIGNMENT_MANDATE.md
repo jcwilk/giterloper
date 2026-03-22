@@ -8,7 +8,7 @@ This document defines how **layers of truth** relate in this repository: univers
 
 **Root instruction files** (for example [AGENTS.md](./AGENTS.md), [CONVENTIONS.md](./CONVENTIONS.md), and similar top-level guidance) govern **universal** agent behavior, development process, and coding standards for the whole repo.
 
-**Area specs** under `specs/` govern **product behavior** for that slice only (for example `specs/core.md` for behavior exercised by `tests/core/`).
+**Area specs** under `specs/` govern **product behavior** for that slice only (for example `specs/core.md` for behavior exercised by `tests/core/`). A file may live under `specs/` but be **explicitly labeled non-normative** (for example [`specs/product-context.md`](./specs/product-context.md) for motivation and use cases); that class of document **does not** participate in the precedence stack for **MUST**-level product behavior.
 
 If these layers appear to overlap, **call the overlap out explicitly**. In general, **area specs should be adjusted to conform to repo-wide root instructions**, not the other way around. **Changing root instructions** is reserved for **systemic or process change** requested by the user—not for routine product tweaks.
 
@@ -69,7 +69,7 @@ Target roughly **two pages** of comfortable **human skim** per area spec. If a t
 | Layer | Role |
 |--------|------|
 | Root instructions (`AGENTS.md`, `CONVENTIONS.md`, …) | Universal process and standards |
-| `specs/*` | Normative product behavior per area |
+| `specs/*` | Normative product behavior per area (files labeled non-normative in their intro, e.g. product context, are excluded from that stack) |
 | Tests | Executable checks; below specs for product truth |
 | Code | Lowest; implement specs and passing tests |
 | `docs/` | Operational and supporting notes; lowest for locking product behavior |
