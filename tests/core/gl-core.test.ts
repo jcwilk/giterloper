@@ -15,6 +15,7 @@ Deno.test("makeState with sessionId roots mutable paths under .giterloper/<sessi
   assertEquals(state.stagedRoot, path.join(sessionRoot, "staged"));
   assertEquals(state.pinnedPath, path.join(sessionRoot, "pinned.yaml"));
   assertEquals(state.sessionId, "abc123");
+  assertEquals(state.mcpTestMode, false);
 });
 
 Deno.test("makeState('_cli') returns paths under .giterloper/_cli/", () => {
@@ -23,6 +24,44 @@ Deno.test("makeState('_cli') returns paths under .giterloper/_cli/", () => {
   assertEquals(state.rootDir, sessionRoot);
   assertEquals(state.pinnedPath, path.join(sessionRoot, "pinned.yaml"));
   assertEquals(state.sessionId, "_cli");
+});
+
+Deno.test("makeState({ mcpTestMode: true }) uses .giterloper_test/<sessionId>", () => {
+  const state = makeState("t1", { mcpTestMode: true });
+  assertEquals(state.mcpTestMode, true);
+  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper_test", "t1");
+  assertEquals(state.rootDir, sessionRoot);
+});
+
+Deno.test("makeState follows GITERLOPER_MCP_TEST_MODE when option omitted", () => {
+  const k = "GITERLOPER_MCP_TEST_MODE";
+  const prev = Deno.env.get(k);
+  Deno.env.set(k, "true");
+  try {
+    const state = makeState("env-sess");
+    assertEquals(state.mcpTestMode, true);
+    assertEquals(
+      state.rootDir,
+      path.join(PROJECT_ROOT, ".giterloper_test", "env-sess")
+    );
+  } finally {
+    if (prev === undefined) Deno.env.delete(k);
+    else Deno.env.set(k, prev);
+  }
+});
+
+Deno.test("makeState explicit mcpTestMode false overrides truthy GITERLOPER_MCP_TEST_MODE", () => {
+  const k = "GITERLOPER_MCP_TEST_MODE";
+  const prev = Deno.env.get(k);
+  Deno.env.set(k, "1");
+  try {
+    const state = makeState("override", { mcpTestMode: false });
+    assertEquals(state.mcpTestMode, false);
+    assertEquals(state.rootDir, path.join(PROJECT_ROOT, ".giterloper", "override"));
+  } finally {
+    if (prev === undefined) Deno.env.delete(k);
+    else Deno.env.set(k, prev);
+  }
 });
 
 Deno.test("validateSessionId accepts UUID-like sessionId", () => {

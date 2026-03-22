@@ -1,5 +1,6 @@
 /**
- * MCP session store and cleanup. Manages session-local state under .giterloper/<sessionId>/.
+ * MCP session store and cleanup. Manages session-local state under the session base dir
+ * (`.giterloper` or `.giterloper_test` per specs/MCP.md) + `<sessionId>/`.
  * Provides explicit cleanup via giterloper_session_end and DELETE /mcp, plus stale-session
  * scavenging by last-activity TTL. Decoupled from tool handlers.
  *
@@ -8,9 +9,11 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { giterloperSessionsRoot, resolveMcpTestMode } from "./session-layout.ts";
+
 /**
- * When set (trimmed non-empty), session dirs use `<value>/.giterloper/<sessionId>/` instead of
- * `<cwd>/.giterloper/`. Intended for tests that call `scavengeStaleSessions` with a short TTL so
+ * When set (trimmed non-empty), session dirs use `<value>/<sessionBase>/<sessionId>/` instead of
+ * `<cwd>/<sessionBase>/`. Intended for tests that call `scavengeStaleSessions` with a short TTL so
  * they do not delete live workspace sessions under parallel `deno test` workers.
  */
 const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
@@ -21,16 +24,20 @@ function projectRootForSessions(): string {
 }
 
 /** Direct children are session id directories only (see docs/DEPLOYMENT_REQUIREMENTS.md). */
-function giterloperRootPath(): string {
-  return path.join(projectRootForSessions(), ".giterloper");
+function giterloperRootPath(mcpTestMode?: boolean): string {
+  const mode = resolveMcpTestMode(mcpTestMode);
+  return giterloperSessionsRoot(projectRootForSessions(), mode);
 }
 
 const LAST_ACTIVITY_FILENAME = ".last_activity";
 const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
-/** Returns the directory path for a session. Does not validate sessionId. */
-export function sessionDir(sessionId: string): string {
-  return path.join(giterloperRootPath(), sessionId);
+/**
+ * Returns the directory path for a session. Does not validate sessionId.
+ * @param mcpTestMode When omitted, uses env `GITERLOPER_MCP_TEST_MODE` (see `session-layout.ts`).
+ */
+export function sessionDir(sessionId: string, mcpTestMode?: boolean): string {
+  return path.join(giterloperRootPath(mcpTestMode), sessionId);
 }
 
 /**
@@ -44,13 +51,16 @@ export function isSafeSessionId(sessionId: string | null | undefined): sessionId
 }
 
 /**
- * Removes session-local state (`.giterloper/<sessionId>/`) best-effort.
+ * Removes session-local state under the active session base best-effort.
  * Validates sessionId for path safety; skips removal if invalid.
  * Does not throw.
  */
-export function removeSessionData(sessionId: string | null | undefined): void {
+export function removeSessionData(
+  sessionId: string | null | undefined,
+  mcpTestMode?: boolean
+): void {
   if (!isSafeSessionId(sessionId)) return;
-  const dir = sessionDir(sessionId);
+  const dir = sessionDir(sessionId, mcpTestMode);
   if (!existsSync(dir)) return;
   try {
     rmSync(dir, { recursive: true });
@@ -63,8 +73,8 @@ export function removeSessionData(sessionId: string | null | undefined): void {
  * Records last activity for a session. Writes a timestamp file used by scavenge.
  * Call after validating sessionId (e.g. in stateForSession).
  */
-export function touchSession(sessionId: string): void {
-  const dir = sessionDir(sessionId);
+export function touchSession(sessionId: string, mcpTestMode?: boolean): void {
+  const dir = sessionDir(sessionId, mcpTestMode);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const stamp = Date.now().toString();
   try {
@@ -78,9 +88,9 @@ export function touchSession(sessionId: string): void {
  * Removes sessions whose last activity is older than ttlMs.
  * Returns the number of sessions removed.
  */
-export function scavengeStaleSessions(ttlMs: number): number {
+export function scavengeStaleSessions(ttlMs: number, mcpTestMode?: boolean): number {
   if (ttlMs <= 0) return 0;
-  const gRoot = giterloperRootPath();
+  const gRoot = giterloperRootPath(mcpTestMode);
   if (!existsSync(gRoot)) return 0;
   const now = Date.now();
   const cutoff = now - ttlMs;

@@ -24,6 +24,7 @@ function makeState(root: string): GlState {
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
     sessionId: `lifecycle-${randomBytes(8).toString("hex")}`,
+    mcpTestMode: false,
   };
 }
 

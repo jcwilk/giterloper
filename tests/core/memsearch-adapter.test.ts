@@ -27,6 +27,7 @@ function makeState(rootDir: string): GlState {
     pinnedPath: path.join(rootDir, "pinned.yaml"),
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
 }
 

@@ -47,6 +47,7 @@ import {
   scavengeStaleSessions,
   touchSession,
 } from "./mcp-session-store.ts";
+import { resolveMcpTestMode } from "./session-layout.ts";
 import { resolveSha, resolveShaOrRef } from "./git.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
@@ -80,8 +81,13 @@ export interface CreateServerOptions {
    */
   testFsSessionId?: string;
   /**
-   * Session bootstrap remote for `_session` pin when unset: `undefined` → read `KNOWLEDGE_STORE_REMOTE` env;
-   * `null` → do not auto-bootstrap; non-empty string → use as source.
+   * When set, wins over env `GITERLOPER_MCP_TEST_MODE` for this server (session root + effective knowledge remote).
+   * Stdio and HTTP entrypoints MUST pass the same resolution for parity when not using this override.
+   */
+  mcpTestMode?: boolean;
+  /**
+   * Session bootstrap remote for `_session` pin when unset: `undefined` → read env for active mode
+   * (`KNOWLEDGE_STORE_REMOTE` vs `TEST_KNOWLEDGE_STORE_REMOTE`); `null` → do not auto-bootstrap; non-empty string → use as source.
    */
   knowledgeStoreRemote?: string | null;
 }
@@ -93,6 +99,7 @@ export interface CreateServerOptions {
 export function createServer(options?: CreateServerOptions): McpServer {
   const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
   const testFsSessionOpt = options?.testFsSessionId;
+  const mcpTestMode = resolveMcpTestMode(options?.mcpTestMode);
 
   const server = new McpServer({
     name: "giterloper",
@@ -149,10 +156,10 @@ export function createServer(options?: CreateServerOptions): McpServer {
     extra: { sessionId?: string } | undefined
   ): ReturnType<typeof makeState> {
     const sessionId = resolveSessionId(extra);
-    const state = makeState(sessionId, { retryLogRole: "mcp" });
+    const state = makeState(sessionId, { retryLogRole: "mcp", mcpTestMode });
     ensureSessionDir(state);
     autoInitSessionPin(state, knowledgeRemoteOpt);
-    touchSession(sessionId);
+    touchSession(sessionId, mcpTestMode);
     return state;
   }
 
@@ -541,7 +548,8 @@ export function createServer(options?: CreateServerOptions): McpServer {
               return {
                 ok: false,
                 code: "invalid_argument",
-                message: "No session pin (_session) configured. Set KNOWLEDGE_STORE_REMOTE or use pin_set with source and branch/ref to create it.",
+                message:
+                  "No session pin (_session) configured. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) or use pin_set with source and branch/ref to create it.",
                 details: {},
               };
             }
@@ -902,7 +910,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
     async (_, extra) =>
       wrapTool(() => {
         const sessionId = resolveSessionId(extra);
-        removeSessionData(sessionId);
+        removeSessionData(sessionId, mcpTestMode);
         return {
           ok: true,
           sessionId,
@@ -925,8 +933,10 @@ interface HttpMcpTransport {
  */
 export function createHttpMcpApp(
   transport: HttpMcpTransport,
-  authRuntime: McpAuthRuntime = readMcpAuthFromEnv()
+  authRuntime: McpAuthRuntime = readMcpAuthFromEnv(),
+  sessionOpts?: { mcpTestMode?: boolean }
 ): Hono {
+  const mcpTestModeForHttp = resolveMcpTestMode(sessionOpts?.mcpTestMode);
   const app = new Hono();
   app.use(
     "*",
@@ -954,7 +964,7 @@ export function createHttpMcpApp(
   app.all("/mcp", async (c) => {
     if (c.req.method === "DELETE") {
       const sessionId = c.req.header("mcp-session-id");
-      removeSessionData(sessionId);
+      removeSessionData(sessionId, mcpTestModeForHttp);
     }
     return transport.handleRequest(c.req.raw);
   });
@@ -962,13 +972,16 @@ export function createHttpMcpApp(
 }
 
 /** Single long-lived transport and server for session lifecycle. */
+const sharedMcpTestMode = resolveMcpTestMode();
 const mcpTransport = new WebStandardStreamableHTTPServerTransport({
   sessionIdGenerator: () => randomUUID(),
 });
-const mcpServer = createServer();
+const mcpServer = createServer({ mcpTestMode: sharedMcpTestMode });
 await mcpServer.connect(mcpTransport);
 const mcpAuthAtLoad = readMcpAuthFromEnv();
-const app = createHttpMcpApp(mcpTransport, mcpAuthAtLoad);
+const app = createHttpMcpApp(mcpTransport, mcpAuthAtLoad, {
+  mcpTestMode: sharedMcpTestMode,
+});
 
 /** Exported for ad-hoc use; prefer `createMcpAppForTest` in tests (injected auth/bootstrap). */
 export { app as mcpApp };
@@ -985,13 +998,14 @@ export async function createMcpAppForTest(
   opts?: CreateMcpAppForTestOptions
 ): Promise<ReturnType<typeof createHttpMcpApp>> {
   const { auth: authOpt, ...serverOpts } = opts ?? {};
+  const mcpTestMode = resolveMcpTestMode(serverOpts.mcpTestMode);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
-  const server = createServer(serverOpts);
+  const server = createServer({ ...serverOpts, mcpTestMode });
   await server.connect(transport);
   const authRuntime = authOpt ?? readMcpAuthFromEnv();
-  return createHttpMcpApp(transport, authRuntime);
+  return createHttpMcpApp(transport, authRuntime, { mcpTestMode });
 }
 
 if (import.meta.main) {
@@ -1000,7 +1014,7 @@ if (import.meta.main) {
   const ttlMs = getSessionTtlMs();
   if (ttlMs > 0) {
     const intervalMs = Math.min(ttlMs / 4, 15 * 60 * 1000);
-    setInterval(() => scavengeStaleSessions(ttlMs), intervalMs);
+    setInterval(() => scavengeStaleSessions(ttlMs, sharedMcpTestMode), intervalMs);
   }
   console.log(`Giterloper MCP server on http://${HOST}:${PORT}`);
   console.log(`  Health: http://${HOST}:${PORT}/health`);

@@ -30,6 +30,7 @@ Deno.test("cloneDir returns versionsDir/name/sha", () => {
     pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   const pin = { name: "p1", source: "x", sha: "abc123" };
   assertEquals(cloneDir(state, pin), "/proj/.giterloper/test/versions/p1/abc123");
@@ -45,6 +46,7 @@ Deno.test("stagedDir returns stagedRoot/pinName/branchName", () => {
     pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   assertEquals(stagedDir(state, "p1", "main"), "/proj/.giterloper/test/staged/p1/main");
 });
@@ -59,6 +61,7 @@ Deno.test("indexDir returns rootDir/indexes/pinName/sha", () => {
     pinnedPath: `${sessionRoot}/pinned.yaml`,
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   assertEquals(
     indexDir(state, "knowledge", "abcd1234".repeat(5)),

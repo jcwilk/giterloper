@@ -122,11 +122,23 @@
     },
     {
       "path": "tests/core/gl-core.test.ts",
+      "name": "makeState explicit mcpTestMode false overrides truthy GITERLOPER_MCP_TEST_MODE"
+    },
+    {
+      "path": "tests/core/gl-core.test.ts",
+      "name": "makeState follows GITERLOPER_MCP_TEST_MODE when option omitted"
+    },
+    {
+      "path": "tests/core/gl-core.test.ts",
       "name": "makeState with sessionId roots mutable paths under .giterloper/<sessionId>"
     },
     {
       "path": "tests/core/gl-core.test.ts",
       "name": "makeState('_cli') returns paths under .giterloper/_cli/"
+    },
+    {
+      "path": "tests/core/gl-core.test.ts",
+      "name": "makeState({ mcpTestMode: true }) uses .giterloper_test/<sessionId>"
     },
     {
       "path": "tests/core/gl-core.test.ts",
@@ -331,6 +343,22 @@
     {
       "path": "tests/core/retry-external.test.ts",
       "name": "gitTransientMessage recognizes common network flakes"
+    },
+    {
+      "path": "tests/core/session-layout.test.ts",
+      "name": "effectiveKnowledgeStoreRemote null override skips env"
+    },
+    {
+      "path": "tests/core/session-layout.test.ts",
+      "name": "effectiveKnowledgeStoreRemote reads mode-appropriate env key"
+    },
+    {
+      "path": "tests/core/session-layout.test.ts",
+      "name": "resolveMcpTestMode override wins over env"
+    },
+    {
+      "path": "tests/core/session-layout.test.ts",
+      "name": "session base segment literals are fixed (not env-derived)"
     },
     {
       "path": "tests/mcp/gl-mcp-workflow.test.ts",

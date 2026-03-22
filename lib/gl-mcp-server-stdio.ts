@@ -8,10 +8,13 @@ import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./gl-mcp-server.ts";
 import { getSessionTtlMs, scavengeStaleSessions } from "./mcp-session-store.ts";
+import { resolveMcpTestMode } from "./session-layout.ts";
 
 const stdioSessionId = randomUUID();
+const stdioMcpTestMode = resolveMcpTestMode();
 const server = createServer({
   getSessionId: () => stdioSessionId,
+  mcpTestMode: stdioMcpTestMode,
 });
 const transport = new StdioServerTransport();
 await server.connect(transport);
@@ -19,7 +22,7 @@ await server.connect(transport);
 const ttlMs = getSessionTtlMs();
 if (ttlMs > 0) {
   const intervalMs = Math.min(ttlMs / 4, 15 * 60 * 1000);
-  setInterval(() => scavengeStaleSessions(ttlMs), intervalMs);
+  setInterval(() => scavengeStaleSessions(ttlMs, stdioMcpTestMode), intervalMs);
 }
 
 console.error("Giterloper MCP server (stdio) running; sessionId=", stdioSessionId);

@@ -70,6 +70,7 @@ Deno.test("resolvePin fails when no _session exists", () => {
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   try {
     const err = assertThrows(
@@ -95,6 +96,7 @@ Deno.test("resolvePin('_session') is rejected", () => {
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   try {
     const err = assertThrows(() => resolvePin(state, "_session"), GlError) as GlError;
@@ -126,6 +128,7 @@ Deno.test("resolvePin finds _session pin by name regardless of position in list"
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   try {
     const pin = resolvePin(state, null);
@@ -149,6 +152,7 @@ Deno.test("readPins returns [] for missing pinned.yaml", () => {
     pinnedPath: path.join(root, "pinned.yaml"),
     globalJson: false,
     sessionId: "test",
+    mcpTestMode: false,
   };
   try {
     const pins = readPins(state);

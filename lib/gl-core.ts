@@ -9,6 +9,12 @@ import { EXIT, fail } from "./errors.ts";
 import { mutatePins, readPins, SESSION_PIN_NAME } from "./pinned.ts";
 import { clonePin } from "./pin-lifecycle.ts";
 import { resolveSha } from "./git.ts";
+import {
+  effectiveKnowledgeStoreRemote,
+  giterloperSessionsRoot,
+  KNOWLEDGE_STORE_REMOTE_ENV,
+  resolveMcpTestMode,
+} from "./session-layout.ts";
 import type { GlState, Pin, RetryLogRole } from "./types.ts";
 
 export type { GlState };
@@ -21,8 +27,8 @@ function projectRoot(): string {
   return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
 }
 
-/** Env var for session auto-init: repo source (e.g. github.com/owner/repo). When set, new sessions start with _session pin at main. */
-export const KNOWLEDGE_STORE_REMOTE = "KNOWLEDGE_STORE_REMOTE";
+/** Env var name for normal-mode session auto-init remote (value read via {@link effectiveKnowledgeStoreRemote}). */
+export const KNOWLEDGE_STORE_REMOTE = KNOWLEDGE_STORE_REMOTE_ENV;
 
 /**
  * Ensures session root exists. Called by MCP stateForSession.
@@ -37,7 +43,7 @@ export function ensureSessionDir(state: GlState): void {
  * Lazily creates _session pin when a bootstrap remote is configured and no _session pin exists.
  * Session pin starts at main branch with remote main's SHA.
  *
- * @param knowledgeStoreRemoteOverride `undefined` → use `KNOWLEDGE_STORE_REMOTE` env; `null` → do not bootstrap; string → use as source (trimmed; empty skips)
+ * @param knowledgeStoreRemoteOverride `undefined` → env for active MCP test mode (`KNOWLEDGE_STORE_REMOTE` vs `TEST_KNOWLEDGE_STORE_REMOTE`); `null` → do not bootstrap; string → use as source (trimmed; empty skips)
  */
 export function autoInitSessionPin(
   state: GlState,
@@ -46,14 +52,10 @@ export function autoInitSessionPin(
   const pins = readPins(state);
   if (pins.some((p) => p.name === SESSION_PIN_NAME)) return;
 
-  let source: string | undefined;
-  if (knowledgeStoreRemoteOverride === null) {
-    source = undefined;
-  } else if (knowledgeStoreRemoteOverride !== undefined) {
-    source = knowledgeStoreRemoteOverride.trim() || undefined;
-  } else {
-    source = Deno.env.get(KNOWLEDGE_STORE_REMOTE)?.trim();
-  }
+  const source = effectiveKnowledgeStoreRemote(
+    state.mcpTestMode,
+    knowledgeStoreRemoteOverride
+  );
   if (!source) return;
 
   const sha = resolveSha(source, "HEAD", {
@@ -93,14 +95,18 @@ export function validateSessionId(sessionId: string | null | undefined): string 
 }
 
 /**
- * Creates GlState. Mutable paths root under .giterloper/<sessionId>/
- * (pinned.yaml, versions, staged, indexes).
+ * Creates GlState. Mutable paths root under `<projectRoot>/<sessionBase>/<sessionId>/`
+ * (pinned.yaml, versions, staged, indexes). Session base follows MCP test mode (specs/core.md, specs/MCP.md).
  */
-export function makeState(sessionId: string, opts?: { retryLogRole?: RetryLogRole }): GlState {
+export function makeState(
+  sessionId: string,
+  opts?: { retryLogRole?: RetryLogRole; mcpTestMode?: boolean }
+): GlState {
   const projectRootResolved = projectRoot();
-  const baseGiterloper = path.join(projectRootResolved, ".giterloper");
+  const mcpTestMode = resolveMcpTestMode(opts?.mcpTestMode);
+  const sessionsRoot = giterloperSessionsRoot(projectRootResolved, mcpTestMode);
   const validated = validateSessionId(sessionId);
-  const sessionRoot = path.join(baseGiterloper, validated);
+  const sessionRoot = path.join(sessionsRoot, validated);
   return {
     projectRoot: projectRootResolved,
     rootDir: sessionRoot,
@@ -109,6 +115,7 @@ export function makeState(sessionId: string, opts?: { retryLogRole?: RetryLogRol
     pinnedPath: path.join(sessionRoot, "pinned.yaml"),
     globalJson: false,
     sessionId: validated,
+    mcpTestMode,
     retryLogRole: opts?.retryLogRole,
   };
 }
