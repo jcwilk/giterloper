@@ -1,6 +1,6 @@
 ---
 id: git-vknr
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T02:18:25Z
