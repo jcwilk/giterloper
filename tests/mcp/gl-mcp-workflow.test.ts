@@ -8,12 +8,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes, randomUUID } from "node:crypto";
-import { spawn } from "node:child_process";
 
 import { TEST_SOURCE, toRemoteUrl } from "../helpers/config.ts";
-import { GITERLOPER_REPO_ROOT, integrationMcpModeChildEnv } from "../helpers/gl.ts";
-import { denoArgsForMcpHttpServer } from "../helpers/mcp-subprocess.ts";
-import { runGit } from "../helpers/run-git.ts";
 import {
   createClient,
   insertPending,
@@ -21,7 +17,9 @@ import {
   reconcilePending,
   retrieve,
   stateInspect,
-} from "../../reference_client/client.ts";
+} from "../helpers/mcp-http-client.ts";
+import { spawnMcpHttpIntegrationServer, waitForMcpHttpHealth } from "../helpers/mcp-subprocess.ts";
+import { runGit } from "../helpers/run-git.ts";
 
 const RUN_ID = `gle2e_${randomUUID().replace(/-/g, "")}`;
 const SNAPSHOT_NAME = `snapshot_${RUN_ID}`;
@@ -33,41 +31,6 @@ function randomPort(): number {
   return 3500 + (randomBytes(2).readUInt16BE(0) % 1000);
 }
 
-interface ServerHandle {
-  kill: () => void;
-}
-
-function startMcpServer(port: number, projectRoot: string): ServerHandle {
-  const proc = spawn(Deno.execPath(), denoArgsForMcpHttpServer(["--mcp-test-mode"]), {
-    cwd: GITERLOPER_REPO_ROOT,
-    env: {
-      ...Deno.env.toObject(),
-      ...integrationMcpModeChildEnv(),
-      MCP_PORT: String(port),
-      MCP_INSECURE: "true",
-      GITERLOPER_PROJECT_ROOT: projectRoot,
-    },
-    stdio: ["ignore", "ignore", "ignore"],
-  });
-  return { kill: () => proc.kill("SIGTERM") };
-}
-
-async function waitForServer(port: number, timeoutMs = 8000): Promise<void> {
-  const url = `http://127.0.0.1:${port}/health`;
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      await res.text();
-      if (res.ok) return;
-    } catch {
-      /* retry */
-    }
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  throw new Error(`Server not ready at ${url} within ${timeoutMs}ms`);
-}
-
 Deno.test({
   name: "MCP session-driven workflow: pin_set, insert, reconcile, retrieve, snapshot isolation",
   // StreamableHTTP MCP SDK + nested deno subprocess: Deno leak sanitizer flags unconsumed fetch/SSE streams on close.
@@ -75,12 +38,12 @@ Deno.test({
   sanitizeResources: false,
   fn: async () => {
   const port = randomPort();
-  let server: ServerHandle | null = null;
+  let server: ReturnType<typeof spawnMcpHttpIntegrationServer> | null = null;
   const projectRoot = mkdtempSync(path.join(tmpdir(), "giterloper-mcp-workflow-"));
 
   try {
-    server = startMcpServer(port, projectRoot);
-    await waitForServer(port);
+    server = spawnMcpHttpIntegrationServer({ port, projectRoot });
+    await waitForMcpHttpHealth(port);
 
     const client = await createClient({
       url: `http://127.0.0.1:${port}/mcp`,

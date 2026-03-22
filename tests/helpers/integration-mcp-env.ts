@@ -5,7 +5,7 @@
 import { TEST_KNOWLEDGE_STORE_REMOTE_ENV } from "../../lib/session-layout.ts";
 import { TEST_SOURCE, toRemoteUrl } from "./config.ts";
 
-/** Merged into gl / gl-maintenance child processes and documented for other spawns (e.g. reference_client). */
+/** Merged into gl / gl-maintenance child processes and documented for other spawns (e.g. MCP test servers via `mcp-subprocess.ts`). */
 export function integrationMcpModeChildEnv(): Record<string, string> {
   return {
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: toRemoteUrl(TEST_SOURCE),

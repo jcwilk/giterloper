@@ -1,6 +1,6 @@
 ---
 id: git-4azd
-status: open
+status: closed
 deps: [git-od4q]
 links: []
 created: 2026-03-22T18:53:04Z
