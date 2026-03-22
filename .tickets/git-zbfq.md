@@ -1,6 +1,6 @@
 ---
 id: git-zbfq
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T00:21:30Z
@@ -23,4 +23,8 @@ Outcomes (child tickets decompose order):
 - **docs/:** **Minimal** product definition; **lowest** layer—on conflict, **update docs** to match specs/code. **git-46zo** trims superseded product docs; **git-qna1** audits kept deployment guides for staleness.
 - **Commits:** **Planning commits** (spec-change / **file-tickets** alignment path) are **primarily** **`specs/*`** edits **and** new/updated **`.tickets/*.md`**—**never** mixed with implementation code or **test file** changes in the same commit (those close under their own tickets). **Exception:** if the human **explicitly** included **`HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md`** in the same spec-change request, stage it in **that same** planning commit. **file-tickets** must treat **uncommitted `specs/*` diff** as **first-class context** with the invoking conversation; stage **all** such spec paths used in that filing **with** the produced tickets—no tickets-only commit that drops the spec delta. Other root doc edits stay **human-managed** outside this flow. **git-rm4l** (blocked until **git-incv** completes) implements the **specs + tickets** bundle (and optional mandate when requested) and runs the verifier per **git-incv** semantics. **Mechanical** pointer updates in AGENTS/README during **git-6g05** are **link migration**, not recurring file-tickets process on root docs.
 - **Tooling docs (mixed):** **`tests/README.md`** and **`.cursor/agents/verifier.md`** sit with **tests/** and **agent tooling**—still delivered by tickets but part of the **structured** side where it affects spec↔test behavior. **AGENTS.md** and root **README.md** are **one-time epic alignment** (**git-36ls**, **git-mpl2**); treat as **manual / human-directed** thereafter. Add human-driven **spec-change** subagent (**git-rm4l**).
+
+## Epic closure
+
+Final open child **git-qna1** (deployment docs audit) completed: `docs/DEPLOYMENT_REQUIREMENTS.md` and `docs/FLY_IO_DEPLOYMENT.md` aligned with `Dockerfile`, `fly.toml`, `scripts/run-docker.sh`, env vars in MCP/core code, and `specs/MCP.md`; `./scripts/check_all.sh` passed. See **git-qna1** closure checklist in `.tickets/git-qna1.md`.
 

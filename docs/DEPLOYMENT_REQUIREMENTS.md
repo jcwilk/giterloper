@@ -1,8 +1,10 @@
 # Giterloper deployment requirements
 
-Consolidated from repo analysis and deployment discussion. Target: single-user hobby, &lt;$20/month.
+**Layering:** This file is **operational** guidance only. It must not be treated as the normative product contract. MCP transport, sessions, and auth are defined in [`specs/MCP.md`](../specs/MCP.md); on any mismatch, update this doc (see [HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)).
 
-**Chosen platform:** Fly.io. See [FLY_IO_DEPLOYMENT.md](./FLY_IO_DEPLOYMENT.md) for step-by-step deployment. Run model: **production** uses Docker (image with Deno, git, Python, memsearch; persistent volume for `.giterloper/`). Development and tests use native Deno on the host (see README.md and AGENTS.md). Approximate cost: ~$6–9/month (small Machine + 20 GB volume).
+Consolidated from repo analysis and deployment discussion. Target: single-user hobby, under ~USD 20/month.
+
+**Chosen platform:** Fly.io. See [FLY_IO_DEPLOYMENT.md](./FLY_IO_DEPLOYMENT.md) for step-by-step deployment. Run model: **production** uses Docker (image with Deno, git, Python, memsearch; persistent volume for `.giterloper/`). Development and tests use native Deno on the host (see [README.md](../README.md) and [AGENTS.md](../AGENTS.md)). Approximate cost: ~$6–9/month (small Machine + 20 GB volume).
 
 ---
 
@@ -11,7 +13,7 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 - **Root:** All session-scoped mutable state under `.giterloper/`. Each session has its own directory **named by session id** (no `sessions/` wrapper): **`.giterloper/<sessionId>/`**.
 - **Layout (per session):** `<sessionId>/pinned.yaml`, `<sessionId>/versions/<pinName>/<sha>/` (git clones), `<sessionId>/staged/<pinName>/<branch>/` (working clones), `<sessionId>/indexes/<pinName>/<sha>/` (metadata.json + milvus.db), `<sessionId>/locks/pins/` (FIFO mutex, or equivalent session-local lock paths as implemented).
 - **Writes:** Atomic overwrites (pinned.yaml), clone replace, git ops in staged/, memsearch writes milvus.db + metadata.json, session .last_activity, lock tickets (create/delete).
-- **Scale (hobby):** Few pins, few sessions; size dominated by clones + staged + indexes. No hard limit; assume &lt;10–20 GB sufficient.
+- **Scale (hobby):** Few pins, few sessions; size dominated by clones + staged + indexes. No hard limit; assume on the order of 10–20 GB is sufficient.
 
 ## 2. Runtime and subprocess requirements
 
@@ -20,7 +22,7 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 - **Required for search:** Python + `pip install memsearch`; `memsearch` CLI on PATH (invoked with `--milvus-uri <path>` to local milvus.db).
 - **Optional:** `gh` CLI when GITERLOPER_GH_TOKEN is not set (for GitHub API token).
 - **Other subprocesses:** `cp -r`, `rmdir` (POSIX). Node APIs: node:fs, node:path, node:child_process (spawnSync), node:crypto.
-- **Docker (Fly.io):** The image must include Deno, git, Python, and memsearch; the app runs with CWD on the mounted volume so `.giterloper/` is persistent.
+- **Docker (Fly.io):** The checked-in [`Dockerfile`](../Dockerfile) installs Deno (installer needs `curl`, `ca-certificates`, `unzip`), git, Python 3, pip, and `memsearch`, then copies only `deno.json`, `deno.lock`, and `lib/` into `/app` with runtime **`WORKDIR /data`** so `.giterloper/` lives on the mounted volume (not a full `COPY .` of the repository).
 
 ## 3. Memsearch and database requirements
 
@@ -30,9 +32,9 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 
 ## 4. Network and environment requirements
 
-- **Inbound:** HTTP on MCP_HOST:MCP_PORT (default 127.0.0.1:3443). Routes: `GET /health` (no auth), `GET/POST/DELETE/OPTIONS /mcp` (auth unless MCP_INSECURE). No TLS in-app; use reverse proxy in production. On Fly.io, bind to `0.0.0.0` and use the port Fly assigns (e.g. 8080) or set in env.
+- **Inbound:** HTTP on MCP_HOST:MCP_PORT (default 127.0.0.1:3443). Routes: `GET /health` (no auth), MCP over HTTP at `/mcp` (see [`specs/MCP.md`](../specs/MCP.md) for required methods and session headers; CORS may surface `OPTIONS`). No TLS in-app; use reverse proxy in production. On Fly.io, bind to `0.0.0.0` and use the port Fly assigns (e.g. 8080) or set in env—[`fly.toml`](../fly.toml) uses 8080 with a `/health` check.
 - **Outbound:** Git (HTTPS/SSH to pin repos: clone, fetch, push, ls-remote). GitHub API (api.github.com: commits, merges, refs) when pin source is GitHub. Optional: `gh auth token` if GITERLOPER_GH_TOKEN unset.
-- **Env:** MCP_HOST, MCP_PORT, MCP_TOKEN (Bearer), MCP_INSECURE (dev only), MCP_SESSION_TTL_MS; GITERLOPER_GH_TOKEN (optional, for git + GitHub API).
+- **Env (spot-checked vs `lib/gl-mcp-server.ts`, `lib/mcp-session-store.ts`, `lib/gl-core.ts`):** `MCP_HOST`, `MCP_PORT`, `MCP_TOKEN` (Bearer), `MCP_INSECURE` (dev only), `MCP_SESSION_TTL_MS`; `GITERLOPER_GH_TOKEN` (optional, for git + GitHub API); **`KNOWLEDGE_STORE_REMOTE`** (optional; when set, new HTTP MCP sessions may auto-bootstrap `_session` from that remote—see `specs/MCP.md`).
 
 ## 5. Deploy and session behavior
 
@@ -43,4 +45,4 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 
 ---
 
-**Summary:** Persistent filesystem, Deno + git + Python/memsearch (Docker image on Fly.io), inbound HTTP, outbound HTTPS. Single user, low throughput, budget &lt;$20/month. Deploy = replace process → sessions lost; auto-deploy via GitHub Action or Fly dashboard.
+**Summary:** Persistent filesystem, Deno + git + Python/memsearch (Docker image on Fly.io), inbound HTTP, outbound HTTPS. Single user, low throughput, budget under ~USD 20/month. Deploy = replace process → sessions lost; auto-deploy via GitHub Action or Fly dashboard.

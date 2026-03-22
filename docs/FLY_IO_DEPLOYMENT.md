@@ -1,8 +1,10 @@
 # Deploying giterloper on Fly.io — deep dive
 
+**Layering:** Operational runbook only; normative MCP behavior is [`specs/MCP.md`](../specs/MCP.md). If this text drifts from the contract or code, update this file ([HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)).
+
 This document covers **production deployment** (Fly.io) and **optional local Docker run** when you want to match the container environment. For day-to-day development and tests, use **native Deno** on the host; see [README.md](../README.md) and [AGENTS.md](../AGENTS.md).
 
-Research note for deploying the giterloper MCP server (Deno + git + Python memsearch + persistent `.giterloper/`) on Fly.io under the constraints in [DEPLOYMENT_REQUIREMENTS.md](./DEPLOYMENT_REQUIREMENTS.md): persistent disk, one Machine, inbound HTTP, outbound HTTPS, &lt;$20/month. On-disk session layout under `.giterloper/` is **`<sessionId>/` directories only** (no `sessions/` wrapper)—see that doc for the full tree.
+Research note for deploying the giterloper MCP server (Deno + git + Python memsearch + persistent `.giterloper/`) on Fly.io under the constraints in [DEPLOYMENT_REQUIREMENTS.md](./DEPLOYMENT_REQUIREMENTS.md): persistent disk, one Machine, inbound HTTP, outbound HTTPS, under ~USD 20/month. On-disk session layout under `.giterloper/` is **`<sessionId>/` directories only** (no `sessions/` wrapper)—see that doc for the full tree.
 
 ---
 
@@ -56,40 +58,14 @@ Research note for deploying the giterloper MCP server (Deno + git + Python memse
 
 Build happens on Fly (or locally); the **volume is not available at build time** — only at Machine start. Install all runtime deps in the image; use the mounted volume only at runtime.
 
-**Outline:**
+**Authoritative image in this repo:** the root [`Dockerfile`](../Dockerfile) (compared for this audit) does the following:
 
-- **Base:** Debian Bookworm (e.g. `debian:bookworm-slim`) or a Deno image that allows installing Python/git (e.g. `hayd/alpine-deno` plus Python/pip/git if available, or a multi-stage with Debian).
-- **Install:** Deno (official install script or image), `git`, `python3`, `python3-pip`, then `pip install memsearch`. Ensure `memsearch` and `git` are on `PATH`.
-- **App:** Copy repo (e.g. `COPY . /app`), `WORKDIR /app`.
-- **Runtime:** Run the server with **CWD set to the volume** so `.giterloper` lives on persistent storage. The app uses `path.resolve(Deno.cwd())` as project root; therefore start the process from `/data`:
+- **Base:** `debian:bookworm-slim`.
+- **Packages:** `ca-certificates`, `curl`, `git`, `python3`, `python3-pip`, **`unzip`** (required by Deno’s install script), then Deno via `deno.land/install.sh`, `pip3 install --break-system-packages memsearch`.
+- **App payload:** copies **`deno.json`**, **`deno.lock`**, and **`lib/`** into `/app` only—not a full `COPY .` of the repository (tests, `.cursor/`, etc. are not in the production image).
+- **Runtime:** `WORKDIR /data` then `EXPOSE 8080` and `CMD ["deno", "run", "-A", "/app/lib/gl-mcp-server.ts"]` so `Deno.cwd()` is `/data` and `.giterloper` is created at `/data/.giterloper` on the Fly volume.
 
-  ```dockerfile
-  WORKDIR /app
-  # Example entrypoint: run server with cwd = volume mount
-  ENTRYPOINT ["/bin/sh", "-c"]
-  CMD ["cd /data && exec deno run -A lib/gl-mcp-server.ts"]
-  ```
-
-  Or use an entrypoint script that `cd /data` then `exec deno run -A lib/gl-mcp-server.ts`. Do not rely on copying `.giterloper` into the image; the volume is mounted at runtime at `/data`.
-
-**Minimal single-stage sketch:**
-
-```dockerfile
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git python3 python3-pip && \
-    curl -fsSL https://deno.land/install.sh | sh && \
-    mv /root/.deno/bin/deno /usr/local/bin/ && \
-    pip3 install --break-system-packages memsearch && \
-    rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY . .
-WORKDIR /data
-EXPOSE 8080
-CMD ["deno", "run", "-A", "/app/lib/gl-mcp-server.ts"]
-```
-
-Here `WORKDIR /data` makes `Deno.cwd()` equal `/data`, so `.giterloper` is created at `/data/.giterloper` on the volume. Expose the port the app will listen on (e.g. 8080 to match Fly’s `internal_port`).
+Do not rely on baking `.giterloper` into the image; the volume is attached at Machine start. If you fork the Dockerfile, keep **CWD on the mount** (`/data` here) aligned with [`fly.toml`](../fly.toml) `[mounts].destination`.
 
 ---
 
@@ -124,7 +100,7 @@ Use `fly platform vm-sizes` and the [pricing page](https://fly.io/docs/about/pri
   fly secrets set GITERLOPER_GH_TOKEN="<github-token>"
   ```
 
-  Optional: `MCP_SESSION_TTL_MS`. Do **not** set `MCP_INSECURE=true` in production.
+  Optional: `MCP_SESSION_TTL_MS`. Optional non-secret: **`KNOWLEDGE_STORE_REMOTE`** (e.g. `https://github.com/owner/repo`) if you want new HTTP sessions to auto-bootstrap `_session` from that remote’s default branch—see [`specs/MCP.md`](../specs/MCP.md). Do **not** set `MCP_INSECURE=true` in production.
 
 - **Apply:** Redeploy to pick up secret changes: `fly deploy` (or `fly secrets deploy` to deploy without rebuilding).
 
@@ -205,7 +181,7 @@ Optional: run the same image locally with your `.giterloper` directory persisted
    ```
    Or run without rebuilding: `./scripts/run-docker.sh`.
 
-2. The script mounts `$(pwd)/.giterloper` at `/data/.giterloper`, maps port 3443, and sets `MCP_HOST=0.0.0.0` and `MCP_PORT=3443`. To pass secrets (e.g. for GitHub or MCP auth), add `-e` before the image name:
+2. The script ([`scripts/run-docker.sh`](../scripts/run-docker.sh)—compared for this audit) mounts `$(pwd)/.giterloper` at `/data/.giterloper`, publishes host port **3443** to container port **3443**, and sets `MCP_HOST=0.0.0.0` and `MCP_PORT=3443`. To pass secrets (e.g. for GitHub or MCP auth), add `-e` before the image name:
    ```bash
    ./scripts/run-docker.sh -e MCP_TOKEN=your-token -e GITERLOPER_GH_TOKEN=your-gh-token
    ```
