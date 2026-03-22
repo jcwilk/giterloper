@@ -12,9 +12,9 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **`.cursor/skills/`** is for procedures the **current** agent executes **inline** in this conversation: read the skill, follow it here, use normal tools.
 
-**`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`** (for example **`spec-change`**, **`verifier`**, **`work-next`**). Pass a self-contained prompt; the subagent owns its loop.
+**`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`** (for example **`verifier`**, **`work-next`**). Pass a self-contained prompt; the subagent owns its loop.
 
-**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. **Strong nudge:** when the user points at an agent definition or names that workflow, **spawn the subagent** unless the user **explicitly** asks you to waive delegation and work inline.
+**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. **Strong nudge:** when the user points at an **agent** definition or names **`verifier`** / **`work-next`**, **spawn the subagent** unless the user **explicitly** asks you to waive delegation and work inline. **Product spec edits** use the **`/spec-change`** skill (`.cursor/skills/spec-change/SKILL.md`) **inline**, not a subagent.
 
 ## Source-of-truth precedence (CRITICAL)
 
@@ -56,6 +56,7 @@ Ticket operations are typically induced by user-invoked **skills** (inline) or *
 - `/work-all` (`.cursor/skills/work-all/SKILL.md`)
 - `/file-tickets` (`.cursor/skills/file-tickets/SKILL.md`)
 - `/archive-tickets` (`.cursor/skills/archive-tickets/SKILL.md`)
+- `/spec-change` (`.cursor/skills/spec-change/SKILL.md`) — edit **`specs/*`**, file **forward** alignment tickets only when owed, **never** start/close tickets in this flow
 - `/work-next` — spawn **`.cursor/agents/work-next.md`** as subagent (`work-next`), do not inline
 
 ## Run environment: native for dev/test, Docker for prod
