@@ -47,7 +47,13 @@ import {
   scavengeStaleSessions,
   touchSession,
 } from "./mcp-session-store.ts";
-import { resolveMcpTestMode } from "./session-layout.ts";
+import {
+  effectiveKnowledgeStoreRemote,
+  isPlausibleKnowledgeStoreRemote,
+  KNOWLEDGE_STORE_REMOTE_ENV,
+  resolveMcpTestMode,
+  TEST_KNOWLEDGE_STORE_REMOTE_ENV,
+} from "./session-layout.ts";
 import { resolveSha, resolveShaOrRef } from "./git.ts";
 
 /** Validates insert_pending content. Returns MCP error envelope or null if valid. */
@@ -92,14 +98,61 @@ export interface CreateServerOptions {
   knowledgeStoreRemote?: string | null;
 }
 
+/** Resolved after startup validation; used for /health and giterloper_state_inspect parity. */
+export interface McpStartupSnapshot {
+  mcpTestMode: boolean;
+  configuredKnowledgeStoreRemote: string;
+}
+
+/**
+ * Validates knowledge remote for the active mode (specs/MCP.md). Skips when
+ * `knowledgeStoreRemote === null` (harness: no auto-bootstrap / optional env).
+ */
+export function mcpStartupState(
+  options?: CreateServerOptions,
+  env: Pick<typeof Deno.env, "get"> = Deno.env
+): McpStartupSnapshot {
+  const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
+  const mcpTestMode = resolveMcpTestMode(options?.mcpTestMode);
+  const skipValidation = knowledgeRemoteOpt === null;
+  const effective = effectiveKnowledgeStoreRemote(
+    mcpTestMode,
+    knowledgeRemoteOpt,
+    env
+  );
+  const trimmed = effective?.trim() ?? "";
+  if (!skipValidation) {
+    const key = mcpTestMode
+      ? TEST_KNOWLEDGE_STORE_REMOTE_ENV
+      : KNOWLEDGE_STORE_REMOTE_ENV;
+    if (!trimmed) {
+      console.error(
+        `giterloper MCP: ${key} must be set to a non-empty, valid Git remote (or pass knowledgeStoreRemote in createServer options).`
+      );
+      Deno.exit(1);
+    }
+    if (!isPlausibleKnowledgeStoreRemote(trimmed)) {
+      console.error(
+        `giterloper MCP: ${key} is not a usable Git remote: ${JSON.stringify(trimmed)}`
+      );
+      Deno.exit(1);
+    }
+  }
+  return {
+    mcpTestMode,
+    configuredKnowledgeStoreRemote: trimmed,
+  };
+}
+
 /**
  * Creates the shared MCP server (tool registration, session resolution). Use from HTTP or stdio entrypoints.
  * Options.getSessionId allows transport-specific session identity (e.g. stdio: process-scoped id).
  */
 export function createServer(options?: CreateServerOptions): McpServer {
+  const startup = mcpStartupState(options);
+  const { mcpTestMode, configuredKnowledgeStoreRemote } = startup;
   const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
   const testFsSessionOpt = options?.testFsSessionId;
-  const mcpTestMode = resolveMcpTestMode(options?.mcpTestMode);
 
   const server = new McpServer({
     name: "giterloper",
@@ -172,6 +225,14 @@ export function createServer(options?: CreateServerOptions): McpServer {
       return { ...payload, sessionId: state.sessionId };
     }
     return payload;
+  }
+
+  /** Parity with GET /health (specs/MCP.md — Observability). */
+  function mcpObservabilityPayload(): {
+    mcpTestMode: boolean;
+    configuredKnowledgeStoreRemote: string;
+  } {
+    return { mcpTestMode, configuredKnowledgeStoreRemote };
   }
 
   server.registerTool(
@@ -857,6 +918,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         if (pins.length === 0) {
           return {
             ok: true,
+            ...mcpObservabilityPayload(),
             ...(state.sessionId && { sessionId: state.sessionId }),
             pins: [] as { name: string; source: string; sha: string; branch: string | null }[],
           };
@@ -864,6 +926,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         if (!verify) {
           return {
             ok: true,
+            ...mcpObservabilityPayload(),
             ...(state.sessionId && { sessionId: state.sessionId }),
             pins: pins.map((p) => ({
               name: p.name,
@@ -893,6 +956,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
         });
         return {
           ok: true,
+          ...mcpObservabilityPayload(),
           ...(state.sessionId && { sessionId: state.sessionId }),
           checks,
         };
@@ -934,9 +998,14 @@ interface HttpMcpTransport {
 export function createHttpMcpApp(
   transport: HttpMcpTransport,
   authRuntime: McpAuthRuntime = readMcpAuthFromEnv(),
-  sessionOpts?: { mcpTestMode?: boolean }
+  sessionOpts?: {
+    mcpTestMode?: boolean;
+    configuredKnowledgeStoreRemote?: string;
+  }
 ): Hono {
   const mcpTestModeForHttp = resolveMcpTestMode(sessionOpts?.mcpTestMode);
+  const configuredRemoteForHealth =
+    sessionOpts?.configuredKnowledgeStoreRemote ?? "";
   const app = new Hono();
   app.use(
     "*",
@@ -958,6 +1027,8 @@ export function createHttpMcpApp(
       status: "ok",
       service: "giterloper-mcp",
       version: "1.0.0",
+      mcpTestMode: mcpTestModeForHttp,
+      configuredKnowledgeStoreRemote: configuredRemoteForHealth,
     })
   );
   app.use("/mcp", createMcpAuthMiddleware(authRuntime));
@@ -970,21 +1041,6 @@ export function createHttpMcpApp(
   });
   return app;
 }
-
-/** Single long-lived transport and server for session lifecycle. */
-const sharedMcpTestMode = resolveMcpTestMode();
-const mcpTransport = new WebStandardStreamableHTTPServerTransport({
-  sessionIdGenerator: () => randomUUID(),
-});
-const mcpServer = createServer({ mcpTestMode: sharedMcpTestMode });
-await mcpServer.connect(mcpTransport);
-const mcpAuthAtLoad = readMcpAuthFromEnv();
-const app = createHttpMcpApp(mcpTransport, mcpAuthAtLoad, {
-  mcpTestMode: sharedMcpTestMode,
-});
-
-/** Exported for ad-hoc use; prefer `createMcpAppForTest` in tests (injected auth/bootstrap). */
-export { app as mcpApp };
 
 /**
  * Creates a fresh MCP app with its own transport and server. Use in tests that need
@@ -999,16 +1055,51 @@ export async function createMcpAppForTest(
 ): Promise<ReturnType<typeof createHttpMcpApp>> {
   const { auth: authOpt, ...serverOpts } = opts ?? {};
   const mcpTestMode = resolveMcpTestMode(serverOpts.mcpTestMode);
+  const testStartup = mcpStartupState({ ...serverOpts, mcpTestMode });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
   });
   const server = createServer({ ...serverOpts, mcpTestMode });
   await server.connect(transport);
   const authRuntime = authOpt ?? readMcpAuthFromEnv();
-  return createHttpMcpApp(transport, authRuntime, { mcpTestMode });
+  return createHttpMcpApp(transport, authRuntime, {
+    mcpTestMode: testStartup.mcpTestMode,
+    configuredKnowledgeStoreRemote: testStartup.configuredKnowledgeStoreRemote,
+  });
 }
 
+/** When imported as a library (tests), no default HTTP server is built — use `createMcpAppForTest`. */
+const libraryImportMcpStub = new Hono();
+libraryImportMcpStub.all("*", (c) =>
+  c.json(
+    {
+      ok: false,
+      message:
+        "gl-mcp-server.ts was imported as a library; use createMcpAppForTest or run this file as the program entrypoint.",
+    },
+    501
+  )
+);
+
+let mcpApp: Hono = libraryImportMcpStub;
+
+/** Exported for ad-hoc use; prefer `createMcpAppForTest` in tests (injected auth/bootstrap). */
+export { mcpApp };
+
 if (import.meta.main) {
+  const sharedMcpTestMode = resolveMcpTestMode();
+  const httpStartup = mcpStartupState({ mcpTestMode: sharedMcpTestMode });
+  const mcpTransport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  });
+  const mcpServer = createServer({ mcpTestMode: sharedMcpTestMode });
+  await mcpServer.connect(mcpTransport);
+  const mcpAuthAtLoad = readMcpAuthFromEnv();
+  mcpApp = createHttpMcpApp(mcpTransport, mcpAuthAtLoad, {
+    mcpTestMode: httpStartup.mcpTestMode,
+    configuredKnowledgeStoreRemote: httpStartup.configuredKnowledgeStoreRemote,
+  });
+
   const { insecure, expectedToken } = readMcpAuthFromEnv();
   const hasToken = !!expectedToken;
   const ttlMs = getSessionTtlMs();
@@ -1026,5 +1117,5 @@ if (import.meta.main) {
   } else {
     console.log(`  Auth:   enabled (no MCP_TOKEN set; all MCP requests will be denied)`);
   }
-  Deno.serve({ port: PORT, hostname: HOST }, (req) => app.fetch(req));
+  Deno.serve({ port: PORT, hostname: HOST }, (req) => mcpApp.fetch(req));
 }

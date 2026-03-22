@@ -473,6 +473,14 @@
       "name": "merge with same sourcePin and targetPin fails"
     },
     {
+      "path": "tests/mcp/mcp-observability.test.ts",
+      "name": "MCP giterloper_state_inspect matches /health observability fields (shared core parity)"
+    },
+    {
+      "path": "tests/mcp/mcp-observability.test.ts",
+      "name": "MCP HTTP /health reports mcpTestMode and configuredKnowledgeStoreRemote in test mode"
+    },
+    {
       "path": "tests/mcp/mcp-pin-set.test.ts",
       "name": "pin_set branch-only (no pin) updates session pin branch, keeps SHA"
     },

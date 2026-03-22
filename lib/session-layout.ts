@@ -66,3 +66,26 @@ export function effectiveKnowledgeStoreRemote(
   const key = mcpTestMode ? TEST_KNOWLEDGE_STORE_REMOTE_ENV : KNOWLEDGE_STORE_REMOTE_ENV;
   return env.get(key)?.trim() || undefined;
 }
+
+/**
+ * Structural check for MCP startup (specs/MCP.md): non-empty remotes must look like a Git remote
+ * before the server listens. Does not probe the network.
+ */
+export function isPlausibleKnowledgeStoreRemote(s: string): boolean {
+  const t = s.trim();
+  if (t.length < 4) return false;
+  if (/[\r\n\x00]/.test(t)) return false;
+  const lower = t.toLowerCase();
+  if (lower.startsWith("http://") || lower.startsWith("https://")) {
+    try {
+      new URL(t);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  if (t.startsWith("git@") || lower.startsWith("ssh://")) return true;
+  if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(t)) return true;
+  if (/github\.com[/:][A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+/.test(t)) return true;
+  return false;
+}

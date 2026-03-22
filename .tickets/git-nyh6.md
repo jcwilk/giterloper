@@ -1,6 +1,6 @@
 ---
 id: git-nyh6
-status: open
+status: closed
 deps: [git-y5f0]
 links: []
 created: 2026-03-22T03:10:24Z

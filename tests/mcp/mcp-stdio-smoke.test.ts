@@ -7,6 +7,8 @@ import { assertEquals } from "jsr:@std/assert";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { TEST_SOURCE } from "../helpers/config.ts";
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 function readLine(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
@@ -30,6 +32,10 @@ Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped sess
   const cmd = new Deno.Command(Deno.execPath(), {
     args: ["run", "-A", join(ROOT, "lib", "gl-mcp-server-stdio.ts")],
     cwd: ROOT,
+    env: {
+      ...Deno.env.toObject(),
+      KNOWLEDGE_STORE_REMOTE: TEST_SOURCE,
+    },
     stdin: "piped",
     stdout: "piped",
     stderr: "piped",
