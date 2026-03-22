@@ -1,6 +1,6 @@
 ---
 id: git-rm4l
-status: open
+status: closed
 deps: [git-incv]
 links: []
 created: 2026-03-22T00:21:49Z
