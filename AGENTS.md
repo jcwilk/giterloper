@@ -2,22 +2,36 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
-**Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence, alignment vocabulary, and verifier expectations for area specs.
+**Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence within a product slice, **`docs/` demotion** (operational notes, not a lock on product truth), **hierarchical alignment** vs **hierarchical divergence**, verifier expectations for area specs, and rules for spec scope and growth.
+
+**This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** (`.cursor/agents/verifier.md`) for agent workflows. **`specs/`**, **tests/README**, the verifier, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
+
+**Orthogonality:** **Root instruction files** (this doc, [CONVENTIONS.md](./CONVENTIONS.md), and similar) govern **universal** process, standards, and agent behavior for the whole repo. **`specs/*`** governs **product behavior** per area only (for example `specs/core.md` for behavior covered by `tests/core/`). If the layers seem to overlap, **call the overlap out**. In general, **area specs conform to repo-wide root instructions**, not the other way around; changing root instructions is for systemic or user-requested process change, not routine product tweaks.
 
 ## Source-of-truth precedence (CRITICAL)
 
-When requirements conflict, follow this **numbered** precedence order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
+When requirements conflict, follow this order. This applies to humans and agents (including subagents such as `.cursor/agents/work-next.md` and `.cursor/agents/verifier.md`).
 
-1. **Normative product contracts** (highest): authoritative markdown specs (especially behavior defined with words like "MUST", "exact", or "single source of truth"), **CLI help text**, and **MCP tool descriptions / user-visible strings** that document intended behavior. For behavioral detail, prefer the dedicated specs—for example [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics) for `pin_set` / session-pin / branch-ref rules and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
+**Within a product slice** (CLI, MCP, core pin semantics, etc.), normative order is:
+
+1. **Applicable documents under `specs/*`** for that slice—the written product contract (sections that use words like "MUST", "exact", or "single source of truth"). For depth, use the area files—for example [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics) for `pin_set` / session-pin / branch-ref rules, [specs/cli.md](./specs/cli.md) for CLI behavior, and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
 2. **Tests** (middle): tests override **current implementation** when the two disagree, but tests **do not** override (1). Tests are executable checks; they must not redefine a contract already fixed by (1).
 3. **Current implementation** (lowest): code may drift; update it to match (1) and keep (2) aligned with the same contract.
 
-**Changing (1)** (editing authoritative docs, revising CLI/MCP-facing contract text, or implementing behavior that contradicts them) requires **explicit user direction**—do not "fix" drift by silently rewriting the contract.
+**Pairing slice specs with user-visible strings:** **[specs/cli.md](./specs/cli.md)** and **CLI help text** (and other user-visible CLI contract text) should stay **intentionally in sync**. **[specs/MCP.md](./specs/MCP.md)** and **MCP tool descriptions / user-visible MCP strings** should stay **intentionally in sync**. **A conflict between the slice spec and its paired user-facing strings is a bug**—fix help, descriptions, spec, or implementation **together**; do not silently prefer one side. Slice specs **do not** need to cite AGENTS or restate the full repo-wide stack.
+
+**`docs/`:** Deployment and operational notes may describe behavior incidentally but **must not lock** product truth. On conflict with `specs/*`, tests, or intentional product contracts, **update `docs/`** to conform. The root [MCP.md](./MCP.md) file is a **non-normative pointer** to [specs/MCP.md](./specs/MCP.md); behavior is defined only under `specs/`.
+
+**Hierarchical alignment** means specs, tests, code, and (where used) tickets/commits are **kept intentionally in sync** for a slice. **Hierarchical divergence** is **drift** when layers disagree without an explicit decision to change.
+
+**Judgement and spec edits:** When work introduces **materially new** product behavior that belongs in the written contract, update the relevant **`specs/*`** in **task-scoped** fashion only (no drive-by spec edits; no numeric “coverage” quota—use judgement). See the mandate for strict alignment at rollout and ongoing test/spec pairing rules.
+
+**Changing normative contracts** (editing authoritative area specs, revising CLI/MCP-facing contract text, or implementing behavior that contradicts them) requires **explicit user direction**—do not "fix" drift by silently rewriting the contract.
 
 **Conflict resolution (examples):**
-- Spec says X, test expects Y, code does Z → align **code and tests** to the spec (and any CLI/MCP contract in (1)); do not change the spec without the user.
+- Spec says X, test expects Y, code does Z → align **code and tests** to the spec (and any paired CLI/MCP contract text); do not change the spec without the user.
 - Test says X, code does Y, nothing in (1) settles it → treat the test as the intended behavior; fix **code** (or, if the test is wrong, fix the test—still without contradicting (1)).
-- Two markdown docs disagree → the more **authoritative / behavior-normative** doc wins (e.g. a "single source of truth" doc over informal notes); if unclear, ask the user before persisting.
+- Two markdown docs disagree → the more **authoritative / behavior-normative** doc wins (e.g. a "single source of truth" section in `specs/*` over informal notes); if unclear, ask the user before persisting.
 
 Required behavior for agents:
 - If tests conflict with (1), treat the tests as stale and propose/implement updates that restore alignment with the normative contracts.
