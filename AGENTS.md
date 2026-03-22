@@ -54,6 +54,7 @@ Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./
 
 Ticket operations are typically induced by user-invoked **skills** (inline) or **agents** (spawn via Task), for example:
 - `/work-all` (`.cursor/skills/work-all/SKILL.md`)
+- `/realign-divergences` (`.cursor/skills/realign-divergences/SKILL.md`) — compare behavior to `specs/*`, file tickets, then `work-all`
 - `/file-tickets` (`.cursor/skills/file-tickets/SKILL.md`)
 - `/archive-tickets` (`.cursor/skills/archive-tickets/SKILL.md`)
 - `/spec-change` (`.cursor/skills/spec-change/SKILL.md`) — edit **`specs/*`**, file **forward** alignment tickets only when owed, **never** start/close tickets in this flow
