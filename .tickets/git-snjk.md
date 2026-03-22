@@ -1,6 +1,6 @@
 ---
 id: git-snjk
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-22T18:52:57Z
@@ -17,4 +17,16 @@ Source plan: [.cursor/plans/dynamic_runner_hardened_10c3029f.plan.md](../.cursor
 **Out of scope:** no dedicated unit tests for the discover module; no `docs/` rehome of a minimal MCP client demo.
 
 **Execution order (deps):** git-k9pg → git-od4q → git-4azd → git-ncc2 → git-i3e8.
+
+## Children (all closed)
+
+- git-k9pg — AST fail-closed test discovery module
+- git-od4q — Harness: discovery, JUnit ≥1 test ran, manifest removed
+- git-4azd — MCP HTTP client migrated to `tests/helpers/`
+- git-ncc2 — `reference_client/` removed, repo hygiene
+- git-i3e8 — Docs + `specs/MCP.md` alignment
+
+## Closure
+
+Epic acceptance verified 2026-03-22: deliverables live on `HEAD` (AST discovery + SWC pin, unified runner with JUnit gate and mandatory stderr case count, no manifest path, `tests/helpers/mcp-http-client.ts` + `tests/mcp/mcp-search-tool.test.ts`, no `reference_client/`). `./scripts/check_all.sh` green (163 discovered cases at time of close).
 
