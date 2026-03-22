@@ -1,6 +1,11 @@
 .giterloper/
 .giterloper_test/
 
+# Local env (copy from .env.example → .env.dev and/or .env.test as needed).
+# Narrow names only—do not add blanket .env.* (would hide committed .env.example).
+.env.dev
+.env.test
+
 .cursor/plans/
 
 logs/giterloper-retry.log

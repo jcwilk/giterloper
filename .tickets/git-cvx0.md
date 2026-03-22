@@ -10,9 +10,8 @@ assignee: user.email
 ---
 # Epic: repo-local .env files for Deno/MCP (KNOWLEDGE_STORE_REMOTE etc.)
 
-Establish a convenient, standard way for contributors and Cursor stdio MCP to supply mandatory MCP env (KNOWLEDGE_STORE_REMOTE or GITERLOPER_MCP_TEST_MODE + TEST_KNOWLEDGE_STORE_REMOTE) without ad-hoc shell exports. Model after common .env.dev / .env.test patterns: committed templates, gitignored local files, explicit selection mechanism. Concrete filenames are MCP-scoped (e.g. `.env.mcp.*`) in child tickets so defaults are obvious for MCP/Deno entrypoints—not necessarily the literal names `.env.dev` / `.env.test`. Cursor’s stdio MCP config does not automatically load repo `.env` files; contributors still copy variable names/values into Cursor MCP settings or OS env (see git-m4ln). Normative MCP env semantics remain specs/MCP.md and specs/core.md; this epic is tooling/docs only unless a minimal code seam is required. Deno supports loading env from a file via CLI (e.g. deno run --env-file=...); prefer native flags over new runtime dotenv in lib/.
+Establish a convenient, standard way for contributors and Cursor stdio MCP to supply mandatory MCP env (KNOWLEDGE_STORE_REMOTE or GITERLOPER_MCP_TEST_MODE + TEST_KNOWLEDGE_STORE_REMOTE) without ad-hoc shell exports. Use **one committed** **`.env.example`** and **gitignored** **`.env.dev`** / **`.env.test`** (dev vs test profiles; copy from the same template). Cursor’s stdio MCP config does not automatically load repo `.env` files; contributors still copy variable names/values into Cursor MCP settings or OS env (see git-m4ln). Normative MCP env semantics remain specs/MCP.md and specs/core.md; this epic is tooling/docs only unless a minimal code seam is required. Deno supports loading env from a file via CLI (e.g. deno run --env-file=...); prefer native flags over new runtime dotenv in lib/.
 
 ## Acceptance Criteria (epic)
 
 Epic complete when child tickets git-x31b, git-ej14, and git-m4ln are closed and `./scripts/check_all.sh` remains green for the batch.
-
