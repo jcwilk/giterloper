@@ -1,6 +1,6 @@
 ---
 id: git-6lq1
-status: open
+status: closed
 deps: [git-a4f4]
 links: []
 created: 2026-03-22T02:43:33Z

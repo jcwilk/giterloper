@@ -12,12 +12,13 @@ import { resolveMcpTestMode } from "./session-layout.ts";
 
 const stdioSessionId = randomUUID();
 const stdioMcpTestMode = resolveMcpTestMode();
-const server = createServer({
+const { server, eagerBootstrapStdioSession } = createServer({
   getSessionId: () => stdioSessionId,
   mcpTestMode: stdioMcpTestMode,
 });
 const transport = new StdioServerTransport();
 await server.connect(transport);
+eagerBootstrapStdioSession();
 
 const ttlMs = getSessionTtlMs();
 if (ttlMs > 0) {

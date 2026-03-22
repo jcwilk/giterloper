@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run -A
 /**
- * Giterloper MCP: registers tools in `createServer()` and, when this file is the program
+ * Giterloper MCP: registers tools in `createServer().server` and, when this file is the program
  * entrypoint, serves them over HTTP/SSE (`/health`, `/mcp`) via `Deno.serve`.
  */
 import { createHash, randomUUID } from "node:crypto";
@@ -98,6 +98,20 @@ export interface CreateServerOptions {
   knowledgeStoreRemote?: string | null;
 }
 
+/**
+ * Returned by {@link createServer}: MCP server plus hooks for session pin bootstrap (specs/MCP.md).
+ */
+export interface McpServerBundle {
+  server: McpServer;
+  /**
+   * Pass to `WebStandardStreamableHTTPServerTransport({ onsessioninitialized })` so `_session`
+   * is created after HTTP `initialize` before any tool handler runs.
+   */
+  onHttpSessionInitialized: (sessionId: string) => void | Promise<void>;
+  /** Call once after stdio `server.connect` so `_session` exists before any tool handler runs. */
+  eagerBootstrapStdioSession: () => void;
+}
+
 /** Resolved after startup validation; used for /health and giterloper_state_inspect parity. */
 export interface McpStartupSnapshot {
   mcpTestMode: boolean;
@@ -148,7 +162,7 @@ export function mcpStartupState(
  * Creates the shared MCP server (tool registration, session resolution). Use from HTTP or stdio entrypoints.
  * Options.getSessionId allows transport-specific session identity (e.g. stdio: process-scoped id).
  */
-export function createServer(options?: CreateServerOptions): McpServer {
+export function createServer(options?: CreateServerOptions): McpServerBundle {
   const startup = mcpStartupState(options);
   const { mcpTestMode, configuredKnowledgeStoreRemote } = startup;
   const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
@@ -204,16 +218,34 @@ export function createServer(options?: CreateServerOptions): McpServer {
     return pin; // Pass through "_session" so resolvePin's validatePinName rejects it.
   }
 
-  /** Resolves session-scoped state for MCP tool calls. Requires valid sessionId. */
-  function stateForSession(
+  /**
+   * Session dir, `_session` bootstrap when configured, TTL touch. Idempotent; runs on HTTP session
+   * activation (via {@link onHttpSessionInitialized}) and on each tool call.
+   */
+  function prepareSessionState(
     extra: { sessionId?: string } | undefined
-  ): ReturnType<typeof makeState> {
+  ): GlState {
     const sessionId = resolveSessionId(extra);
     const state = makeState(sessionId, { retryLogRole: "mcp", mcpTestMode });
     ensureSessionDir(state);
     autoInitSessionPin(state, knowledgeRemoteOpt);
     touchSession(sessionId, mcpTestMode);
     return state;
+  }
+
+  /** Resolves session-scoped state for MCP tool calls. Requires valid sessionId. */
+  function stateForSession(
+    extra: { sessionId?: string } | undefined
+  ): GlState {
+    return prepareSessionState(extra);
+  }
+
+  function onHttpSessionInitialized(sessionId: string): void {
+    prepareSessionState({ sessionId });
+  }
+
+  function eagerBootstrapStdioSession(): void {
+    prepareSessionState(undefined);
   }
 
   /** Augments success payload with session/pin metadata when available. */
@@ -983,7 +1015,7 @@ export function createServer(options?: CreateServerOptions): McpServer {
       })
   );
 
-  return server;
+  return { server, onHttpSessionInitialized, eagerBootstrapStdioSession };
 }
 
 /** HTTP transport type for app wiring: handleRequest and optional DELETE session cleanup. */
@@ -1057,10 +1089,14 @@ export async function createMcpAppForTest(
   const mcpTestMode =
     serverOpts.mcpTestMode !== undefined ? serverOpts.mcpTestMode : true;
   const testStartup = mcpStartupState({ ...serverOpts, mcpTestMode });
+  const { server, onHttpSessionInitialized } = createServer({
+    ...serverOpts,
+    mcpTestMode,
+  });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
+    onsessioninitialized: onHttpSessionInitialized,
   });
-  const server = createServer({ ...serverOpts, mcpTestMode });
   await server.connect(transport);
   const authRuntime = authOpt ?? readMcpAuthFromEnv();
   return createHttpMcpApp(transport, authRuntime, {
@@ -1090,10 +1126,13 @@ export { mcpApp };
 if (import.meta.main) {
   const sharedMcpTestMode = resolveMcpTestMode();
   const httpStartup = mcpStartupState({ mcpTestMode: sharedMcpTestMode });
+  const { server: mcpServer, onHttpSessionInitialized } = createServer({
+    mcpTestMode: sharedMcpTestMode,
+  });
   const mcpTransport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
+    onsessioninitialized: onHttpSessionInitialized,
   });
-  const mcpServer = createServer({ mcpTestMode: sharedMcpTestMode });
   await mcpServer.connect(mcpTransport);
   const mcpAuthAtLoad = readMcpAuthFromEnv();
   mcpApp = createHttpMcpApp(mcpTransport, mcpAuthAtLoad, {

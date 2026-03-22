@@ -521,6 +521,14 @@
       "name": "session pin name is _session after bootstrap"
     },
     {
+      "path": "tests/mcp/mcp-session-bootstrap.test.ts",
+      "name": "MCP HTTP: after initialize, pinned.yaml lists _session before any tool call"
+    },
+    {
+      "path": "tests/mcp/mcp-session-bootstrap.test.ts",
+      "name": "MCP stdio parity: eagerBootstrapStdioSession creates _session before tools"
+    },
+    {
       "path": "tests/mcp/mcp-session-lifecycle.test.ts",
       "name": "MCP session lifecycle: DELETE /mcp triggers session cleanup"
     },
