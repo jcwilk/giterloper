@@ -147,7 +147,7 @@ export async function stateInspect(
 /** Call giterloper_pin_set and return parsed result. */
 export async function pinSet(
   client: Client,
-  args: { pin?: string; source?: string; ref?: string; branch?: string }
+  args: { pin?: string; ref?: string; branch?: string }
 ): Promise<{ ok: boolean; action?: string; message?: string; pin?: { name: string }; sessionPin?: unknown }> {
   return (await callToolJson(client, "giterloper_pin_set", args as Record<string, unknown>)) as {
     ok: boolean;

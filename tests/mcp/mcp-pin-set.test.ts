@@ -147,6 +147,11 @@ Deno.test("pin_set inputSchema includes branch and ref parameters", async () => 
       true,
       `pin_set must have ref param (${PIN_CONFIG_SPEC}); got: ${JSON.stringify(props)}`
     );
+    assertEquals(
+      props.source === undefined,
+      true,
+      `pin_set must not expose source on MCP inputs (${PIN_CONFIG_SPEC}); got: ${JSON.stringify(props)}`
+    );
   });
 });
 

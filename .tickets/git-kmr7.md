@@ -1,6 +1,6 @@
 ---
 id: git-kmr7
-status: open
+status: closed
 deps: [git-6lq1]
 links: []
 created: 2026-03-22T02:43:33Z

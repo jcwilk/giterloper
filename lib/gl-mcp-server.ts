@@ -577,13 +577,23 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
       })
   );
 
-  const PIN_SET_ALLOWED = new Set(["pin", "source", "ref", "branch"]);
+  const PIN_SET_ALLOWED = new Set(["pin", "ref", "branch"]);
+
+  /** Remote used for MCP pin_set git resolution: startup-configured store, else existing _session source (harness without bootstrap remote). */
+  function mcpPinSetRepoRemote(pins: Pin[]): string | null {
+    const cfg = configuredKnowledgeStoreRemote.trim();
+    if (cfg.length > 0) return cfg;
+    const session = pins.find((p) => p.name === SESSION_PIN_NAME);
+    const s = session?.source?.trim();
+    return s && s.length > 0 ? s : null;
+  }
+
   server.registerTool(
     "giterloper_pin_set",
     {
       title: "Configure pins",
       description:
-        "Configure pins per specs/core.md (Pin configuration semantics). Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from remote. Pins store name, sha, optionally branch.",
+        "Configure pins per specs/core.md (Pin configuration semantics). Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
       inputSchema: z
         .object({
           pin: z
@@ -592,10 +602,6 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
             .describe(
               'Named pin to add or update; omit for session pin. Do not pass the literal "_session" (reserved).'
             ),
-          source: z
-            .string()
-            .optional()
-            .describe("Repo source (required when creating the first pin; e.g. github.com/owner/repo)"),
           ref: z
             .string()
             .optional()
@@ -615,14 +621,13 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           return {
             ok: false,
             code: "invalid_argument",
-            message: `Unknown arguments: ${unknown.join(", ")}. Allowed: pin, source, ref, branch.`,
+            message: `Unknown arguments: ${unknown.join(", ")}. Allowed: pin, ref, branch.`,
             details: {},
           };
         }
         const str = (v: unknown): string | undefined =>
           v === undefined || v === null ? undefined : typeof v === "string" ? v : undefined;
         const pin = str(raw.pin);
-        const source = str(raw.source);
         const ref = str(raw.ref);
         const branch = str(raw.branch);
         const state = stateForSession(extra);
@@ -642,7 +647,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
                 ok: false,
                 code: "invalid_argument",
                 message:
-                  "No session pin (_session) configured. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) or use pin_set with source and branch/ref to create it.",
+                  "No session pin (_session) configured. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) so the server can bootstrap the session pin.",
                 details: {},
               };
             }
@@ -659,24 +664,25 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
             });
           }
 
-          // Need session pin or source to create.
-          if (!sessionPin && !source?.trim()) {
-            return {
-              ok: false,
-              code: "invalid_argument",
-              message: "No session pin (_session) configured. Use pin_set with source and branch or ref to create it.",
-              details: {},
-            };
-          }
+          // Create _session when absent: requires a resolvable server-configured remote (or harness fallback).
           if (!sessionPin) {
-            const effectiveSource = source!.trim();
+            const repoRemote = mcpPinSetRepoRemote(pins);
+            if (!repoRemote) {
+              return {
+                ok: false,
+                code: "invalid_argument",
+                message:
+                  "No session pin (_session) configured and no effective knowledge remote is available. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) and restart the server, or rely on session bootstrap.",
+                details: {},
+              };
+            }
             const effectiveSha = shaProvided
-              ? await resolveShaOrRef(effectiveSource, ref!.trim(), rlog)
-              : resolveSha(effectiveSource, "HEAD", rlog);
+              ? await resolveShaOrRef(repoRemote, ref!.trim(), rlog)
+              : resolveSha(repoRemote, "HEAD", rlog);
             const branchVal = branchProvided ? branch!.trim() || undefined : undefined;
             sessionPin = {
               name: SESSION_PIN_NAME,
-              source: effectiveSource,
+              source: repoRemote,
               sha: effectiveSha,
               branch: branchVal,
             };
@@ -715,16 +721,17 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
             });
           }
           // ref only, no branch: update session pin to resolved ref SHA, branchlessly. Per doc §2.
-          const effectiveSource = source?.trim() || sessionPin.source;
-          if (!effectiveSource) {
+          const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPin.source;
+          if (!repoRemote?.trim()) {
             return {
               ok: false,
               code: "invalid_argument",
-              message: "No pins configured. Use pin_set with pin and source to create the first pin.",
+              message:
+                "Cannot resolve ref: no effective knowledge remote. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode).",
               details: {},
             };
           }
-          const resolvedSha = await resolveShaOrRef(effectiveSource, ref!.trim(), rlog);
+          const resolvedSha = await resolveShaOrRef(repoRemote, ref!.trim(), rlog);
           const updated: Pin = { ...sessionPin, sha: resolvedSha, branch: undefined };
           teardownPinData(state, sessionPin);
           clonePin(state, updated);
@@ -763,12 +770,13 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
 
         // Branch + pin: create/update named pin. Per doc §1 (ref not specified) use session pin SHA; per doc §3 (ref specified) use resolved ref SHA.
         if (branchProvided) {
-          const effectiveSource = source?.trim() || sessionPinForInheritance?.source;
-          if (!effectiveSource) {
+          const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPinForInheritance?.source;
+          if (!repoRemote?.trim()) {
             return {
               ok: false,
               code: "invalid_argument",
-              message: "No session pin (_session) configured. Create it first or provide source.",
+              message:
+                "No session pin (_session) configured and no effective knowledge remote. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) or ensure _session exists.",
               details: {},
             };
           }
@@ -781,12 +789,12 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
             };
           }
           const effectiveSha = shaProvided
-            ? await resolveShaOrRef(effectiveSource, ref!.trim(), rlog)
+            ? await resolveShaOrRef(repoRemote, ref!.trim(), rlog)
             : sessionPinForInheritance!.sha;
           const branchVal = branch!.trim() || undefined;
           const snapshotPin: Pin = {
             name: trimmedName,
-            source: effectiveSource,
+            source: repoRemote,
             sha: effectiveSha,
             branch: branchVal,
           };
@@ -848,15 +856,13 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         // Existing pin (no branch): merge provided fields in place, never reorder or change default
         if (existing) {
           const merged: Pin = { ...existing };
-          const sourceProvided = source !== undefined && source?.trim() !== "";
           const refProvided = ref !== undefined && ref?.trim() !== "";
+          const repoRemote = mcpPinSetRepoRemote(pins) ?? existing.source;
 
-          if (sourceProvided) merged.source = source!.trim();
-
-          if (refProvided || sourceProvided) {
-            const src = merged.source;
-            const refInput = refProvided ? ref!.trim() : "HEAD";
-            merged.sha = await resolveShaOrRef(src, refInput, rlog);
+          if (refProvided) {
+            merged.source = configuredKnowledgeStoreRemote.trim() || existing.source;
+            const refInput = ref!.trim();
+            merged.sha = await resolveShaOrRef(repoRemote, refInput, rlog);
           }
 
           const shaChanged = merged.sha !== existing.sha;
@@ -882,24 +888,26 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           };
         }
 
-        // Non-existent pin (no branch): create using session pin's source/sha when not provided, add at end
-        const effectiveSource = source?.trim() || sessionPinForInheritance?.source;
-        if (!effectiveSource) {
+        // Non-existent pin (no branch): create using server remote / session inheritance, add at end
+        const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPinForInheritance?.source;
+        if (!repoRemote?.trim()) {
           return {
             ok: false,
             code: "invalid_argument",
-            message: "No session pin (_session) configured. Create it first or provide source.",
+            message:
+              "No session pin (_session) configured and no effective knowledge remote. Set KNOWLEDGE_STORE_REMOTE (or TEST_KNOWLEDGE_STORE_REMOTE in MCP test mode) or ensure _session exists.",
             details: {},
           };
         }
         const refInput = ref?.trim() || "HEAD";
         const effectiveSha =
-          !sessionPinForInheritance || source?.trim() || ref?.trim()
-            ? await resolveShaOrRef(effectiveSource, refInput, rlog)
+          !sessionPinForInheritance || ref?.trim()
+            ? await resolveShaOrRef(repoRemote, refInput, rlog)
             : sessionPinForInheritance.sha;
+        const storedSource = configuredKnowledgeStoreRemote.trim() || repoRemote;
         const newPin = {
           name: trimmedName,
-          source: effectiveSource,
+          source: storedSource,
           sha: effectiveSha,
           branch: branch?.trim() || undefined,
         };
