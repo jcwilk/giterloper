@@ -4,7 +4,7 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 ## Specs, tests, and code
 
-This README is **human** onboarding for the repo layout. **Product behavior** is defined under **`specs/`** (area specs such as CLI, MCP, and core pin semantics). For **motivation and typical agent workflows** (non-normative), see [`specs/use-cases.md`](./specs/use-cases.md). **`tests/`** holds the executable harness and topic slices (`tests/core/`, `tests/cli/`, `tests/mcp/`); see [`tests/README.md`](./tests/README.md). **Implementation** lives primarily in **`lib/`** (CLI and MCP server).
+This README is **human** onboarding for the repo layout. **Product behavior** is defined under **`specs/`** (area specs such as CLI, MCP, core library, and pin semantics). For **motivation and typical agent workflows** (non-normative vision), see [`docs/use-cases.md`](./docs/use-cases.md). **`tests/`** holds the executable harness and topic slices (`tests/core/`, `tests/cli/`, `tests/mcp/`); see [`tests/README.md`](./tests/README.md). **Implementation** lives primarily in **`lib/`** (CLI and MCP server).
 
 For AI agent and contributor workflow and conventions, see [`AGENTS.md`](./AGENTS.md).
 

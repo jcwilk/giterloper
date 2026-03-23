@@ -2,9 +2,9 @@
 
 This document is the **normative** product-behavior spec for the Model Context Protocol slice. It pairs with `tests/mcp/` (executable checks do not override this text). Day-to-day agent discovery SHOULD rely on **live MCP tool schemas, titles, and descriptions** and on observed server behavior; this file states cross-cutting contracts those surfaces must stay aligned with.
 
-For **motivation, architecture context, and typical agent workflows** (non-normative), see **[specs/use-cases.md](./use-cases.md)**.
+For **motivation, architecture context, and typical agent workflows** (non-normative product vision), see **[`docs/use-cases.md`](../docs/use-cases.md)**.
 
-For **pin and `giterloper_pin_set` semantics** (session vs named pins, branch/ref matrix, merge-tool exceptions), see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** (normative; no second copy here).
+For **pin and `giterloper_pin_set` semantics** (session vs named pins, branch/ref matrix, merge-tool exceptions), see **[`specs/pin-semantics.md`](./pin-semantics.md)** (normative; no second copy here).
 
 ---
 
@@ -46,15 +46,9 @@ Search and on-demand indexing are implemented by invoking the **memsearch** CLI 
 
 - **Parity:** Stdio and HTTP paths MUST use the **same** check (shared factory or shared helper called from both entrypoints) so one transport cannot start without **memsearch** while the other does.
 
-- **Executable tests:** **`tests/mcp/`** cases that exercise **`giterloper_search`** MUST **not** be marked **ignored**, **skipped**, or otherwise bypassed solely because **memsearch** is missing from the environment. Those tests assume a correctly provisioned host (including **memsearch** on **`PATH`**), consistent with this contract. Pair operational harness detail with [tests/README.md](../tests/README.md) per [AGENTS.md](../AGENTS.md).
+Harness obligations for **`tests/mcp/`**, **`CreateServerOptions`** test overrides, and **`skipMemsearchVerification`** are documented in [tests/README.md](../tests/README.md) (operational detail for authors; not a second normative contract).
 
-- **Test factories:** In-process or subprocess test helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule above, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints. The implementation exposes this as **`skipMemsearchVerification`** on **`CreateServerOptions`** (`lib/gl-mcp-server.ts`); production HTTP and stdio entrypoints MUST NOT pass it.
-
-### Integration tests and repository identity (MCP)
-
-- **Explicit server options (integration tests):** `createServer` / **`CreateServerOptions`** MAY accept an explicit knowledge remote string (and/or aligned override fields) that satisfies startup validation **as if** the corresponding env var for the active mode were set, so subprocess and in-process tests do not rely on polluting parent env. Such overrides MUST only be used in test-oriented factories; production entrypoints continue to read env.
-
-- **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store for a mode. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.
+- **Repository identity vs clients:** The MCP server alone defines which Git remote is the knowledge store for a mode. MCP tool inputs MUST **not** include a **`source`** (or equivalent) parameter for choosing or overriding that remote. Session and named pins use the server-configured repository; see **[`specs/pin-semantics.md`](./pin-semantics.md)** for how **`giterloper_pin_set`** parameters map without client-supplied **`source`**.
 
 ### Session root directory names (normative, not env-configurable)
 

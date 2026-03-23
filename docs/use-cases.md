@@ -1,6 +1,10 @@
 # Product context and use cases
 
-This document is **descriptive** background: it explains what Giterloper is for and how external agents typically use it. It is **not** a substitute for executable contracts in **`specs/core.md`**, **`specs/cli.md`**, or **`specs/MCP.md`**—those files define normative behavior paired with tests. For **pin naming, session pin rules, branch/ref resolution, and MCP tool contracts**, follow those area specs.
+**Preamble:** This file lives under **`docs/`** as **descriptive vision**—what we are building toward and why it matters—not as a lock on product behavior. **Normative** contracts (what the software **must** do) are only under **`specs/*`** and tests; if this narrative ever disagrees with those layers, **trust `specs/` and align `docs/`**.
+
+---
+
+This document is **descriptive** background: it explains what Giterloper is for and how external agents typically use it. It is **not** a substitute for executable contracts in **[`specs/core.md`](../specs/core.md)**, **[`specs/pin-semantics.md`](../specs/pin-semantics.md)**, **[`specs/cli.md`](../specs/cli.md)**, or **[`specs/MCP.md`](../specs/MCP.md)**—those files define normative behavior paired with tests. For **pin naming, session pin rules, branch/ref resolution, and MCP tool contracts**, follow those area specs.
 
 ---
 
@@ -28,7 +32,7 @@ Knowledge and code also differ in how **version history** is used: reverting or 
 
 ### Version-specific knowledge and pins
 
-Queries run against a **specific version** of the knowledge store (a commit). The product may default to a branch head for convenience; callers can also target a **specific SHA** for stability and reproducibility. The **normative** rules for pins, session defaults, and ref/branch handling are in **[specs/core.md — Pin configuration semantics](./core.md#pin-configuration-semantics)** and **[specs/MCP.md](./MCP.md)**.
+Queries run against a **specific version** of the knowledge store (a commit). The product may default to a branch head for convenience; callers can also target a **specific SHA** for stability and reproducibility. The **normative** rules for pins, session defaults, and ref/branch handling are in **[`specs/pin-semantics.md`](../specs/pin-semantics.md)** and **[`specs/MCP.md`](../specs/MCP.md)**.
 
 Motivation (non-normative):
 

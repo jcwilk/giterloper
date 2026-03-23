@@ -34,11 +34,11 @@ When the change set touches behavior in a slice, **read the governing area spec*
 
 | If the change concerns… | Read (at minimum) |
 |-------------------------|-------------------|
-| Core pins, paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md` |
+| Core pins, paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md`, `specs/pin-semantics.md` |
 | `gl` / `gl-maintenance` CLI behavior, `tests/cli/` | `specs/cli.md` |
 | MCP tools, transport, session pin surface, `tests/mcp/` | `specs/MCP.md` |
 
-Pin layout and session paths are defined in **`specs/*`** (for example pin configuration semantics in **`specs/core.md`**) and the canonical on-disk layout **`.giterloper/<sessionId>/`**—do **not** cite removed legacy **`docs/PIN_*`** paths as authority.
+Pin configuration at user-facing boundaries is defined in **`specs/pin-semantics.md`**; paths and **`pinned.yaml`** storage in **`specs/core.md`**, with canonical on-disk layout **`.giterloper/<sessionId>/`**—do **not** cite removed legacy **`docs/PIN_*`** paths as authority.
 
 ## Tests: strict anchoring (aligned with tests/README)
 

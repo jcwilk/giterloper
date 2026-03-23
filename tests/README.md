@@ -8,7 +8,7 @@ This document is the canonical reference for test strategy, test execution, harn
 
 | Test folder | Authoritative product spec |
 |-------------|----------------------------|
-| `tests/core/` | [specs/core.md](../specs/core.md) |
+| `tests/core/` | [specs/core.md](../specs/core.md), [specs/pin-semantics.md](../specs/pin-semantics.md) |
 | `tests/cli/` | [specs/cli.md](../specs/cli.md) |
 | `tests/mcp/` | [specs/MCP.md](../specs/MCP.md) |
 
@@ -120,6 +120,16 @@ Search and on-disk indexing use the **`memsearch`** CLI (`lib/memsearch-adapter.
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](../specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
 Normative MCP vs CLI rules: [specs/MCP.md](../specs/MCP.md), [specs/cli.md](../specs/cli.md). Install steps also appear in [AGENTS.md](../AGENTS.md).
+
+### MCP `tests/mcp/` and server factories
+
+Normative **product** rules for MCP startup (including **memsearch** on **`PATH`**) live in **[specs/MCP.md](../specs/MCP.md)**. This subsection is **harness-only**: how **`tests/mcp/`** and test factories construct servers without weakening production entrypoints.
+
+- **`tests/mcp/`** cases that exercise **`giterloper_search`** MUST **not** be marked **ignored**, **skipped**, or otherwise bypassed solely because **memsearch** is missing from the environment. Those tests assume a correctly provisioned host (including **memsearch** on **`PATH`**), consistent with the MCP contract. The default **`deno task test`** / **`check_all`** paths bootstrap **memsearch** when absent (see Memsearch above).
+
+- **Test factories:** In-process or subprocess helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule from **`specs/MCP.md`**, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints. The implementation exposes **`skipMemsearchVerification`** on **`CreateServerOptions`** (`lib/gl-mcp-server.ts`); production HTTP and stdio entrypoints MUST NOT pass it.
+
+- **`CreateServerOptions` (integration tests):** `createServer` MAY accept an explicit knowledge remote string (and/or aligned override fields) that satisfies startup validation **as if** the corresponding env var for the active mode were set, so subprocess and in-process tests do not rely on polluting parent **`Deno.env`**. Such overrides MUST only be used in test-oriented factories; production entrypoints continue to read env.
 
 ### Running all checks
 
