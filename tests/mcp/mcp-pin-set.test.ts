@@ -116,7 +116,7 @@ async function setupSession(
 }
 
 /**
- * specs/core.md § Summary: inputSchema must include branch and ref.
+ * specs/pin-semantics.md — Surfaces (CLI vs MCP): MCP giterloper_pin_set exposes optional pin, ref, branch on inputSchema only.
  */
 Deno.test("pin_set inputSchema includes branch and ref parameters", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -191,7 +191,7 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   });
 });
 
-/** MCP must not accept client `source`; repo identity is server config only (specs/core.md, specs/MCP.md). */
+/** MCP must not accept client `source`; repository identity is server-defined (specs/MCP.md, specs/pin-semantics.md — Surfaces). */
 Deno.test("pin_set rejects source argument", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -228,7 +228,7 @@ Deno.test("pin_set rejects source argument", async () => {
   });
 });
 
-/** pin_set with pin _session is rejected; omit pin to target session pin. Per specs/core.md. */
+/** pin_set with pin _session is rejected; omit pin to target session pin (specs/pin-semantics.md — Pin name). */
 Deno.test("pin_set with pin _session is rejected", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -259,7 +259,7 @@ Deno.test("pin_set with pin _session is rejected", async () => {
 });
 
 /**
- * specs/core.md: No pin + no modifiers = view session pin. Named pin + no branch/ref = FAIL.
+ * specs/pin-semantics.md — branch and ref matrix (case 4 + View-only): omit pin with no branch/ref = read session pin; named pin with neither = FAIL (Error codes: invalid_argument).
  */
 Deno.test("pin_set with no branch and no ref fails", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -297,7 +297,7 @@ Deno.test("pin_set with no branch and no ref fails", async () => {
 });
 
 /**
- * specs/core.md § Pin Storage: session pin's name is always _session.
+ * specs/pin-semantics.md — Pin storage: session pin's stored name is always _session.
  */
 Deno.test("session pin name is _session after bootstrap", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -326,7 +326,7 @@ Deno.test("session pin name is _session after bootstrap", async () => {
 });
 
 /**
- * specs/core.md §1: Branch specified, ref not — use session pin SHA, update branch.
+ * specs/pin-semantics.md — branch and ref matrix case 1: branch specified, ref not — session pin SHA, update branch.
  */
 Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -384,7 +384,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
 });
 
 /**
- * specs/core.md §1 + Pin Name: Branch + pin name — copy session SHA to named pin with branch.
+ * specs/pin-semantics.md — branch and ref matrix case 1 + Pin name: explicit pin + branch only — target SHA = session pin SHA.
  */
 Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unchanged", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -454,7 +454,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
 });
 
 /**
- * specs/core.md §2: ref specified, branch not — set pin branchlessly (read-only).
+ * specs/pin-semantics.md — branch and ref matrix case 2: ref specified, branch not — pin at resolved SHA, branchless (read-only).
  */
 Deno.test("pin_set ref-only sets pin branchlessly", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -509,7 +509,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
 });
 
 /**
- * specs/core.md §2: ref may be a branch name; we resolve it to SHA from remote.
+ * specs/pin-semantics.md — branch and ref matrix case 2: ref may be a branch name; resolve to SHA from remote (Pin storage).
  */
 Deno.test("pin_set ref as branch name resolves to SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -569,7 +569,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
 });
 
 /**
- * specs/core.md §3: Both ref and branch — use resolved ref SHA, not session SHA.
+ * specs/pin-semantics.md — branch and ref matrix case 3: both ref and branch — pin at resolved ref SHA with branch (not session SHA when they differ).
  */
 Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {

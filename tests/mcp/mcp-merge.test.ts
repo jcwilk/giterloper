@@ -51,7 +51,7 @@ async function parseToolResult(res: Response): Promise<unknown> {
 }
 
 /**
- * specs/core.md § Merge Tool Exception: Both omitted → merge into itself → FAIL.
+ * specs/pin-semantics.md — Merge tool exception: both source and target pins omitted → both resolve to session → merge into itself → FAIL.
  */
 Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
     const app = await createMcpAppForTest({
@@ -104,8 +104,8 @@ Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
 });
 
 /**
- * specs/core.md § Merge Tool Exception: Both same pin name → merge into itself → FAIL.
- * Use a named pin (not _session) since _session is rejected before the merge handler.
+ * specs/pin-semantics.md — Merge tool exception: same explicit pin name for source and target → merge into itself → FAIL.
+ * Use a named pin (not _session) since _session is rejected before the merge handler (specs/pin-semantics.md — Pin name).
  */
 Deno.test("merge with same sourcePin and targetPin fails", async () => {
     const app = await createMcpAppForTest({

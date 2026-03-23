@@ -1,6 +1,6 @@
 ---
 id: git-knna
-status: open
+status: closed
 deps: [git-1ooc]
 links: []
 created: 2026-03-23T05:12:32Z
