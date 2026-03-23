@@ -522,7 +522,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const state = stateForSession(extra);
         const effSource = effectivePinForResolve(sourcePin);
         const effTarget = effectivePinForResolve(targetPin);
-        // Per specs/core.md (Pin configuration semantics) — Merge tool exception: both omitted → merge into itself.
+        // Per specs/pin-semantics.md — Merge tool exception: both omitted → merge into itself.
         if (effSource === undefined && effTarget === undefined) {
           return {
             ok: false,
@@ -606,7 +606,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Configure pins",
       description:
-        "Configure pins per specs/core.md (Pin configuration semantics). Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
+        "Configure pins per specs/pin-semantics.md. Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
       inputSchema: z
         .object({
           pin: z
@@ -647,7 +647,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const rlog = retryLogFromGlState(state);
         const pins = readPins(state);
 
-        // Omit pin: operate on session pin. Per specs/core.md (Pin configuration semantics).
+        // Omit pin: operate on session pin. Per specs/pin-semantics.md.
         if (!pin || pin.trim() === "") {
           const branchProvided = branch !== undefined && branch?.trim() !== "";
           const shaProvided = ref !== undefined && ref?.trim() !== "";
@@ -771,7 +771,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const branchProvided = branch !== undefined && branch?.trim() !== "";
         const shaProvided = ref !== undefined && ref?.trim() !== "";
 
-        // Per specs/core.md (Pin configuration semantics): neither branch nor ref for named pin → FAIL.
+        // Per specs/pin-semantics.md: neither branch nor ref for named pin → FAIL.
         if (!branchProvided && !shaProvided) {
           return {
             ok: false,

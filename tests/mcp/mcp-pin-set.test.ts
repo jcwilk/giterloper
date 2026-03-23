@@ -1,6 +1,6 @@
 /**
  * Unit tests for giterloper_pin_set.
- * Assert exact behavior per specs/core.md (Pin configuration semantics).
+ * Assert exact behavior per specs/pin-semantics.md.
  */
 import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
@@ -12,7 +12,7 @@ import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
-const PIN_CONFIG_SPEC = "specs/core.md (Pin configuration semantics)";
+const PIN_CONFIG_SPEC = "specs/pin-semantics.md";
 
 /** Collision-resistant names for shared-remote MCP tests under `deno test --parallel`. */
 function mcpUnique(label: string): string {

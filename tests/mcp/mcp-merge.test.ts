@@ -1,6 +1,6 @@
 /**
  * Unit tests for giterloper_merge.
- * Assert pin-name behavior per specs/core.md (Pin configuration semantics) — Merge tool exception.
+ * Assert pin-name behavior per specs/pin-semantics.md — Merge tool exception.
  */
 import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
@@ -10,7 +10,7 @@ import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
 const MCP_URL = "http://localhost/mcp";
 const MCP_ACCEPT = "application/json, text/event-stream";
-const PIN_CONFIG_SPEC = "specs/core.md (Pin configuration semantics)";
+const PIN_CONFIG_SPEC = "specs/pin-semantics.md";
 
 async function mcpRequest(
   body: object,

@@ -132,7 +132,7 @@ Deno.test("validateInsertContent rejects null", () => {
   });
 });
 
-/** insert_pending with explicit pin "_session" must fail. Per specs/core.md (Pin configuration semantics). */
+/** insert_pending with explicit pin "_session" must fail. Per specs/pin-semantics.md. */
 Deno.test("insert_pending with pin _session is rejected", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({

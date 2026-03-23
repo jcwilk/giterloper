@@ -8,7 +8,7 @@ This document is the canonical reference for test strategy, test execution, harn
 
 | Test folder | Authoritative product spec |
 |-------------|----------------------------|
-| `tests/core/` | [specs/core.md](../specs/core.md) |
+| `tests/core/` | [specs/core.md](../specs/core.md); pin / `giterloper_pin_set`: [specs/pin-semantics.md](../specs/pin-semantics.md) |
 | `tests/cli/` | [specs/cli.md](../specs/cli.md) |
 | `tests/mcp/` | [specs/MCP.md](../specs/MCP.md) |
 
@@ -78,6 +78,16 @@ Normative detail lives in **`specs/MCP.md`** and **`specs/core.md`**. For this r
 - **`.giterloper_test`** — session base directory name in MCP test mode only; not configurable.
 
 **Requirement:** Any integration entrypoint that spawns **`gl`**, **`gl-maintenance`**, or an MCP server process and expects that process to write session state MUST either use **`runGl` / `runGlMaintenance`** from **`tests/helpers/gl.ts`**, **`createMcpAppForTest`** from **`lib/gl-mcp-server.ts`**, or pass **`--mcp-test-mode`** and merge the same **`integrationMcpModeChildEnv()`** values from **`tests/helpers/integration-mcp-env.ts`** into the child **`env`** (see also **`tests/helpers/mcp-subprocess.ts`** for MCP server spawns). Do not let subprocesses default to **`.giterloper/`** while using the shared test remote.
+
+### MCP server startup contract vs test harness (normative vs harness-only)
+
+Product rules for MCP startup (**memsearch** on **`PATH`**, knowledge remote validation) are normative in **[specs/MCP.md](../specs/MCP.md)**. The bullets below apply only to **this repository’s test suite** and factories; they MUST NOT weaken production entrypoints.
+
+- **`tests/mcp/`** cases that exercise **`giterloper_search`** MUST **not** be marked **ignored**, **skipped**, or otherwise bypassed solely because **memsearch** is missing from the environment. Those tests assume a correctly provisioned host (including **memsearch** on **`PATH`**), consistent with the MCP contract. Use **`deno task test`**, **`deno task check`**, **`./scripts/check_all.sh`**, or the **`mcp:*:test`** tasks so **`PATH`** is bootstrapped when needed (see **Memsearch (`PATH`)** below).
+
+- **Test factories:** In-process or subprocess helpers that construct the MCP server without normal production argv/env MUST still enforce the **memsearch** availability rule from **[specs/MCP.md](../specs/MCP.md)**, except for a **narrow, documented** hook used only to assert startup failure behavior, which MUST NOT weaken production entrypoints. The implementation exposes this as **`skipMemsearchVerification`** on **`CreateServerOptions`** (`lib/gl-mcp-server.ts`); production HTTP and stdio entrypoints MUST NOT pass it.
+
+- **Explicit server options (integration tests):** `createServer` / **`CreateServerOptions`** MAY accept an explicit knowledge remote string (and/or aligned override fields) that satisfies startup validation **as if** the corresponding env var for the active mode were set, so subprocess and in-process tests do not rely on polluting parent env. Such overrides MUST only be used in test-oriented factories; production entrypoints continue to read env.
 
 ### Cleanup
 

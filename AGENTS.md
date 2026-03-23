@@ -2,7 +2,7 @@
 
 This document captures conventions, gotchas, and guidance for AI agents and contributors working in this repository.
 
-**Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence within a product slice, **`docs/` demotion** (operational notes, not a lock on product truth), **hierarchical alignment** vs **hierarchical divergence**, verifier expectations for area specs, and rules for spec scope and growth.
+**Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence within a product slice, **`docs/` demotion** (operational notes and descriptive product context, not a lock on product truth), **hierarchical alignment** vs **hierarchical divergence**, verifier expectations for area specs, and rules for spec scope and growth.
 
 **This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** (`.cursor/agents/verifier.md`) for agent workflows. For **verifier**-shaped gates, **spawn** the **`verifier`** subagent via Task—do not impersonate it inline (see **Skills vs agents** below). **`specs/`**, **tests/README**, the verifier definition, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
 
@@ -22,7 +22,7 @@ When requirements conflict, follow this order. This applies to humans and agents
 
 **Within a product slice** (CLI, MCP, core pin semantics, etc.), normative order is:
 
-1. **Applicable documents under `specs/*`** for that slice—the written product contract (sections that use words like "MUST", "exact", or "single source of truth"). For depth, use the area files—for example [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics) for `pin_set` / session-pin / branch-ref rules, [specs/cli.md](./specs/cli.md) for CLI behavior, and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
+1. **Applicable documents under `specs/*`** for that slice—the written product contract (sections that use words like "MUST", "exact", or "single source of truth"). For depth, use the area files—for example [specs/pin-semantics.md](./specs/pin-semantics.md) for `pin_set` / session-pin / branch-ref rules, [specs/core.md](./specs/core.md) for shared library contracts, [specs/cli.md](./specs/cli.md) for CLI behavior, and [specs/MCP.md](./specs/MCP.md) for MCP tools, errors, and transport parity—not a full restatement here.
 2. **Tests** (middle): tests override **current implementation** when the two disagree, but tests **do not** override (1). Tests are executable checks; they must not redefine a contract already fixed by (1).
 3. **Current implementation** (lowest): code may drift; update it to match (1) and keep (2) aligned with the same contract.
 
@@ -138,7 +138,7 @@ Branchless pins are read-only.
 
 ### MCP session pin (_session) and pin_set semantics
 
-`giterloper_pin_set` semantics are defined in [specs/core.md — Pin configuration semantics](./specs/core.md#pin-configuration-semantics). Treat that section as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
+`giterloper_pin_set` semantics are defined in [specs/pin-semantics.md](./specs/pin-semantics.md). Treat that document as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
 
 ## Cursor Cloud specific instructions
 

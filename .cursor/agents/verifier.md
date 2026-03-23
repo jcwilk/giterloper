@@ -34,7 +34,7 @@ When the change set touches behavior in a slice, **read the governing area spec*
 
 | If the change concerns… | Read (at minimum) |
 |-------------------------|-------------------|
-| Core pins, paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md` |
+| Core pins, `pin_set` / branch-ref semantics, paths, session state, shared library contracts exercised by `tests/core/` | `specs/pin-semantics.md` and `specs/core.md` as applicable |
 | `gl` / `gl-maintenance` CLI behavior, `tests/cli/` | `specs/cli.md` |
 | MCP tools, transport, session pin surface, `tests/mcp/` | `specs/MCP.md` |
 
