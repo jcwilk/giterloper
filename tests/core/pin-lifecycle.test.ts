@@ -1,6 +1,6 @@
 /**
  * Unit tests for pin-lifecycle: updatePinSha, internal _session path.
- * Per specs/core.md (Pin configuration semantics): validation applies at API input boundary.
+ * Per specs/pin-semantics.md (Pin name): user-facing APIs reject literal `_session`; validation applies at API input boundary.
  * Internal lifecycle (insert, reconcile, merge) may pass SESSION_PIN_NAME to updatePinSha.
  */
 import { assertEquals } from "jsr:@std/assert";

@@ -126,7 +126,7 @@ export function writePinsAtomic(state: GlState, pins: Pin[]): void {
 /**
  * Resolves pin by name or session pin. When pinName is omitted/null/undefined,
  * finds the pin named _session. Fails with clear error when no _session exists.
- * Per specs/core.md (Pin configuration semantics): session pin's name is always _session.
+ * Per specs/pin-semantics.md (Pin storage): session pin's stored name is always _session.
  */
 export function resolvePin(state: GlState, pinName: string | null | undefined): Pin {
   validatePinName(pinName);

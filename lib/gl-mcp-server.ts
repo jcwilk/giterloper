@@ -522,7 +522,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const state = stateForSession(extra);
         const effSource = effectivePinForResolve(sourcePin);
         const effTarget = effectivePinForResolve(targetPin);
-        // Per specs/core.md (Pin configuration semantics) — Merge tool exception: both omitted → merge into itself.
+        // Per specs/pin-semantics.md — Merge tool exception: both omitted → merge into itself.
         if (effSource === undefined && effTarget === undefined) {
           return {
             ok: false,
@@ -606,7 +606,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Configure pins",
       description:
-        "Configure pins per specs/core.md (Pin configuration semantics). Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
+        "Configure pins per specs/pin-semantics.md. Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
       inputSchema: z
         .object({
           pin: z
@@ -647,7 +647,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const rlog = retryLogFromGlState(state);
         const pins = readPins(state);
 
-        // Omit pin: operate on session pin. Per specs/core.md (Pin configuration semantics).
+        // Omit pin: operate on session pin. Per specs/pin-semantics.md (Pin name / session pin).
         if (!pin || pin.trim() === "") {
           const branchProvided = branch !== undefined && branch?.trim() !== "";
           const shaProvided = ref !== undefined && ref?.trim() !== "";
@@ -733,7 +733,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
               message: "Updated session pin branch",
             });
           }
-          // ref only, no branch: update session pin to resolved ref SHA, branchlessly. Per doc §2.
+          // ref only, no branch: update session pin to resolved ref SHA, branchlessly. Per specs/pin-semantics.md — "2. ref specified, branch not specified".
           const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPin.source;
           if (!repoRemote?.trim()) {
             return {
@@ -771,7 +771,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const branchProvided = branch !== undefined && branch?.trim() !== "";
         const shaProvided = ref !== undefined && ref?.trim() !== "";
 
-        // Per specs/core.md (Pin configuration semantics): neither branch nor ref for named pin → FAIL.
+        // Per specs/pin-semantics.md — "4. Neither branch nor ref specified" for named-pin mutation → FAIL.
         if (!branchProvided && !shaProvided) {
           return {
             ok: false,
@@ -781,7 +781,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           };
         }
 
-        // Branch + pin: create/update named pin. Per doc §1 (ref not specified) use session pin SHA; per doc §3 (ref specified) use resolved ref SHA.
+        // Branch + pin: create/update named pin. Per specs/pin-semantics.md — case 1 (ref not specified) uses session pin SHA; case 3 (both ref and branch) uses resolved ref SHA.
         if (branchProvided) {
           const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPinForInheritance?.source;
           if (!repoRemote?.trim()) {

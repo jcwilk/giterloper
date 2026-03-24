@@ -3,7 +3,7 @@
     "check": "deno run -A scripts/check-all.ts",
     "test": "deno run -A scripts/run-tests.ts",
     "test:core": "deno test -A --parallel tests/core/",
-    "test:pin-semantics": "deno test -A --parallel tests/pin-semantics/",
+    "test:pin-semantics": "deno run -A scripts/with-memsearch.ts -- test -A --parallel tests/pin-semantics/",
     "test:cli": "deno test -A tests/cli/",
     "test:mcp": "deno test -A tests/mcp/",
     "mcp:serve": "deno run -A scripts/with-memsearch.ts -- run -A --env-file=.env lib/gl-mcp-server.ts",

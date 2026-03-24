@@ -1,6 +1,6 @@
 ---
 id: git-ewer
-status: open
+status: closed
 deps: [git-c2km]
 links: []
 created: 2026-03-24T02:22:19Z
@@ -29,3 +29,9 @@ Move or surgically split tests whose **primary** job is normative pin configurat
 - No **`PIN_CONFIG_SPEC`** (or equivalent) pointing at **`specs/core.md`** for pin matrix / pin_set semantics.
 - **Grep closure (tests + `lib/`):** no remaining **`specs/core.md (Pin configuration semantics)`**; no **`specs/core.md §`** comments that describe the migrated branch/ref matrix (replace with pin-semantics headings). Title overlap **# Pin configuration semantics** on **pin-semantics.md** is fine—use judgment so grep is not noisy false positives.
 - Close note: **extraction/split** summary; **`mcp-insert-pending`** decision; any **MCP.md** sync performed or ticketed.
+
+## Notes
+
+**2026-03-24T02:49:47Z**
+
+Extraction: pin_set branch/ref matrix, reserved _session, session bootstrap name, view vs named-pin empty modifiers → tests/pin-semantics/pin-set-law.test.ts. Merge tool exception (both omitted, same pin) → tests/pin-semantics/merge-pin-law.test.ts; removed tests/mcp/mcp-merge.test.ts. insert_pending _session rejection → tests/pin-semantics/insert-pending-reserved-pin.test.ts (moved from mcp-insert-pending). tests/mcp/mcp-pin-set.test.ts keeps tools/list schema (branch/ref, no source), unknown-args, source rejection. Shared helpers: tests/helpers/mcp-http-tool-session.ts. Citations: specs/pin-semantics.md in tests/lib; MCP_SCHEMA constant in mcp tests. lib/gl-mcp-server giterloper_pin_set description + comments → pin-semantics; specs/MCP.md table row expanded in sync. test:pin-semantics runs via scripts/with-memsearch.ts (memsearch probe). Removed placeholder slice-smoke.test.ts. pin-lifecycle.test.ts header cites pin-semantics for API boundary rule.
