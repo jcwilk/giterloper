@@ -4,15 +4,15 @@ Giterloper manages git-based knowledge stores. It runs from this repository.
 
 ## Specs, tests, and code
 
-This README is **human** onboarding for the repo layout. **Product behavior** is defined under **`specs/`** (area specs such as CLI, MCP, core library, and pin semantics). For **motivation and typical agent workflows** (non-normative vision), see [`docs/use-cases.md`](./docs/use-cases.md). **`tests/`** holds the executable harness and topic slices (`tests/core/`, `tests/cli/`, `tests/mcp/`, `tests/pin-semantics/`); see [`tests/README.md`](./tests/README.md). **Implementation** lives primarily in **`lib/`** (CLI and MCP server).
+This README is **human** onboarding for the repo layout. **Product behavior** is defined under **`specs/`**; the slice → spec path → test folder index is **[`specs/README.md`](./specs/README.md)**. For **motivation and typical agent workflows** (non-normative vision), see [`docs/use-cases.md`](./docs/use-cases.md). **`tests/`** holds the executable harness and topic slices; see [`tests/README.md`](./tests/README.md). **Implementation** lives primarily in **`lib/`** (CLI and MCP server).
 
-For AI agent and contributor workflow and conventions, see [`AGENTS.md`](./AGENTS.md).
+For AI agent and contributor workflow, contract pointers, and conventions, see [`AGENTS.md`](./AGENTS.md).
 
 ## What's here
 
 - **Constitution** — `docs/CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
-- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. MCP tool contracts and transport behavior: [`specs/mcp.md`](./specs/mcp.md).
+- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. Normative MCP behavior: **MCP** row in [`specs/README.md`](./specs/README.md).
 
 ## Knowledge stores
 
@@ -29,7 +29,7 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
 
 ## Quick start
 
-1. Prerequisites: git, [Deno](https://deno.land), and **Python 3** (for **`memsearch`**). **`deno task check`**, **`deno task test`**, **`deno task mcp:serve`**, and **`./scripts/check_all.sh`** auto-provision **`.venv`** + **`memsearch`** when needed; raw **`deno run lib/gl-mcp-server.ts`** without **`scripts/with-memsearch.ts`** still requires **`memsearch` on `PATH`** ([specs/mcp.md](./specs/mcp.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
+1. Prerequisites: git, [Deno](https://deno.land), and **Python 3** (for **`memsearch`**). **`deno task check`**, **`deno task test`**, **`deno task mcp:serve`**, and **`./scripts/check_all.sh`** auto-provision **`.venv`** + **`memsearch`** when needed; raw **`deno run lib/gl-mcp-server.ts`** without **`scripts/with-memsearch.ts`** still requires **`memsearch` on `PATH`** at MCP server startup (see **MCP** slice in [specs/README.md](./specs/README.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
 2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
