@@ -1,6 +1,6 @@
 ---
 id: git-q53v
-status: open
+status: closed
 deps: [git-zug8]
 links: []
 created: 2026-03-24T16:00:09Z

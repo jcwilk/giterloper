@@ -23,6 +23,12 @@ let code = await run(["deno", "check", "lib/gl.ts"], "Typecheck (deno check lib/
 if (code !== 0) Deno.exit(code);
 
 code = await run(
+  ["deno", "run", "-A", "scripts/check-spec-path-creep.ts"],
+  "Spec path creep (concrete specs/*.md literals — allowlist in scripts/check-spec-path-creep.ts)",
+);
+if (code !== 0) Deno.exit(code);
+
+code = await run(
   ["deno", "run", "-A", "scripts/run-tests.ts"],
   "Tests (deno run -A scripts/run-tests.ts — see tests/README.md for harness / parallelism)",
 );
