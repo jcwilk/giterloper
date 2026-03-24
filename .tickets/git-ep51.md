@@ -1,6 +1,6 @@
 ---
 id: git-ep51
-status: open
+status: closed
 deps: [git-ed8c]
 links: []
 created: 2026-03-24T03:39:47Z

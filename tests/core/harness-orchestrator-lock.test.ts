@@ -4,7 +4,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { flockCliAvailable } from "../../scripts/harness-orchestrator-lock.ts";
+import {
+  describeHarnessOrchestratorWaitContext,
+  flockCliAvailable,
+  harnessOrchestratorMetaPath,
+} from "../../scripts/harness-orchestrator-lock.ts";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const workerPath = path.join(
@@ -52,6 +56,33 @@ Deno.test("harness orchestrator lock: second process blocks until first releases
 
   const s1 = await p1.status;
   assert(s1.success, `first worker should exit 0, got code ${s1.code}`);
+});
+
+Deno.test("describeHarnessOrchestratorWaitContext: missing metadata is idle", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const { record, stale } = await describeHarnessOrchestratorWaitContext(tmp);
+    assert(record === null, "expected no record");
+    assert(stale === false, "stale must be false without a record");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
+});
+
+Deno.test("describeHarnessOrchestratorWaitContext: nonexistent pid is stale", async () => {
+  const tmp = await Deno.makeTempDir();
+  try {
+    const meta = harnessOrchestratorMetaPath(tmp);
+    await Deno.writeTextFile(
+      meta,
+      `${JSON.stringify({ pid: 999_999_001, startTimeFingerprint: "0" })}\n`,
+    );
+    const { record, stale } = await describeHarnessOrchestratorWaitContext(tmp);
+    assert(record !== null, "expected parsed record");
+    assert(stale === true, "dead pid must be stale");
+  } finally {
+    await Deno.remove(tmp, { recursive: true });
+  }
 });
 
 function assert(cond: boolean, msg: string): void {

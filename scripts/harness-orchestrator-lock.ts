@@ -110,6 +110,27 @@ export async function isHarnessOrchestratorRecordStale(
   return liveFp !== record.startTimeFingerprint;
 }
 
+/** Matches `acquireHarnessOrchestratorLock` wait-loop backoff and stdout throttling. */
+export const HARNESS_ORCHESTRATOR_WAIT_THROTTLE_MS = 3000;
+export const HARNESS_ORCHESTRATOR_WAIT_INITIAL_BACKOFF_MS = 50;
+export const HARNESS_ORCHESTRATOR_WAIT_MAX_BACKOFF_MS = 2000;
+
+/**
+ * Read metadata and classify it the same way as `acquireHarnessOrchestratorLock` wait messaging:
+ * `pid` is set only for a **live** record (holder parent alive + fingerprint match when available).
+ */
+export async function describeHarnessOrchestratorWaitContext(projectRoot: string): Promise<{
+  record: HarnessOrchestratorRecord | null;
+  stale: boolean;
+}> {
+  const rec = await readHarnessOrchestratorRecord(projectRoot);
+  if (rec === null) {
+    return { record: null, stale: false };
+  }
+  const stale = await isHarnessOrchestratorRecordStale(rec);
+  return { record: rec, stale };
+}
+
 export async function flockCliAvailable(): Promise<boolean> {
   const r = await new Deno.Command("flock", {
     args: ["--version"],
@@ -205,10 +226,6 @@ export interface HarnessOrchestratorLockHandle {
   release: () => Promise<void>;
 }
 
-const THROTTLE_MS = 3000;
-const INITIAL_BACKOFF_MS = 50;
-const MAX_BACKOFF_MS = 2000;
-
 /**
  * Blocks until this process holds the harness flock (via a dedicated child), writes metadata, then returns.
  * Emits **stdout** wait lines per ticket; caller runs harness work afterward and must call `release()` in `finally`.
@@ -223,7 +240,7 @@ export async function acquireHarnessOrchestratorLock(
   }
 
   const lockPath = harnessOrchestratorLockPath(projectRoot);
-  let backoff = INITIAL_BACKOFF_MS;
+  let backoff = HARNESS_ORCHESTRATOR_WAIT_INITIAL_BACKOFF_MS;
   let lastPrintedPid: number | undefined;
   let lastThrottlePrintAt = 0;
   let printedFirstWait = false;
@@ -266,9 +283,9 @@ export async function acquireHarnessOrchestratorLock(
       };
     }
 
-    const rec = await readHarnessOrchestratorRecord(projectRoot);
-    const stale = rec !== null && await isHarnessOrchestratorRecordStale(rec);
+    const { record: rec, stale } = await describeHarnessOrchestratorWaitContext(projectRoot);
     const pid = rec !== null && !stale ? rec.pid : undefined;
+    const staleRecord = rec !== null && stale;
     const now = Date.now();
 
     if (
@@ -281,14 +298,14 @@ export async function acquireHarnessOrchestratorLock(
       );
     } else if (
       !printedFirstWait ||
-      now - lastThrottlePrintAt >= THROTTLE_MS ||
+      now - lastThrottlePrintAt >= HARNESS_ORCHESTRATOR_WAIT_THROTTLE_MS ||
       (pid !== undefined && pid !== lastPrintedPid)
     ) {
       if (pid !== undefined) {
         console.log(
           `Waiting for previous test suite orchestrator at PID ${pid} to finish...`,
         );
-      } else if (stale) {
+      } else if (staleRecord) {
         console.log(
           "Waiting for test suite lock (stale holder record on disk; will acquire when the lock object is free)...",
         );
@@ -301,6 +318,9 @@ export async function acquireHarnessOrchestratorLock(
 
     lastPrintedPid = pid;
     await new Promise((r) => setTimeout(r, backoff));
-    backoff = Math.min(Math.floor(backoff * 1.5), MAX_BACKOFF_MS);
+    backoff = Math.min(
+      Math.floor(backoff * 1.5),
+      HARNESS_ORCHESTRATOR_WAIT_MAX_BACKOFF_MS,
+    );
   }
 }

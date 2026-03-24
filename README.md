@@ -56,6 +56,8 @@ deno run -A scripts/run-tests.ts
 # or: deno task test
 ```
 
+**Harness lock probes** (orchestrator metadata only; no flock acquisition, no kill/timeouts): `deno task harness:status` and `deno task harness:wait-for-idle` — see [tests/README.md](./tests/README.md).
+
 Topic-only slices: `deno task test:core`, `deno task test:cli`, `deno task test:mcp`, `deno task test:pin-semantics`.
 
 See `tests/README.md` for the target runner (bounded parallel logical cases, flattened `.giterloper/<sessionId>/` layout, test-scoped cleanup) and collision-avoidance rules.
