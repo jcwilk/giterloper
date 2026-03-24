@@ -10,22 +10,15 @@ import { mutatePins, readPins, SESSION_PIN_NAME } from "./pinned.ts";
 import { clonePin } from "./pin-lifecycle.ts";
 import { resolveSha } from "./git.ts";
 import {
+  effectiveGiterloperSessionsRoot,
   effectiveKnowledgeStoreRemote,
-  giterloperSessionsRoot,
   KNOWLEDGE_STORE_REMOTE_ENV,
   resolveMcpTestMode,
+  resolveProductRoot,
 } from "./session-layout.ts";
 import type { GlState, Pin, RetryLogRole } from "./types.ts";
 
 export type { GlState };
-
-/** Must match `lib/mcp-session-store.ts` so MCP session paths align with `sessionDir` / scavenge. */
-const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
-
-function projectRoot(): string {
-  const o = Deno.env.get(PROJECT_ROOT_ENV)?.trim();
-  return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
-}
 
 /** Env var name for normal-mode session auto-init remote (value read via {@link effectiveKnowledgeStoreRemote}). */
 export const KNOWLEDGE_STORE_REMOTE = KNOWLEDGE_STORE_REMOTE_ENV;
@@ -102,9 +95,12 @@ export function makeState(
   sessionId: string,
   opts?: { retryLogRole?: RetryLogRole; mcpTestMode?: boolean }
 ): GlState {
-  const projectRootResolved = projectRoot();
+  const projectRootResolved = resolveProductRoot();
   const mcpTestMode = resolveMcpTestMode(opts?.mcpTestMode);
-  const sessionsRoot = giterloperSessionsRoot(projectRootResolved, mcpTestMode);
+  const sessionsRoot = effectiveGiterloperSessionsRoot(
+    projectRootResolved,
+    mcpTestMode
+  );
   const validated = validateSessionId(sessionId);
   const sessionRoot = path.join(sessionsRoot, validated);
   return {

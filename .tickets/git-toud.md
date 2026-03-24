@@ -1,6 +1,6 @@
 ---
 id: git-toud
-status: open
+status: closed
 deps: [git-xaio]
 links: []
 created: 2026-03-24T05:35:41Z

@@ -5,14 +5,12 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
+import { resolveProductRoot } from "./session-layout.ts";
 import { isBranchNotFoundError, runSoft } from "./run.ts";
 import type { GlState, RetryLogContext, RunResult } from "./types.ts";
 
-const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
-
 export function giterloperProjectRoot(): string {
-  const o = Deno.env.get(PROJECT_ROOT_ENV)?.trim();
-  return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
+  return resolveProductRoot();
 }
 
 export const RETRY_LOG_REL_PATH = path.join("logs", "giterloper-retry.log");

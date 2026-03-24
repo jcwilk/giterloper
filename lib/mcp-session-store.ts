@@ -9,24 +9,16 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { giterloperSessionsRoot, resolveMcpTestMode } from "./session-layout.ts";
-
-/**
- * When set (trimmed non-empty), session dirs use `<value>/<sessionBase>/<sessionId>/` instead of
- * `<cwd>/<sessionBase>/`. Intended for tests that call `scavengeStaleSessions` with a short TTL so
- * they do not delete live workspace sessions under parallel `deno test` workers.
- */
-const PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT";
-
-function projectRootForSessions(): string {
-  const o = Deno.env.get(PROJECT_ROOT_ENV)?.trim();
-  return o && o.length > 0 ? path.resolve(o) : path.resolve(Deno.cwd());
-}
+import {
+  effectiveGiterloperSessionsRoot,
+  resolveMcpTestMode,
+  resolveProductRoot,
+} from "./session-layout.ts";
 
 /** Direct children are session id directories only (see docs/DEPLOYMENT_REQUIREMENTS.md). */
 function giterloperRootPath(mcpTestMode?: boolean): string {
   const mode = resolveMcpTestMode(mcpTestMode);
-  return giterloperSessionsRoot(projectRootForSessions(), mode);
+  return effectiveGiterloperSessionsRoot(resolveProductRoot(), mode);
 }
 
 const LAST_ACTIVITY_FILENAME = ".last_activity";

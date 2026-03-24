@@ -4,12 +4,20 @@
  * Prefer **`runGl` / `runGlMaintenance`** (`tests/helpers/gl.ts`) or **`createMcpAppForTest`** (`lib/gl-mcp-server.ts`)
  * so integration tests do not reimplement this merge. See tests/README.md (MCP test mode / integration harness).
  */
-import { TEST_KNOWLEDGE_STORE_REMOTE_ENV } from "../../lib/session-layout.ts";
+import {
+  GITERLOPER_MCP_TEST_SESSION_PARENT,
+  TEST_KNOWLEDGE_STORE_REMOTE_ENV,
+} from "../../lib/session-layout.ts";
 import { TEST_SOURCE, toRemoteUrl } from "./config.ts";
 
 /** Merged into gl / gl-maintenance child processes and documented for other spawns (e.g. MCP test servers via `mcp-subprocess.ts`). */
 export function integrationMcpModeChildEnv(): Record<string, string> {
-  return {
+  const out: Record<string, string> = {
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: toRemoteUrl(TEST_SOURCE),
   };
+  const sessionParent = Deno.env.get(GITERLOPER_MCP_TEST_SESSION_PARENT)?.trim();
+  if (sessionParent) {
+    out[GITERLOPER_MCP_TEST_SESSION_PARENT] = sessionParent;
+  }
+  return out;
 }

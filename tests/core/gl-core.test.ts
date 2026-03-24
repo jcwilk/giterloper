@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { makeState, validateSessionId } from "../../lib/gl-core.ts";
 import { GlError } from "../../lib/errors.ts";
+import { sessionDir } from "../../lib/mcp-session-store.ts";
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
 
@@ -31,6 +32,23 @@ Deno.test("makeState({ mcpTestMode: true }) uses .giterloper_test/<sessionId>", 
   assertEquals(state.mcpTestMode, true);
   const sessionRoot = path.join(PROJECT_ROOT, ".giterloper_test", "t1");
   assertEquals(state.rootDir, sessionRoot);
+});
+
+Deno.test("makeState mcp test mode + GITERLOPER_MCP_TEST_SESSION_PARENT keeps projectRoot as product root", () => {
+  const tmp = Deno.makeTempDirSync();
+  const key = "GITERLOPER_MCP_TEST_SESSION_PARENT";
+  const prev = Deno.env.get(key);
+  Deno.env.set(key, tmp);
+  try {
+    const state = makeState("t2", { mcpTestMode: true });
+    assertEquals(state.projectRoot, PROJECT_ROOT);
+    assertEquals(state.rootDir, path.join(tmp, ".giterloper_test", "t2"));
+    assertEquals(sessionDir("t2", true), state.rootDir);
+  } finally {
+    if (prev === undefined) Deno.env.delete(key);
+    else Deno.env.set(key, prev);
+    Deno.removeSync(tmp, { recursive: true });
+  }
 });
 
 Deno.test("validateSessionId accepts UUID-like sessionId", () => {

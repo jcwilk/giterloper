@@ -4,6 +4,17 @@
  */
 import path from "node:path";
 
+import { EXIT, fail } from "./errors.ts";
+
+/** Product root override (same semantics as `makeState` / specs/core.md). */
+export const GITERLOPER_PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT" as const;
+
+/**
+ * Optional MCP test session parent (basename-only override for `.giterloper_test` trees).
+ * Ignored unless MCP test mode is active. See specs/core.md.
+ */
+export const GITERLOPER_MCP_TEST_SESSION_PARENT = "GITERLOPER_MCP_TEST_SESSION_PARENT" as const;
+
 /** Normal mode: session dirs under `<projectRoot>/.giterloper/<sessionId>/`. */
 export const GITERLOPER_SESSION_BASE_NORMAL = ".giterloper" as const;
 
@@ -34,6 +45,71 @@ export function sessionBaseSegment(
 
 export function giterloperSessionsRoot(projectRoot: string, mcpTestMode: boolean): string {
   return path.join(projectRoot, sessionBaseSegment(mcpTestMode));
+}
+
+/**
+ * Resolves the product / repository root: trimmed non-empty `GITERLOPER_PROJECT_ROOT`, else absolute `cwd`.
+ */
+export function resolveProductRoot(
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+  cwd: () => string = () => Deno.cwd()
+): string {
+  const o = env.get(GITERLOPER_PROJECT_ROOT_ENV)?.trim();
+  return o && o.length > 0 ? path.resolve(o) : path.resolve(cwd());
+}
+
+/**
+ * Validates raw `GITERLOPER_MCP_TEST_SESSION_PARENT` and returns an absolute directory path.
+ * Relative values resolve against `projectRootAnchor` (same basis as {@link resolveProductRoot}).
+ */
+export function resolveValidatedMcpTestSessionParent(
+  rawTrimmed: string,
+  projectRootAnchor: string
+): string {
+  const t = rawTrimmed.trim();
+  if (!t) {
+    fail(
+      `${GITERLOPER_MCP_TEST_SESSION_PARENT} is empty after trim`,
+      EXIT.STATE
+    );
+  }
+  if (/[\r\n\x00]/.test(t)) {
+    fail(
+      `${GITERLOPER_MCP_TEST_SESSION_PARENT} contains invalid characters`,
+      EXIT.STATE
+    );
+  }
+  const segments = t.split(/[/\\]+/).filter((s) => s.length > 0);
+  for (const seg of segments) {
+    if (seg === "..") {
+      fail(
+        `${GITERLOPER_MCP_TEST_SESSION_PARENT} must not contain ".." path segments`,
+        EXIT.STATE
+      );
+    }
+  }
+  return path.isAbsolute(t) ? path.resolve(t) : path.resolve(projectRootAnchor, t);
+}
+
+/**
+ * Directory containing `.giterloper` or `.giterloper_test` session trees per mode and env
+ * (matches `makeState` / MCP session store). In MCP test mode, optional
+ * {@link GITERLOPER_MCP_TEST_SESSION_PARENT} relocates the parent of the literal `.giterloper_test` segment.
+ */
+export function effectiveGiterloperSessionsRoot(
+  projectRoot: string,
+  mcpTestMode: boolean,
+  env: Pick<typeof Deno.env, "get"> = Deno.env
+): string {
+  if (!mcpTestMode) {
+    return path.join(projectRoot, GITERLOPER_SESSION_BASE_NORMAL);
+  }
+  const raw = env.get(GITERLOPER_MCP_TEST_SESSION_PARENT)?.trim();
+  if (!raw) {
+    return path.join(projectRoot, GITERLOPER_SESSION_BASE_TEST);
+  }
+  const sessionsParent = resolveValidatedMcpTestSessionParent(raw, projectRoot);
+  return path.join(sessionsParent, GITERLOPER_SESSION_BASE_TEST);
 }
 
 /**

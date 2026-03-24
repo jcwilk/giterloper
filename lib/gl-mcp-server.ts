@@ -1107,6 +1107,10 @@ export function createHttpMcpApp(
 /**
  * Creates a fresh MCP app with its own transport and server. Use in tests that need
  * an independent initialize (the shared mcpApp rejects a second initialize).
+ *
+ * Session paths use `makeState` / `GITERLOPER_MCP_TEST_SESSION_PARENT` when that env is set in the
+ * process (subprocess children inherit via `integrationMcpModeChildEnv`). Parallel in-process apps
+ * share process env; an explicit session-parent override on this factory is deferred (git-8qen).
  */
 export type CreateMcpAppForTestOptions = CreateServerOptions & {
   auth?: McpAuthRuntime;

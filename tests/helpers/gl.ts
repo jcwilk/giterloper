@@ -23,7 +23,11 @@ export const GITERLOPER_REPO_ROOT = path.join(path.dirname(fileURLToPath(import.
 const GL_SCRIPT = path.join(GITERLOPER_REPO_ROOT, ".cursor", "skills", "gl", "scripts", "gl");
 const GL_MAINTENANCE_SCRIPT = path.join(GITERLOPER_REPO_ROOT, "scripts", "gl-maintenance");
 
-/** Session state directory under `cwd`: `.giterloper_test/<sessionId>/` when using integration helpers (see `tests/README.md`). */
+/**
+ * Heuristic session dir under `cwd` for helpers that assume test mode layout next to `cwd`.
+ * When `GITERLOPER_MCP_TEST_SESSION_PARENT` is set (unified harness / git-y614), real session trees
+ * follow `specs/core.md` instead; update callers under git-5skn.
+ */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
   return path.join(cwd, GITERLOPER_SESSION_BASE_TEST, sessionId);
 }
