@@ -1,5 +1,5 @@
 /**
- * Pin-law coverage for giterloper_pin_set via MCP HTTP (specs/pin-semantics.md).
+ * Pin-law coverage for giterloper_pin_set via MCP HTTP (pin-semantics slice; tests/README pairing).
  * Transport/session wiring and tools/list schema stay in tests/mcp/.
  */
 import { assertEquals } from "jsr:@std/assert";
@@ -16,7 +16,7 @@ import {
 import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
-const PIN_LAW = "specs/pin-semantics.md";
+const PIN_LAW_HINT = "pin-semantics slice — tests/README pairing";
 
 /** pin_set with pin _session is rejected; omit pin to target session pin. */
 Deno.test("pin_set with pin _session is rejected", async () => {
@@ -50,7 +50,7 @@ Deno.test("pin_set with pin _session is rejected", async () => {
 
 /**
  * View-only: omit pin + no branch/ref returns session pin. Named pin + no branch/ref → FAIL
- * (specs/pin-semantics.md — branch and ref matrix, case 4 / view-only).
+ * (pin-semantics slice — branch and ref matrix, case 4 / view-only).
  */
 Deno.test("pin_set with no branch and no ref fails for named pin only", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -85,7 +85,7 @@ Deno.test("pin_set with no branch and no ref fails for named pin only", async ()
   });
 });
 
-/** Pin storage: session pin's stored name is always _session (specs/pin-semantics.md — Pin storage). */
+/** Pin storage: session pin's stored name is always _session (pin-semantics slice — Pin storage). */
 Deno.test("session pin name is _session after bootstrap", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -107,13 +107,13 @@ Deno.test("session pin name is _session after bootstrap", async () => {
     assertEquals(
       sessionRow !== undefined,
       true,
-      `Session pin must be named _session (${PIN_LAW})`
+      `Session pin must be named _session (${PIN_LAW_HINT})`
     );
   });
 });
 
 /**
- * Branch specified, ref not: use session pin SHA (specs/pin-semantics.md — matrix §1).
+ * Branch specified, ref not: use session pin SHA (pin-semantics slice — matrix §1).
  */
 Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -171,7 +171,7 @@ Deno.test("pin_set branch-only (no pin) updates session pin branch, keeps SHA", 
 });
 
 /**
- * Branch + named pin: copy session SHA (specs/pin-semantics.md — matrix §1 + Pin name).
+ * Branch + named pin: copy session SHA (pin-semantics slice — matrix §1 + Pin name).
  */
 Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unchanged", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
@@ -240,7 +240,7 @@ Deno.test("pin_set branch+pin creates named pin at session SHA, session pin unch
   });
 });
 
-/** ref specified, branch not: branchless read-only pin (specs/pin-semantics.md — matrix §2). */
+/** ref specified, branch not: branchless read-only pin (pin-semantics slice — matrix §2). */
 Deno.test("pin_set ref-only sets pin branchlessly", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -293,7 +293,7 @@ Deno.test("pin_set ref-only sets pin branchlessly", async () => {
   });
 });
 
-/** ref may be a non-SHA ref; resolve to SHA from remote (specs/pin-semantics.md — Pin storage / matrix §2). */
+/** ref may be a non-SHA ref; resolve to SHA from remote (pin-semantics slice — Pin storage / matrix §2). */
 Deno.test("pin_set ref as branch name resolves to SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({
@@ -350,7 +350,7 @@ Deno.test("pin_set ref as branch name resolves to SHA", async () => {
   });
 });
 
-/** Both ref and branch: use resolved ref SHA (specs/pin-semantics.md — matrix §3). */
+/** Both ref and branch: use resolved ref SHA (pin-semantics slice — matrix §3). */
 Deno.test("pin_set ref+branch+pin uses ref SHA not session SHA", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({

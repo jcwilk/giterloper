@@ -1,5 +1,5 @@
 /**
- * E2E: giterloper_search over HTTP MCP with memsearch on PATH (see specs/mcp.md).
+ * E2E: giterloper_search over HTTP MCP with memsearch on PATH (MCP slice; tests/README pairing).
  * Formerly `reference_client/tests/client.test.ts` — "search returns results".
  */
 import { assertEquals, assertExists, assertMatch } from "jsr:@std/assert";

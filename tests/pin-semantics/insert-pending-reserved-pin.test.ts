@@ -1,5 +1,5 @@
 /**
- * insert_pending pin name rules (specs/pin-semantics.md — Pin name; same as other MCP tools).
+ * insert_pending pin name rules (pin-semantics slice — Pin name; same as other MCP tools).
  * Invoked via MCP HTTP; content validation helpers stay in tests/mcp/mcp-insert-pending.test.ts.
  */
 import { assertEquals } from "jsr:@std/assert";
@@ -8,7 +8,7 @@ import { mcpRequest, parseToolResult } from "../helpers/mcp-http-tool-session.ts
 import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
-const PIN_LAW = "specs/pin-semantics.md";
+const PIN_LAW_HINT = "pin-semantics slice — tests/README pairing";
 
 /** Explicit pin "_session" must fail; omit pin for session pin. */
 Deno.test("insert_pending with pin _session is rejected", async () => {
@@ -57,7 +57,7 @@ Deno.test("insert_pending with pin _session is rejected", async () => {
       (result.message ?? "").toLowerCase().includes("reserved") ||
         (result.message ?? "").toLowerCase().includes("omit"),
       true,
-      `Must include corrective guidance (${PIN_LAW} — Pin name)`
+      `Must include corrective guidance (${PIN_LAW_HINT} — Pin name)`
     );
   });
 });

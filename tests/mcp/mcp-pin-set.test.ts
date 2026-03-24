@@ -1,6 +1,6 @@
 /**
  * MCP-only giterloper_pin_set checks: tools/list schema, strict args, no client source.
- * Pin-law matrix lives in tests/pin-semantics/ (specs/pin-semantics.md).
+ * Pin-law matrix lives in tests/pin-semantics/ (pin-semantics slice; tests/README pairing).
  */
 import { assertEquals } from "jsr:@std/assert";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";
@@ -9,7 +9,8 @@ import { parseMcpResponse, parseToolResult, setupSession } from "../helpers/mcp-
 import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
-const MCP_SCHEMA = "specs/mcp.md (transport, tools/list); specs/pin-semantics.md (pin inputs)";
+const MCP_PIN_SCHEMA_HINT =
+  "MCP slice (transport, tools/list) + pin-semantics slice (pin inputs); tests/README pairing";
 
 /**
  * tools/list: giterloper_pin_set exposes branch and ref; no source on inputs.
@@ -36,17 +37,17 @@ Deno.test("pin_set inputSchema includes branch and ref parameters", async () => 
     assertEquals(
       props.branch !== undefined && typeof (props.branch as { type?: string })?.type === "string",
       true,
-      `pin_set must have branch param (${MCP_SCHEMA}); got: ${JSON.stringify(props)}`
+      `pin_set must have branch param (${MCP_PIN_SCHEMA_HINT}); got: ${JSON.stringify(props)}`
     );
     assertEquals(
       props.ref !== undefined && typeof (props.ref as { type?: string })?.type === "string",
       true,
-      `pin_set must have ref param (${MCP_SCHEMA}); got: ${JSON.stringify(props)}`
+      `pin_set must have ref param (${MCP_PIN_SCHEMA_HINT}); got: ${JSON.stringify(props)}`
     );
     assertEquals(
       props.source === undefined,
       true,
-      `pin_set must not expose source on MCP inputs (${MCP_SCHEMA}); got: ${JSON.stringify(props)}`
+      `pin_set must not expose source on MCP inputs (${MCP_PIN_SCHEMA_HINT}); got: ${JSON.stringify(props)}`
     );
   });
 });
@@ -87,7 +88,7 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   });
 });
 
-/** MCP must not accept client `source`; repo identity is server config only (specs/mcp.md, specs/pin-semantics.md). */
+/** MCP must not accept client `source`; repo identity is server config only (MCP + pin-semantics slices; tests/README pairing). */
 Deno.test("pin_set rejects source argument", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({

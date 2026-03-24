@@ -1,5 +1,5 @@
 /**
- * MCP startup: mandatory knowledge remote per active mode (specs/mcp.md).
+ * MCP startup: mandatory knowledge remote per active mode (MCP slice; tests/README pairing).
  * Subprocess checks ensure HTTP (`gl-mcp-server.ts`) and stdio (`gl-mcp-server-stdio.ts`)
  * exit before listen when the effective env var is missing/invalid. Docker uses the same HTTP entrypoint (Dockerfile CMD).
  */

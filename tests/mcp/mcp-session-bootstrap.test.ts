@@ -1,6 +1,6 @@
 /**
  * MCP session pin bootstrap: `_session` exists at effective knowledge remote before first tool
- * (specs/mcp.md — Session pin bootstrap). HTTP: after initialize; stdio: eager hook after connect.
+ * (MCP slice — Session pin bootstrap; tests/README pairing). HTTP: after initialize; stdio: eager hook after connect.
  */
 import { assert, assertEquals } from "jsr:@std/assert";
 import { join } from "node:path";

@@ -1,5 +1,5 @@
 /**
- * Merge tool pin-law (specs/pin-semantics.md — Merge tool exception), via MCP HTTP.
+ * Merge tool pin-law (pin-semantics slice — Merge tool exception), via MCP HTTP.
  */
 import { assertEquals } from "jsr:@std/assert";
 import { randomBytes } from "node:crypto";
@@ -8,7 +8,7 @@ import { TEST_SOURCE } from "../helpers/config.ts";
 import { mcpRequest, parseToolResult } from "../helpers/mcp-http-tool-session.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
-const PIN_LAW = "specs/pin-semantics.md";
+const PIN_LAW_HINT = "pin-semantics slice — tests/README pairing";
 
 /** Merge tool exception: both pins omitted → same session → FAIL. */
 Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
@@ -57,7 +57,7 @@ Deno.test("merge with both sourcePin and targetPin omitted fails", async () => {
       ((result.message ?? "").toLowerCase().includes("itself") ||
         (result.message ?? "").toLowerCase().includes("same")),
     true,
-    `Expected cannot-merge-into-itself style message (${PIN_LAW} — Merge tool exception)`
+    `Expected cannot-merge-into-itself style message (${PIN_LAW_HINT} — Merge tool exception)`
   );
 });
 
@@ -126,6 +126,6 @@ Deno.test("merge with same sourcePin and targetPin fails", async () => {
     (result.message ?? "").toLowerCase().includes("itself") ||
       (result.message ?? "").toLowerCase().includes("same"),
     true,
-    `Expected cannot-merge-into-itself style message (${PIN_LAW} — Merge tool exception)`
+    `Expected cannot-merge-into-itself style message (${PIN_LAW_HINT} — Merge tool exception)`
   );
 });

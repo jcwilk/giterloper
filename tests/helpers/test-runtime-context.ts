@@ -9,8 +9,8 @@ import { E2E_MARKER } from "./config.ts";
  * Per logical test case (or per test file until cases are split): isolated cwd, session id, and
  * collision token for remote resources. With integration helpers (`runGl`, etc.), MCP test-mode
  * session trees live at `<sessionsParent>/.giterloper_test/<sessionId>/` where **`sessionsParent`**
- * follows **`specs/core.md`** (default **`projectRoot`**, often the case **`cwd`**; overridden by
- * **`GITERLOPER_MCP_TEST_SESSION_PARENT`** when set — see **`tests/README.md`**).
+ * follows the **core slice** (default **`projectRoot`**, often the case **`cwd`**; overridden by
+ * **`GITERLOPER_MCP_TEST_SESSION_PARENT`** when set — see **`tests/README.md`** pairing).
  */
 export type TestRuntimeContext = {
   cwd: string;

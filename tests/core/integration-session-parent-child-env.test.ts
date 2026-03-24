@@ -3,7 +3,7 @@
  * `GITERLOPER_MCP_TEST_SESSION_PARENT` when the harness (or manual runs) set it.
  * Same merge pattern as `runGl` / `runGlMaintenance` (`tests/helpers/gl.ts`) and
  * MCP integration spawns (`tests/helpers/mcp-subprocess.ts`). Normative layout:
- * `specs/core.md` (sessionsParent / `.giterloper_test`).
+ * core slice (sessionsParent / `.giterloper_test`; tests/README pairing).
  */
 import { spawnSync } from "node:child_process";
 

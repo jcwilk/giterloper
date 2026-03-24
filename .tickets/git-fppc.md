@@ -1,6 +1,6 @@
 ---
 id: git-fppc
-status: open
+status: closed
 deps: [git-zug8]
 links: []
 created: 2026-03-24T16:00:09Z
@@ -17,3 +17,9 @@ Keep tests/README.md pairing table concrete. Sweep **all** `tests/**/*.ts` (incl
 
 tests/README.md pairing table unchanged in authority. `rg 'specs/[a-z0-9-]+\\.md' tests/` shows **zero** matches outside tests/README.md except exceptions listed in close note. If exceptions exist, each must justify why basename coupling is required.
 
+
+## Notes
+
+**2026-03-24T16:21:40Z**
+
+Swept tests/**/*.ts: removed concrete specs/*.md from module JSDoc, comments, and assert-hint string constants; replaced with slice labels (MCP, pin-semantics, core) plus pointers to tests/README pairing. tests/README.md pairing table unchanged. Intentional exceptions: none — rg 'specs/[a-z0-9-]+\.md' tests/ matches only tests/README.md.
