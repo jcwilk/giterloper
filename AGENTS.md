@@ -8,6 +8,8 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Orthogonality** (root instructions vs `specs/*`) is defined in the mandate (**§1**). Area specs conform to repo-wide root instructions, not the other way around.
 
+**Examples in instruction text:** Process-oriented markdown (this file, skills, mandate, CONTRIBUTING-style notes, and **generic** code comments) should **not** use **real repository paths or filenames** as illustrations of “general rules” (for example listing specific `specs/*.md` files to mean “and any related normative docs”). That pattern **couples** guidance to the current layout: a spec split or rename forces wide, low-value churn. **Prefer contrived placeholders** (“the applicable area spec(s) under `specs/`”, `specs/<slice>.md`) when the point is universal. **Exception:** when the text is **literally about that exact file**—not a stand-in for “any normative doc”—concrete paths are appropriate; navigational slice links live under **Where to read contracts** below.
+
 ## Skills vs agents (orchestration)
 
 **`.cursor/skills/`** is for procedures the **current** agent executes **inline** in this conversation: read the skill, follow it here, use normal tools.

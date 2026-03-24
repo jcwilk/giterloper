@@ -18,7 +18,7 @@ This document defines how **layers of truth** relate in this repository: univers
 
 **Root instruction files** (for example [AGENTS.md](./AGENTS.md), [CONVENTIONS.md](./CONVENTIONS.md), and similar top-level guidance) govern **universal** agent behavior, development process, and coding standards for the whole repo.
 
-**Area specs** under `specs/` govern **product behavior** for that slice only (for example `specs/core.md` and `specs/pin-semantics.md` for behavior exercised by `tests/core/`).
+**Area specs** under `specs/` govern **product behavior** for that slice only (for example the area spec file(s) paired with a topic test folder such as **`tests/core/`** for the behavior that folder exercises—see **§5** for rollout pairing).
 
 If these layers appear to overlap, **call the overlap out explicitly**. In general, **area specs should be adjusted to conform to repo-wide root instructions**, not the other way around. **Changing root instructions** is reserved for **systemic or process change** requested by the user—not for routine product tweaks.
 
@@ -86,7 +86,7 @@ Here **“mention”** means the spec should record the **contract-relevant beha
 
 ## 7. Size and growth of area specs
 
-Target roughly **two pages** of comfortable **human skim** per area spec **file**. If a topic domain **outgrows** that, prefer **a new file under `specs/`** (for example pin configuration split into **`specs/pin-semantics.md`**) plus a **matching subtree under `tests/`** when the task warrants that expansion—rather than unbounded growth of a single spec file.
+Target roughly **two pages** of comfortable **human skim** per area spec **file**. If a topic domain **outgrows** that, prefer **a new file under `specs/`** (for example splitting a large slice into **`specs/<slice-a>.md`** and **`specs/<slice-b>.md`**) plus a **matching subtree under `tests/`** when the task warrants that expansion—rather than unbounded growth of a single spec file.
 
 ---
 
