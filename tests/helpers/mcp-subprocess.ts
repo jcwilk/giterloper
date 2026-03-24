@@ -2,9 +2,10 @@
  * Deno argv to spawn MCP entrypoints with memsearch bootstrapped (scripts/with-memsearch.ts),
  * matching deno.json mcp:* tasks so subprocesses work without a pre-activated venv.
  */
+import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { spawn } from "node:child_process";
 import path from "node:path";
+import process from "node:process";
 
 import { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 import { GITERLOPER_REPO_ROOT } from "./gl.ts";
@@ -41,6 +42,26 @@ export function denoArgsForMcpStdioServer(scriptArgs: string[] = []): string[] {
 
 export interface McpHttpIntegrationServerHandle {
   kill: () => void;
+}
+
+/**
+ * `with-memsearch` runs as outer Deno and spawns inner Deno for the real server
+ * (`scripts/with-memsearch.ts`). SIGTERM on the outer PID alone can leave the inner
+ * server alive; on Unix, spawn with `detached: true` makes the outer process the
+ * process-group leader so `kill(-pid, SIGTERM)` signals the whole tree.
+ */
+function killMcpMemsearchSpawnTree(proc: ChildProcess): void {
+  const pid = proc.pid;
+  if (pid == null) return;
+  try {
+    if (process.platform !== "win32") {
+      process.kill(-pid, "SIGTERM");
+    } else {
+      proc.kill("SIGTERM");
+    }
+  } catch {
+    proc.kill("SIGTERM");
+  }
 }
 
 /** memsearch default embedder reads OPENAI_API_KEY; merge from repo `.env` if missing (without loading `.env` into the test runner — avoids breaking remote-unset startup cases). */
@@ -98,8 +119,9 @@ export function spawnMcpHttpIntegrationServer(opts: {
     cwd: GITERLOPER_REPO_ROOT,
     env,
     stdio: ["ignore", "ignore", "ignore"],
+    detached: process.platform !== "win32",
   });
-  return { kill: () => proc.kill("SIGTERM") };
+  return { kill: () => killMcpMemsearchSpawnTree(proc) };
 }
 
 /** Poll `/health` until OK or `timeoutMs`. */

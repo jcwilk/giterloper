@@ -1,6 +1,6 @@
 ---
 id: git-7qgy
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T03:39:50Z
@@ -30,3 +30,15 @@ Deliverables: tests/README.md subsection (preferred): spawn API table, teardown 
 - Critical leaks fixed or child tickets filed; closure note includes **reproducible** inventory commands (e.g. `pgrep -af 'gl-mcp-server|with-memsearch'`).
 - Verifier/AGENTS edits only if essential; prefer tests/README for harness-adjacent guidance.
 
+
+## Notes
+
+**2026-03-24T04:16:50Z**
+
+Audit: tests/README.md subsection MCP test server subprocess inventory — spawn table, with-memsearch double-Deno callout, buckets (A) DENO_JOBS+harness (B) orphans (C) Cursor MCP. File:line refs for mcp-subprocess, consumers, mcp-stdio-smoke, mcp-startup-remote, createMcpAppForTest, runGl.
+
+Fix: spawnMcpHttpIntegrationServer (tests/helpers/mcp-subprocess.ts) uses detached spawn on Unix + process.kill(-pid,SIGTERM) to reap inner Deno from with-memsearch; Windows unchanged.
+
+Follow-up ticket git-crjq (parent git-05a6): mcp-stdio-smoke Deno.Command teardown still signals outer PID only.
+
+Inventory: pgrep -af 'with-memsearch|gl-mcp-server' and pgrep -af 'gl-mcp-server-stdio'

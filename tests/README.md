@@ -83,6 +83,38 @@ Normative detail lives in **`specs/MCP.md`** and **`specs/core.md`**. For this r
 
 **Requirement:** Any integration entrypoint that spawns **`gl`**, **`gl-maintenance`**, or an MCP server process and expects that process to write session state MUST either use **`runGl` / `runGlMaintenance`** from **`tests/helpers/gl.ts`**, **`createMcpAppForTest`** from **`lib/gl-mcp-server.ts`**, or pass **`--mcp-test-mode`** and merge the same **`integrationMcpModeChildEnv()`** values from **`tests/helpers/integration-mcp-env.ts`** into the child **`env`** (see also **`tests/helpers/mcp-subprocess.ts`** for MCP server spawns). Do not let subprocesses default to **`.giterloper/`** while using the shared test remote.
 
+### MCP test server subprocess inventory (OS processes)
+
+When debugging **`pgrep -af deno`** noise, separate three buckets:
+
+| Bucket | What it is |
+|--------|------------|
+| **(A) Expected harness concurrency** | The unified runner keeps up to **`DENO_JOBS`** (default **16**) **`deno test`** workers alive; each logical case is its own subprocess. Cases that start an MCP server add **additional** OS processes for the duration of that case. |
+| **(B) Post-suite orphans** | Stray **`gl-mcp-server`** / **`with-memsearch`** processes after **all** harness workers have exited — usually a teardown bug (signal only the outer wrapper PID, crash before `finally`, etc.). |
+| **(C) External long-lived servers** | Cursor (or other editors) configured to run **`deno task mcp:serve-stdio:test`**, **`mcp:serve:test`**, or equivalent — **not** started by **`scripts/run-tests.ts`**. |
+
+**`with-memsearch` indirection:** Helpers that use **`denoArgsForMcpHttpServer`** / **`denoArgsForMcpStdioServer`** (`tests/helpers/mcp-subprocess.ts`) run **`scripts/with-memsearch.ts`**, which in turn runs a **second** Deno process for the real entrypoint (`lib/gl-mcp-server.ts` or `lib/gl-mcp-server-stdio.ts`); see **`scripts/with-memsearch.ts`** (inner **`Deno.Command`**). Teardown must account for **two** Deno levels, not one.
+
+| Spawn surface | Location | Mechanism | Teardown / notes |
+|---------------|----------|-----------|------------------|
+| HTTP MCP integration server | **`spawnMcpHttpIntegrationServer`** — `tests/helpers/mcp-subprocess.ts` | **`node:child_process` `spawn`**: outer Deno → **`with-memsearch`** → inner Deno → HTTP server | **`kill()`** on the handle: on Unix, **`detached: true`** + **`process.kill(-pid, "SIGTERM")`** so the **process group** (outer + inner + descendants) is signaled; Windows falls back to **`ChildProcess.kill("SIGTERM")`**. Pair with **`waitForMcpHttpHealth`**. |
+| HTTP server consumers | **`tests/mcp/mcp-search-tool.test.ts`**, **`tests/mcp/gl-mcp-workflow.test.ts`** | Call **`spawnMcpHttpIntegrationServer`** | **`server?.kill()`** in **`finally`** after closing MCP clients. |
+| Stdio smoke (with memsearch wrap) | **`tests/mcp/mcp-stdio-smoke.test.ts`** | **`Deno.Command`** + **`denoArgsForMcpStdioServer(['--mcp-test-mode'])`** — same **outer / inner** Deno chain as HTTP | **`child.kill("SIGTERM")`** then **`await child.status`** — signals **only** the outer Deno; follow-up **`git-crjq`** (epic **`git-05a6`**). |
+| Startup / validation (no `with-memsearch`) | **`tests/mcp/mcp-startup-remote.test.ts`** **`runEntrypoint`** | **`Deno.Command`** `deno run -A <script>` — **one** Deno per invocation, short-lived **`output()`** | Process exits when the entrypoint exits; many invocations per file, different shape from integration servers. |
+| In-process MCP (no extra OS server) | **`createMcpAppForTest`** — `lib/gl-mcp-server.ts` | No subprocess server | Not visible as **`gl-mcp-server`** in **`pgrep`**. |
+| CLI under test mode | **`runGl` / `runGlMaintenance`** — `tests/helpers/gl.ts` | Subprocess **`gl`** / **`gl-maintenance`** with **`--mcp-test-mode`** | Single child per invocation; uses **`.giterloper_test`**; not the same as spawning **`gl-mcp-server.ts`**. |
+
+**Repro / inventory commands** (repo root; patterns vary by shell quoting):
+
+```bash
+pgrep -af 'with-memsearch|gl-mcp-server'
+pgrep -af 'gl-mcp-server-stdio'
+```
+
+After a full suite, **(B)** should show **no** leftover lines once all **`deno test`** harness workers have finished; **(C)** may still show your editor’s MCP server.
+
+**Source anchors (file:line — may drift on edit):** `tests/helpers/mcp-subprocess.ts` — `withMemsearchWrap` 13–20, `denoArgsForMcpHttpServer` 24–30, `denoArgsForMcpStdioServer` 34–40, `killMcpMemsearchSpawnTree` 47–65, `spawnMcpHttpIntegrationServer` 100–125, `waitForMcpHttpHealth` 128+; `scripts/with-memsearch.ts` — inner `Deno.Command` 19–26; `tests/mcp/mcp-search-tool.test.ts` — spawn 43, `finally` teardown 63; `tests/mcp/gl-mcp-workflow.test.ts` — spawn 45, `finally` teardown 142; `tests/mcp/mcp-stdio-smoke.test.ts` — `Deno.Command` 32–44, teardown 76–82; `tests/mcp/mcp-startup-remote.test.ts` — `runEntrypoint` 33–50; `tests/helpers/gl.ts` — `runGl` / `--mcp-test-mode` 78–80, `runGlMaintenance` / `--mcp-test-mode` 139–141.
+
 ### Cleanup
 
 - Cleanup is **scoped to the current test**: branches, pins, temp dirs, and session dirs that **that test** created.
