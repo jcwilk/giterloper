@@ -16,9 +16,9 @@ Implement mutual exclusion so a second invocation of the **canonical unified tes
 **Lock path (critical):** The harness **recursively deletes** repo-root `.giterloper` and `.giterloper_test` before workers start (`run-tests.ts`). The lock file **must not** live under those trees (they are wiped each run). Use a **repo-root** gitignored file (e.g. `.giterloper-harness.lock`) or another path **outside** those directories.
 
 Requirements:
-- Store owning PID (and optionally start time / short command snippet for diagnostics).
-- **Atomic acquisition:** two starters must not both proceed (e.g. exclusive create `O_EXCL`, or `flock` on the lock file, or equivalent documented pattern) before writing PID; then validate stale locks by PID liveness.
-- If lock exists: read PID; if process is alive, exit non-zero with a clear message pointing to the other PID; if PID is dead or stale, remove lock and proceed.
+- Store **owning PID** plus a **verifiable anti–PID-reuse field** so operator scripts (`git-ep51`) never target a recycled PID after the real harness exited. On Linux, record **process start time** (e.g. from `/proc/<pid>/stat` field 22, jiffies → comparable) alongside PID; if OS support is missing, document fallback (e.g. random token validated via co-present metadata). **Start time (or equivalent) is required**, not optional, for the lock record contract.
+- **Atomic acquisition:** two starters must not both proceed (e.g. exclusive create `O_EXCL`, or `flock` on the lock file, or equivalent documented pattern) before writing PID + anti-reuse fields; then validate stale locks by **PID liveness AND** matching start time / token when PID exists.
+- If lock exists: read fields; if process is alive **and** fingerprint matches, exit non-zero with a clear message; if PID dead, fingerprint mismatch, or stale, remove lock and proceed.
 - Take the lock only in the parent **run-tests.ts** process—not in each per-case `deno test` subprocess.
 - Release lock in `finally` on normal exit (success or failure); handle SIGINT/SIGTERM where practical. Stale recovery covers `kill -9` on the harness parent.
 - **PID liveness is mandatory** (file marker alone is insufficient). Linux primary; document macOS if behavior differs.
@@ -33,6 +33,7 @@ Governing docs: tests/README.md (harness, isolation). Mutex prevents concurrent 
 
 - Mutex at `run-tests.ts` entry; `check-all` path inherits via subprocess invocation.
 - Lock file **outside** `.giterloper`/`.giterloper_test`, **gitignored** explicitly at repo root if needed.
-- Atomic lock + stale-PID cleanup; manual demo: second terminal refused while first runs; `kill -9` first → next start clears stale lock and passes.
+- Atomic lock + stale recovery using **PID + anti-reuse fingerprint** (see above); manual demo: second terminal refused while first runs; `kill -9` first → next start clears stale lock and passes.
+- **Regression:** add an **automated** test for “second concurrent harness start is refused” **if** a low-cost approach exists (e.g. subprocess spawning two `run-tests.ts` with a filter/dry-run hook or a small `deno run` harness self-test); if not practical, document the manual demo path explicitly in tests/README.md and note the gap.
 - Documented in tests/README.md harness section; `./scripts/check_all.sh` passes.
 

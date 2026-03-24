@@ -15,13 +15,14 @@ Add small composed scripts (shell and/or deno run scripts/) for operators and ag
 
 1) status/check: reports whether unified harness lock is held and whether PID is alive; exit 0 if no active harness, non-zero if active (or distinguish codes if useful).
 
-2) wait-or-stop: **default path = wait only** up to a configurable duration (default 10 minutes), polling the lock/PID; exit 0 if the harness finishes. If still active **after** the wait elapses, **kill the owning harness process tree** (SIGTERM, then optional SIGKILL after a short grace) and clear stale lock—**no extra `--force-kill` is required for this post-timeout path** (that is the intended default completion when the harness never exits). Killing **before** the wait elapses MUST require an explicit flag (e.g. `--force-kill-now`) or direct user instruction—agents must not jump straight to early kill. Document that any kill may abort a run a human is watching.
+2) wait-or-stop: **default path = wait only** up to a configurable duration (default 10 minutes), polling the lock record (**PID + fingerprint per git-ed8c**); exit 0 if the harness finishes or lock clears cleanly. If still active **after** the wait elapses, **stop the owning harness** using a **documented** strategy: prefer **process-group** termination (e.g. Linux `kill` to the same session/group as `run-tests.ts` children) so `deno test` workers and MCP grandchildren are more likely to reap; if only single-PID SIGTERM is implemented, **document limitations** and rely on **git-7qgy** follow-ups for orphan cleanup. SIGTERM first, optional SIGKILL after grace—**no extra `--force-kill` for post-timeout**. Killing **before** the wait elapses MUST require an explicit flag (e.g. `--force-kill-now`) or direct user instruction. Document that any kill may abort a run a human is watching.
 
 These scripts **only** target the **git-ed8c** harness lock / owning PID—no broad `pkill deno`.
 
 ## Acceptance Criteria
 
-- Two entrypoints from repo root; `--help` documents: default = wait; **post-timeout kill is allowed without an additional kill flag**; **early kill** requires explicit opt-in.
+- Two entrypoints from repo root; `--help` documents: default = wait; **post-timeout kill is allowed without an additional kill flag**; **early kill** requires explicit opt-in; **kill strategy** (process group vs single PID) documented with honest limits.
+- Status script validates **PID + fingerprint** before reporting “active harness.”
 - Referenced from tests/README.md (and AGENTS.md only if a single operational sentence is needed).
 - Depends on **git-ed8c** lock file path and semantics.
 
