@@ -1,6 +1,6 @@
 ---
 id: git-xaio
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T05:35:41Z
@@ -26,3 +26,9 @@ Normative updates: **specs/core.md** — split **repository / product root** (`G
 - **CLI pairing:** `specs/cli.md` and **`lib/cli.ts`** help text for `--mcp-test-mode` updated together (optional session parent + default layout).
 - **Literal** `.giterloper_test` / `.giterloper` unchanged; `GITERLOPER_PROJECT_ROOT` remains repository root for constitution, retry logs, and `state.projectRoot`.
 - No contradiction between core, MCP, CLI pairing, and tests/README.
+
+## Notes
+
+**2026-03-24T05:44:09Z**
+
+Docs only: GITERLOPER_MCP_TEST_SESSION_PARENT in specs/core.md, MCP.md, cli.md pairing + lib/cli.ts help; tests/README.md distinguishes product root vs session parent; forward-ref git-y614/git-jp1p/git-5skn. Implementation in git-toud.

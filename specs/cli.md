@@ -11,7 +11,7 @@ For **pin/ref/branch matrices, session-pin targeting, and `giterloper_pin_set`-e
 - **`gl`** exposes: `diagnostic`, `pin …`, `insert`, `install-remote`, `reconcile`, `merge`.
 - **`gl-maintenance`** (also shown in help as “gl maintenance”) exposes: `status`, `verify`, `clone`, `teardown`, `stage`, `stage-cleanup`, `promote`.
 
-Global options: **`--session-id <id>`** (default **`_cli`**) and optional **`--mcp-test-mode`**. Session-scoped working state lives under **`.giterloper/<sessionId>/`** at the project root in normal mode, or **`.giterloper_test/<sessionId>/`** when **`--mcp-test-mode`** is set (integration / harness alignment with MCP test mode; see **`specs/MCP.md`**).
+Global options: **`--session-id <id>`** (default **`_cli`**) and optional **`--mcp-test-mode`**. Session-scoped working state lives under **`.giterloper/<sessionId>/`** beneath the product root in normal mode. With **`--mcp-test-mode`**, the session base is **`.giterloper_test`** and paths follow **`specs/MCP.md`** / **`specs/core.md`**: by default **`<projectRoot>/.giterloper_test/<sessionId>/`** (same **`projectRoot`** as **`GITERLOPER_PROJECT_ROOT`** / **`cwd`** rules). When **`GITERLOPER_MCP_TEST_SESSION_PARENT`** is set to a non-empty validated path, session state MUST use **`<resolvedParent>/.giterloper_test/<sessionId>/`** instead; when **`--mcp-test-mode`** is absent, that env var MUST be ignored. Help text MUST stay aligned with this paragraph.
 
 Commands that advertise **`--json`** emit structured results suitable for automation; human-oriented text mode remains available where help lists `--json`.
 

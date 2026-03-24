@@ -36,7 +36,7 @@ export interface CleanupOpts {
   branchName?: string | null;
   /** Required when `pinName` is set (local session tree cleanup under `.giterloper_test/<sessionId>/`). */
   sessionId?: string;
-  /** Process cwd that owns `.giterloper_test/<sessionId>/`; defaults to `Deno.cwd()`. */
+  /** Directory that contains `.giterloper_test/<sessionId>/` (effective sessions parent); defaults to `Deno.cwd()`. */
   cwd?: string;
 }
 

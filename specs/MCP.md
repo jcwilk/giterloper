@@ -36,6 +36,15 @@ Operational runbooks (ports, env vars, deployment) live under `docs/` and MUST N
 | Normal (`mcpTestMode` **false**) | **`KNOWLEDGE_STORE_REMOTE`** | MUST be non-empty and valid |
 | MCP test (`mcpTestMode` **true**) | **`TEST_KNOWLEDGE_STORE_REMOTE`** | MUST be non-empty and valid |
 
+### Optional MCP test session filesystem parent
+
+| Env var | When it applies | Effect |
+|---------|-----------------|--------|
+| **`GITERLOPER_MCP_TEST_SESSION_PARENT`** | **Only** when **`mcpTestMode`** is **`true`** | Optional non-empty path: session trees live under **`<resolvedParent>/.giterloper_test/<sessionId>/`** instead of **`<projectRoot>/.giterloper_test/<sessionId>/`**. The **`.giterloper_test`** segment remains **literal** (this variable overrides the **parent directory only**). When **`mcpTestMode`** is **`false`**, this variable MUST be **ignored**. When **`mcpTestMode`** is **`true`** and the variable is unset, empty, or whitespace-only, the parent MUST be **`projectRoot`** (same as **`GITERLOPER_PROJECT_ROOT`** / **`cwd`** rules in **`specs/core.md`**). |
+
+- **`GITERLOPER_PROJECT_ROOT`** remains the **product / repository root** for constitution, retry logs, and **`state.projectRoot`**; it MUST **not** be treated as relocating **`.giterloper_test`** when **`GITERLOPER_MCP_TEST_SESSION_PARENT`** is set—see **`specs/core.md`** for the split.
+- **Validation and resolution** (relative paths, rejection of **`..`** and other unsafe segments) are normative in **`specs/core.md`** and implemented in **`lib/session-layout.ts`**.
+
 - **Startup failure:** If the env var for the active mode is unset, empty, or unusable at **process startup**, the implementation MUST **fail immediately** (non-zero exit, clear error on stderr) and MUST NOT listen for connections, accept MCP sessions, or run tool handlers without a defined store. Silent omission or lazy failure on first tool call is **not** compliant.
 
 ### memsearch CLI (mandatory at MCP startup)
@@ -52,12 +61,15 @@ Harness obligations for **`tests/mcp/`**, **`CreateServerOptions`** test overrid
 
 ### Session root directory names (normative, not env-configurable)
 
-Under the configured project root (see **`specs/core.md`** and **`GITERLOPER_PROJECT_ROOT`**), session directories MUST live under exactly one of these **literal** single-segment names (no trailing slash in the contract name):
+Session directories MUST live under exactly one of these **literal** single-segment names (no trailing slash in the contract name):
 
 - **Normal mode:** **`.giterloper`**
 - **MCP test mode:** **`.giterloper_test`**
 
-The implementation MUST treat these as fixed constants (not derived from user env) so dev/prod and automated tests never accidentally point at the same on-disk tree when modes differ. Full path shape: **`<projectRoot>/<literal>/<sessionId>/`**.
+The implementation MUST treat these as fixed constants (not derived from user env) so dev/prod and automated tests never accidentally point at the same on-disk tree when modes differ.
+
+- **Normal mode** full path shape: **`<projectRoot>/.giterloper/<sessionId>/`** (see **`specs/core.md`** for **`projectRoot`**).
+- **MCP test mode** full path shape: **`<sessionsParent>/.giterloper_test/<sessionId>/`**, where **`sessionsParent`** is **`projectRoot`** unless **`GITERLOPER_MCP_TEST_SESSION_PARENT`** supplies a validated override (**`specs/core.md`**, optional env row above).
 
 ---
 
@@ -66,7 +78,7 @@ The implementation MUST treat these as fixed constants (not derived from user en
 - **HTTP:** After `initialize`, the server issues an `mcp-session-id` response header. Subsequent tool requests MUST carry that header (and the negotiated protocol version header) or fail with actionable guidance.
 - **stdio:** The session id is **process-scoped**; the transport wires a fixed session identity into the shared core.
 
-Per-session working state (including `pinned.yaml` and clones) lives under **`<projectRoot>/.giterloper/<sessionId>/`** in normal mode or **`<projectRoot>/.giterloper_test/<sessionId>/`** in MCP test mode. Session directories MUST use only safe path segments (no `..`, separators, or empty ids). Shared library code that resolves session paths (**`makeState`**, MCP session store, scavenging, cleanup) MUST use the same mode → directory mapping.
+Per-session working state (including `pinned.yaml` and clones) lives under **`<projectRoot>/.giterloper/<sessionId>/`** in normal mode. In MCP test mode it lives under **`<sessionsParent>/.giterloper_test/<sessionId>/`**, with **`sessionsParent`** defined in **`specs/core.md`** ( **`projectRoot`** by default; optional **`GITERLOPER_MCP_TEST_SESSION_PARENT`** when set and valid). Session directories MUST use only safe path segments (no `..`, separators, or empty ids). Shared library code that resolves session paths (**`makeState`**, MCP session store, scavenging, cleanup) MUST use the same mode → **`sessionsParent`** + **literal base** mapping.
 
 **`giterloper_session_end`** removes session-local data for that id. On HTTP, **`DELETE /mcp`** with the same session and protocol headers the client uses for tool calls MUST run equivalent session cleanup (transport-level teardown before the session id is discarded). The server MAY scavenge stale session directories using a configurable TTL. Clients MUST tolerate losing server-side sessions after process restart or deploy (re-`initialize`).
 
