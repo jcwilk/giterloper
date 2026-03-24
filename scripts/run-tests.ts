@@ -8,6 +8,11 @@
  * testcase and zero failures/errors (Deno 2.7 exits 0 when all tests are filtered out—exit code alone
  * is not sufficient).
  *
+ * At entry, the harness acquires a repo-root **flock** orchestrator lock (see
+ * **`scripts/harness-orchestrator-lock.ts`** and **tests/README.md**) so only one parent mutates
+ * shared harness state; **`ensureMemsearchOnPath`**, discovery, and **`.giterloper*`** deletion run
+ * only after lock acquisition.
+ *
  * Before scheduling cases, the harness removes **`<repo>/.giterloper`** and **`<repo>/.giterloper_test`**
  * if present. That is only to keep leftover session trees from piling up on disk across repeated
  * full-suite runs—not a substitute for per-case isolation (tests still must use their own `cwd` /
@@ -18,8 +23,26 @@ import { fileURLToPath } from "node:url";
 
 import { ensureMemsearchOnPath } from "./bootstrap-memsearch.ts";
 import { type DiscoveredTestCase, discoverTestCases } from "./discover-test-cases.ts";
+import { acquireHarnessOrchestratorLock } from "./harness-orchestrator-lock.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+const orchestratorLock = await acquireHarnessOrchestratorLock(root);
+let orchestratorReleased = false;
+const releaseOrchestratorLock = async () => {
+  if (orchestratorReleased) return;
+  orchestratorReleased = true;
+  await orchestratorLock.release();
+};
+
+const onHarnessSignal = () => {
+  void (async () => {
+    await releaseOrchestratorLock();
+    Deno.exit(130);
+  })();
+};
+Deno.addSignalListener("SIGINT", onHarnessSignal);
+Deno.addSignalListener("SIGTERM", onHarnessSignal);
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -116,48 +139,57 @@ async function runOne(c: DiscoveredTestCase): Promise<number> {
   }
 }
 
-await ensureMemsearchOnPath();
-
-let cases: DiscoveredTestCase[];
+let exitCode = 0;
 try {
-  cases = await discoverTestCases(root);
-} catch (e) {
-  console.error(e instanceof Error ? e.message : e);
-  Deno.exit(1);
-}
+  await ensureMemsearchOnPath();
 
-console.error(`Harness: discovered ${cases.length} test case(s).`);
-
-if (cases.length === 0) {
-  console.error("No test cases discovered under tests/; add *.test.ts files with static Deno.test names.");
-  Deno.exit(1);
-}
-
-for (const base of [".giterloper", ".giterloper_test"] as const) {
-  const dir = path.join(root, base);
+  let cases: DiscoveredTestCase[];
   try {
-    await Deno.remove(dir, { recursive: true });
+    cases = await discoverTestCases(root);
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) throw e;
+    console.error(e instanceof Error ? e.message : e);
+    exitCode = 1;
+    cases = [];
   }
-}
 
-const jobs = workerCount();
-const concurrency = Math.min(jobs, cases.length);
-let nextIndex = 0;
-let failures = 0;
+  if (exitCode === 0) {
+    console.error(`Harness: discovered ${cases.length} test case(s).`);
 
-async function worker(): Promise<void> {
-  while (true) {
-    const i = nextIndex++;
-    if (i >= cases.length) return;
-    const c = cases[i]!;
-    const code = await runOne(c);
-    if (code !== 0) failures++;
+    if (cases.length === 0) {
+      console.error("No test cases discovered under tests/; add *.test.ts files with static Deno.test names.");
+      exitCode = 1;
+    } else {
+      for (const base of [".giterloper", ".giterloper_test"] as const) {
+        const dir = path.join(root, base);
+        try {
+          await Deno.remove(dir, { recursive: true });
+        } catch (e) {
+          if (!(e instanceof Deno.errors.NotFound)) throw e;
+        }
+      }
+
+      const jobs = workerCount();
+      const concurrency = Math.min(jobs, cases.length);
+      let nextIndex = 0;
+      let failures = 0;
+
+      async function worker(): Promise<void> {
+        while (true) {
+          const i = nextIndex++;
+          if (i >= cases.length) return;
+          const c = cases[i]!;
+          const code = await runOne(c);
+          if (code !== 0) failures++;
+        }
+      }
+
+      const workers = Array.from({ length: concurrency }, () => worker());
+      await Promise.all(workers);
+
+      exitCode = failures > 0 ? 1 : 0;
+    }
   }
+} finally {
+  await releaseOrchestratorLock();
 }
-
-const workers = Array.from({ length: concurrency }, () => worker());
-await Promise.all(workers);
-
-Deno.exit(failures > 0 ? 1 : 0);
+Deno.exit(exitCode);

@@ -1,6 +1,6 @@
 ---
 id: git-ed8c
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T03:39:44Z

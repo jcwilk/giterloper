@@ -1,6 +1,11 @@
 .giterloper/
 .giterloper_test/
 
+# Unified test harness orchestrator lock (git-ed8c); must stay outside session trees
+.giterloper-harness.lock
+.giterloper-harness.meta.json
+.giterloper-harness.meta.json.*
+
 # Python venv (memsearch, local MCP); recreate with `python3 -m venv .venv && pip install memsearch`
 .venv/
 
