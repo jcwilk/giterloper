@@ -13,26 +13,9 @@ import {
   sessionDir,
   touchSession,
 } from "../../lib/mcp-session-store.ts";
+import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 
 const RUN_ID = `mcp_ss_${randomBytes(8).toString("hex")}`;
-
-/** Avoid scanning/deleting workspace `.giterloper/` (parallel harness + short-TTL scavenge). */
-function withIsolatedProjectRootSync(fn: () => void): void {
-  const tmp = Deno.makeTempDirSync();
-  const prev = Deno.env.get("GITERLOPER_PROJECT_ROOT");
-  Deno.env.set("GITERLOPER_PROJECT_ROOT", tmp);
-  try {
-    fn();
-  } finally {
-    if (prev === undefined) Deno.env.delete("GITERLOPER_PROJECT_ROOT");
-    else Deno.env.set("GITERLOPER_PROJECT_ROOT", prev);
-    try {
-      Deno.removeSync(tmp, { recursive: true });
-    } catch {
-      // ignore
-    }
-  }
-}
 
 Deno.test("isSafeSessionId accepts valid sessionIds", () => {
   assertEquals(isSafeSessionId("abc123"), true);
@@ -49,16 +32,16 @@ Deno.test("isSafeSessionId rejects invalid inputs", () => {
   assertEquals(isSafeSessionId("bad/path"), false);
 });
 
-Deno.test("sessionDir returns path under .giterloper/<sessionId>", () => {
-  withIsolatedProjectRootSync(() => {
+Deno.test("sessionDir returns path under .giterloper/<sessionId>", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     const id = "test-session";
     const dir = sessionDir(id);
     assertEquals(dir.endsWith(path.join(".giterloper", "test-session")), true);
   });
 });
 
-Deno.test("touchSession creates dir and last_activity file, removeSessionData cleans up", () => {
-  withIsolatedProjectRootSync(() => {
+Deno.test("touchSession creates dir and last_activity file, removeSessionData cleans up", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     const sessionId = `${RUN_ID}_touch_remove`;
     const dir = sessionDir(sessionId);
     try {
@@ -82,14 +65,14 @@ Deno.test("removeSessionData is no-op for invalid sessionId", () => {
   removeSessionData("..");
 });
 
-Deno.test("removeSessionData is no-op when dir does not exist", () => {
-  withIsolatedProjectRootSync(() => {
+Deno.test("removeSessionData is no-op when dir does not exist", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     removeSessionData(`${RUN_ID}_nonexistent_${randomBytes(4).toString("hex")}`);
   });
 });
 
-Deno.test("scavengeStaleSessions removes sessions older than TTL", () => {
-  withIsolatedProjectRootSync(() => {
+Deno.test("scavengeStaleSessions removes sessions older than TTL", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     const sessionId = `${RUN_ID}_stale_${randomBytes(4).toString("hex")}`;
     const dir = sessionDir(sessionId);
     try {
@@ -107,8 +90,8 @@ Deno.test("scavengeStaleSessions removes sessions older than TTL", () => {
   });
 });
 
-Deno.test("scavengeStaleSessions returns 0 when TTL is 0", () => {
-  withIsolatedProjectRootSync(() => {
+Deno.test("scavengeStaleSessions returns 0 when TTL is 0", async () => {
+  await withIsolatedGiterloperProjectRoot(async () => {
     assertEquals(scavengeStaleSessions(0), 0);
   });
 });

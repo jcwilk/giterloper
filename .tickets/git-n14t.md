@@ -1,6 +1,6 @@
 ---
 id: git-n14t
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T03:39:52Z
@@ -28,3 +28,17 @@ If bugs found: fix in this ticket or spawn a child with evidence. Optional **low
 - Any harness defect fixed with tests or child ticket.
 - Do not duplicate **git-ed8c** mutex design or **git-7qgy** spawn inventory here.
 
+
+## Notes
+
+**2026-03-24T04:29:53Z**
+
+## Audit checklist (git-n14t)
+
+(1) Per-case scheduling: `scripts/discover-test-cases.ts` emits sorted `{path,name}` per static `Deno.test`; `scripts/run-tests.ts` runs `runOne` with `deno test --filter /^name$/` and single `c.path`, worker pool `concurrency = min(DENO_JOBS, cases.length)` backfilling from a shared index — one subprocess per logical case, not per file. Duplicate names across files are OK (filter + path).
+
+(2) Env / global mutation: `Deno.env.set`/`delete` in TS tests: `tests/helpers/mcp-project-root-isolation.ts` (serialized async queue for `GITERLOPER_PROJECT_ROOT`); `tests/mcp/mcp-session-store.test.ts` now uses that helper instead of unsynchronized sync env swap (safe for raw `deno test` parallel cases in one file). Parallel harness workers are separate OS processes — no cross-case `Deno.env` sharing. Parent harness only: `scripts/bootstrap-memsearch.ts` augments `PATH` after lock acquisition.
+
+(3) Verifier / flake narrative: With git-ed8c, a second `run-tests.ts` blocks on the repo-root flock instead of racing `.giterloper*` deletion. Residual risk: bypass entrypoints (`deno task test:*` topic slices, raw `deno test`) skip the orchestrator lock; stale lock metadata; long-lived external MCP or leaked children touching `.giterloper_test` — see epic git-05a6 and git-7qgy for MCP process inventory/teardown.
+
+Implementation: added `tests/core/discover-harness-scheduling-invariant.test.ts` (multi-case-per-file guardrail); refactored mcp-session-store tests to `withIsolatedGiterloperProjectRoot`.
