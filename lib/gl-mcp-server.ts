@@ -553,6 +553,15 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         }
         requirePinBranch(source, "merge");
         requirePinBranch(target, "merge");
+        // Base === head on GitHub is not a valid merge; map here so callers get invalid_argument (specs/pin-semantics.md).
+        if (source.source === target.source && source.branch === target.branch) {
+          return {
+            ok: false,
+            code: "invalid_argument",
+            message: "Cannot merge a pin into itself.",
+            details: {},
+          };
+        }
         if (source.source !== target.source) {
           throw new Error(
             `merge requires same repo: source "${source.name}" and target "${target.name}" point to different sources`

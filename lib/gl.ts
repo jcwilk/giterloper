@@ -399,6 +399,9 @@ async function cmdMerge(state: GlState, args: string[]) {
   const target = resolvePin(state, args[1]);
   requirePinBranch(source, "merge");
   requirePinBranch(target, "merge");
+  if (source.source === target.source && source.branch === target.branch) {
+    fail("Cannot merge a pin into itself.", EXIT.USER);
+  }
 
   if (source.source !== target.source) {
     fail(
