@@ -1,6 +1,6 @@
 ---
 id: git-7cxd
-status: open
+status: closed
 deps: [git-6m0f]
 links: []
 created: 2026-03-24T17:07:49Z
@@ -48,3 +48,9 @@ Acceptance: AGENTS.md is materially shorter; no conflicting normative pin/MCP de
 - MCP subsection: minimal ops + spec pointers; Cursor stdio .env wording is launcher-conditional and accurate vs deno.json tasks.
 - No new contradictions with specs/mcp.md or specs/pin-semantics.md (spot-check).
 
+
+## Notes
+
+**2026-03-24T17:12:46Z**
+
+AGENTS.md refactor: hub-only Task Tracking (no slash list); removed Multi-model critique; shortened Skills vs agents with verifier Task carve-out; removed Gl Script Notes, pinned.yaml, MCP session pin subsection, External retries (pointer in Coding Conventions to CONVENTIONS.md); short Tests bullet; Project Structure hubs; Run env + Cursor Cloud deduped; MCP ops minimal + specs; Cursor stdio .env launcher-conditional. Ran deno check lib/gl.ts.
