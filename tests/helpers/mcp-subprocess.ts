@@ -44,6 +44,12 @@ export interface McpHttpIntegrationServerHandle {
   kill: () => void;
 }
 
+/** Stdio MCP child (`lib/gl-mcp-server-stdio.ts`) with piped stdio; use `kill()` for process-group teardown. */
+export interface McpStdioIntegrationServerHandle {
+  proc: ChildProcess;
+  kill: () => void;
+}
+
 /**
  * `with-memsearch` runs as outer Deno and spawns inner Deno for the real server
  * (`scripts/with-memsearch.ts`). SIGTERM on the outer PID alone can leave the inner
@@ -122,6 +128,32 @@ export function spawnMcpHttpIntegrationServer(opts: {
     detached: process.platform !== "win32",
   });
   return { kill: () => killMcpMemsearchSpawnTree(proc) };
+}
+
+/**
+ * Spawn stdio MCP server with test-mode env and memsearch bootstrap (same outer/inner Deno chain as HTTP).
+ * Pipes stdio for JSON-RPC; pair `kill()` with `await once(proc, "exit")` (or equivalent) after closing writers.
+ */
+export function spawnMcpStdioIntegrationServer(opts?: {
+  scriptArgs?: string[];
+  projectRoot?: string;
+}): McpStdioIntegrationServerHandle {
+  const env: Record<string, string> = {
+    ...Deno.env.toObject(),
+    ...integrationMcpModeChildEnv(),
+  };
+  mergeOpenAiKeyFromRepoDotenv(env);
+  if (opts?.projectRoot != null && opts.projectRoot !== "") {
+    env.GITERLOPER_PROJECT_ROOT = opts.projectRoot;
+  }
+  const args = denoArgsForMcpStdioServer(opts?.scriptArgs ?? ["--mcp-test-mode"]);
+  const proc = spawn(Deno.execPath(), args, {
+    cwd: GITERLOPER_REPO_ROOT,
+    env,
+    stdio: ["pipe", "pipe", "ignore"],
+    detached: process.platform !== "win32",
+  });
+  return { proc, kill: () => killMcpMemsearchSpawnTree(proc) };
 }
 
 /** Poll `/health` until OK or `timeoutMs`. */

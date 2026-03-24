@@ -4,46 +4,30 @@
  * getSessionId injection. See ticket git-vraz, docs/STDIO_TRANSPORT_SPIKE.md.
  */
 import { assertEquals } from "jsr:@std/assert";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { once } from "node:events";
+import { createInterface } from "node:readline";
 
-import { integrationMcpModeChildEnv } from "../helpers/integration-mcp-env.ts";
-import { denoArgsForMcpStdioServer } from "../helpers/mcp-subprocess.ts";
-
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-
-function readLine(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
-  const decoder = new TextDecoder();
-  let buf = "";
-  return (async () => {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) return buf;
-      buf += decoder.decode(value, { stream: true });
-      const idx = buf.indexOf("\n");
-      if (idx !== -1) {
-        const line = buf.slice(0, idx);
-        return line;
-      }
-    }
-  })();
-}
+import { spawnMcpStdioIntegrationServer } from "../helpers/mcp-subprocess.ts";
 
 Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped session", async () => {
-  const cmd = new Deno.Command(Deno.execPath(), {
-    args: denoArgsForMcpStdioServer(["--mcp-test-mode"]),
-    cwd: ROOT,
-    env: {
-      ...Deno.env.toObject(),
-      ...integrationMcpModeChildEnv(),
-    },
-    stdin: "piped",
-    stdout: "piped",
-    stderr: "piped",
-  });
-  const child = cmd.spawn();
-  const stdin = child.stdin.getWriter();
-  const stdoutReader = child.stdout.getReader();
+  const { proc, kill } = spawnMcpStdioIntegrationServer();
+  const stdin = proc.stdin!;
+  const stdout = proc.stdout!;
+
+  const rl = createInterface({ input: stdout, crlfDelay: Infinity });
+  const readJsonLine = () =>
+    new Promise<string>((resolve, reject) => {
+      const onLine = (line: string) => {
+        rl.off("close", onClose);
+        resolve(line);
+      };
+      const onClose = () => {
+        rl.off("line", onLine);
+        reject(new Error("stdout closed before line"));
+      };
+      rl.once("line", onLine);
+      rl.once("close", onClose);
+    });
 
   try {
     const initReq = JSON.stringify({
@@ -56,8 +40,8 @@ Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped sess
         clientInfo: { name: "stdio-smoke", version: "1.0.0" },
       },
     }) + "\n";
-    await stdin.write(new TextEncoder().encode(initReq));
-    const initLine = await readLine(stdoutReader);
+    stdin.write(initReq, "utf8");
+    const initLine = await readJsonLine();
     const initRes = JSON.parse(initLine) as { result?: unknown; error?: { message?: string } };
     assertEquals(initRes.error, undefined, `initialize should not error: ${initRes.error?.message ?? initLine}`);
     assertEquals(!!initRes.result, true, "initialize should return result");
@@ -68,17 +52,16 @@ Deno.test("MCP stdio: initialize and tools/list succeed with process-scoped sess
       method: "tools/list",
       params: {},
     }) + "\n";
-    await stdin.write(new TextEncoder().encode(listReq));
-    const listLine = await readLine(stdoutReader);
+    stdin.write(listReq, "utf8");
+    const listLine = await readJsonLine();
     const listRes = JSON.parse(listLine) as { result?: { tools?: unknown[] }; error?: { message?: string } };
     assertEquals(listRes.error, undefined, `tools/list should not error: ${listRes.error?.message ?? listLine}`);
     assertEquals(Array.isArray(listRes.result?.tools), true, "tools/list should return tools array");
   } finally {
-    stdin.close();
-    stdoutReader.releaseLock();
-    await child.stdout.cancel();
-    await child.stderr.cancel();
-    child.kill("SIGTERM");
-    await child.status;
+    rl.close();
+    stdin.end();
+    stdout.destroy();
+    kill();
+    await once(proc, "exit");
   }
 });
