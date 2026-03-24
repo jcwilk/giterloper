@@ -1,6 +1,6 @@
 ---
 id: git-shfx
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T02:22:09Z
@@ -21,3 +21,9 @@ Follow-up to spec split (8511791). **User-directed:** normative spec/README/AGEN
 ## Epic acceptance
 
 All children closed; `deno task test` and `deno task test:pin-semantics` green per `git-c2km` / `git-ewer` criteria.
+
+## Notes
+
+**2026-03-24T03:20:52Z**
+
+Closed epic. Follow-up: removed --parallel from deno task test:pin-semantics to stop intermittent HTTP 400 on MCP initialize under concurrent slice load.
