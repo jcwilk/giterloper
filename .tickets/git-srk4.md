@@ -1,6 +1,6 @@
 ---
 id: git-srk4
-status: open
+status: closed
 deps: [git-kms9]
 links: []
 created: 2026-03-24T02:22:14Z
@@ -29,3 +29,9 @@ Sweep **`.cursor/skills/`**, **`.cursor/agents/`** (except as noted), **`CONVENT
 - **file-tickets** SKILL step 1 uses **no** embedded real pin-semantics (or other) spec path as a generic filing example.
 - **Existing** bad patterns in scoped dirs addressed (not only “no new” regressions): at minimum **file-tickets** + **work-next** if still applicable.
 - Spot-check: search `.cursor/` for illustrative **“for example”** (or equivalent) prose adjacent to multiple literal `specs/…md` paths in **non-table** body text—should be gone or placeholder-based.
+
+## Notes
+
+**2026-03-24T02:40:04Z**
+
+Closure: decoupled generic spec examples from concrete paths. Touched: .cursor/skills/file-tickets/SKILL.md, .cursor/agents/work-next.md. CONVENTIONS.md unchanged. verifier.md unchanged (normative table carve-out).

@@ -12,7 +12,7 @@ Turn the **conclusion of the current conversation** into a structured set of tic
 ## Procedure
 
 1. **Extract the conclusion**: Review the conversation. Identify what was agreed, planned, or outlined. Summarize before proceeding.
-   - Identify any authoritative markdown spec(s) that govern the behavior (for example `specs/core.md` Pin configuration semantics).
+   - Identify any authoritative markdown spec(s) that govern the behavior—the applicable governing area spec(s) under **`specs/`** (placeholder: **`specs/<slice>.md`**); use **[tests/README.md](../../tests/README.md)** for spec↔test pairing when helpful.
 2. **Create an epic**:
    ```
    ./tk create "Epic: <short title>" -t epic -d "<summary>"
