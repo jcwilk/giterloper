@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { GITERLOPER_SESSION_BASE_TEST } from "../../lib/session-layout.ts";
+import { effectiveGiterloperSessionsRoot } from "../../lib/session-layout.ts";
 import type { TestRuntimeContext } from "./test-runtime-context.ts";
 import { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 
@@ -24,12 +24,14 @@ const GL_SCRIPT = path.join(GITERLOPER_REPO_ROOT, ".cursor", "skills", "gl", "sc
 const GL_MAINTENANCE_SCRIPT = path.join(GITERLOPER_REPO_ROOT, "scripts", "gl-maintenance");
 
 /**
- * Heuristic session dir under `cwd` for helpers that assume test mode layout next to `cwd`.
- * When `GITERLOPER_MCP_TEST_SESSION_PARENT` is set (unified harness / git-y614), real session trees
- * follow `specs/core.md` instead; update callers under git-5skn.
+ * Session root for MCP test mode matching `makeState` / `effectiveGiterloperSessionsRoot` in a `gl`
+ * subprocess whose product root is `cwd` (typically `TestRuntimeContext.cwd` when
+ * `GITERLOPER_PROJECT_ROOT` is unset). Honors `GITERLOPER_MCP_TEST_SESSION_PARENT` from the current
+ * process env (inherited by workers and merged into `runGl` children).
  */
 export function giterloperSessionRoot(cwd: string, sessionId: string): string {
-  return path.join(cwd, GITERLOPER_SESSION_BASE_TEST, sessionId);
+  const sessionsBase = effectiveGiterloperSessionsRoot(cwd, true);
+  return path.join(sessionsBase, sessionId);
 }
 
 type GlCliRunOptsBase = {

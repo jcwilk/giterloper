@@ -8,7 +8,6 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
 
-import { GITERLOPER_SESSION_BASE_TEST } from "../../lib/session-layout.ts";
 import {
   CLEAN_MAIN_SHA,
   E2E_MARKER,
@@ -16,7 +15,7 @@ import {
   TEST_SOURCE,
   toRemoteUrl,
 } from "./config.ts";
-import { GITERLOPER_REPO_ROOT, runGlJson, runGlMaintenanceJson } from "./gl.ts";
+import { GITERLOPER_REPO_ROOT, giterloperSessionRoot, runGlJson, runGlMaintenanceJson } from "./gl.ts";
 import { runGit } from "./run-git.ts";
 
 function getPin(list: unknown, name: string): { name?: string; sha?: string } | undefined {
@@ -36,20 +35,9 @@ export function ensurePinRemoved(name: string, sessionId: string): void {
 }
 
 function cleanupLocalCopies(pinName: string, sessionId: string): void {
-  const versionsDir = path.join(
-    GITERLOPER_REPO_ROOT,
-    GITERLOPER_SESSION_BASE_TEST,
-    sessionId,
-    "versions",
-    pinName
-  );
-  const stagedDirPath = path.join(
-    GITERLOPER_REPO_ROOT,
-    GITERLOPER_SESSION_BASE_TEST,
-    sessionId,
-    "staged",
-    pinName
-  );
+  const sessionRoot = giterloperSessionRoot(GITERLOPER_REPO_ROOT, sessionId);
+  const versionsDir = path.join(sessionRoot, "versions", pinName);
+  const stagedDirPath = path.join(sessionRoot, "staged", pinName);
   try {
     rmSync(versionsDir, { recursive: true, force: true });
   } catch {
@@ -129,12 +117,10 @@ export function addTestPin(
   );
   runGlMaintenanceJson(["stage", branch, "--pin", pinName], { cwd: GITERLOPER_REPO_ROOT, sessionId });
   const stagedPath = path.join(
-    GITERLOPER_REPO_ROOT,
-    GITERLOPER_SESSION_BASE_TEST,
-    sessionId,
+    giterloperSessionRoot(GITERLOPER_REPO_ROOT, sessionId),
     "staged",
     pinName,
-    branch
+    branch,
   );
   if (!existsSync(stagedPath)) {
     throw new Error(`Stage failed: ${stagedPath} does not exist`);

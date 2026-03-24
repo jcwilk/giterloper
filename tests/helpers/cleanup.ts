@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { GITERLOPER_SESSION_BASE_TEST } from "../../lib/session-layout.ts";
 import { runGit } from "./run-git.ts";
+import { giterloperSessionRoot } from "./gl.ts";
 
 export function toRemoteUrl(source: string): string {
   const token = Deno.env.get("GITERLOPER_GH_TOKEN");
@@ -13,11 +13,12 @@ export function toRemoteUrl(source: string): string {
   return `https://${source}`;
 }
 
-function cleanupLocalCopies(pinName: string | null, sessionId: string, cwd: string): void {
+function cleanupLocalCopies(pinName: string | null, sessionId: string, productRootForGl: string): void {
   if (!pinName) return;
 
-  const versionsDir = path.join(cwd, GITERLOPER_SESSION_BASE_TEST, sessionId, "versions", pinName);
-  const stagedDir = path.join(cwd, GITERLOPER_SESSION_BASE_TEST, sessionId, "staged", pinName);
+  const sessionRoot = giterloperSessionRoot(productRootForGl, sessionId);
+  const versionsDir = path.join(sessionRoot, "versions", pinName);
+  const stagedDir = path.join(sessionRoot, "staged", pinName);
 
   try {
     rmSync(versionsDir, { recursive: true, force: true });
@@ -36,7 +37,7 @@ export interface CleanupOpts {
   branchName?: string | null;
   /** Required when `pinName` is set (local session tree cleanup under `.giterloper_test/<sessionId>/`). */
   sessionId?: string;
-  /** Directory that contains `.giterloper_test/<sessionId>/` (effective sessions parent); defaults to `Deno.cwd()`. */
+  /** Same `cwd` / product root passed to `runGl` for that session (see `giterloperSessionRoot`); defaults to `Deno.cwd()`. */
   cwd?: string;
 }
 

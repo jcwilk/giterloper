@@ -8,7 +8,7 @@ import {
   createMcpAppForTest,
   createServer,
 } from "../../lib/gl-mcp-server.ts";
-import { GITERLOPER_SESSION_BASE_TEST } from "../../lib/session-layout.ts";
+import { effectiveGiterloperSessionsRoot } from "../../lib/session-layout.ts";
 import { TEST_SOURCE } from "../helpers/config.ts";
 import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
@@ -62,10 +62,9 @@ Deno.test(
       assert(sessionId !== null && sessionId.length > 0);
 
       const pinnedPath = join(
-        projectRoot,
-        GITERLOPER_SESSION_BASE_TEST,
+        effectiveGiterloperSessionsRoot(projectRoot, true),
         sessionId,
-        "pinned.yaml"
+        "pinned.yaml",
       );
       const yaml = Deno.readTextFileSync(pinnedPath);
       assert(
@@ -124,10 +123,9 @@ Deno.test(
       eagerBootstrapStdioSession();
 
       const pinnedPath = join(
-        projectRoot,
-        GITERLOPER_SESSION_BASE_TEST,
+        effectiveGiterloperSessionsRoot(projectRoot, true),
         sessionId,
-        "pinned.yaml"
+        "pinned.yaml",
       );
       const yaml = Deno.readTextFileSync(pinnedPath);
       assert(

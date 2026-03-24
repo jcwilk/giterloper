@@ -14,16 +14,24 @@
  * only after lock acquisition.
  *
  * Before scheduling cases, the harness removes **`<repo>/.giterloper`** and **`<repo>/.giterloper_test`**
- * if present. That is only to keep leftover session trees from piling up on disk across repeated
- * full-suite runs—not a substitute for per-case isolation (tests still must use their own `cwd` /
- * session ids as documented in tests/README.md).
+ * if present. That **repo-root** cleanup is only to keep leftover session trees from piling up on
+ * disk across repeated full-suite runs; it is **not** a substitute for per-case isolation (tests
+ * still must use their own `cwd` / session ids as documented in tests/README.md). MCP test-mode
+ * session trees for this harness run live under **`tests/roots/giterloper-test-runs/<runId>/`** via
+ * **`GITERLOPER_MCP_TEST_SESSION_PARENT`** (see **`allocateTestRunRoot`** in **`scripts/test-run-roots.ts`**).
+ *
+ * Ordering (after the flock is held): **memsearch** → **discovery** → **repo-root hygiene deletion**
+ * → **`allocateTestRunRoot`** (GC + new run dir) → **worker pool**. Each **`deno test`** worker
+ * receives the **full** parent environment merged with that absolute session-parent path.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GITERLOPER_MCP_TEST_SESSION_PARENT } from "../lib/session-layout.ts";
 import { ensureMemsearchOnPath } from "./bootstrap-memsearch.ts";
 import { type DiscoveredTestCase, discoverTestCases } from "./discover-test-cases.ts";
 import { acquireHarnessOrchestratorLock } from "./harness-orchestrator-lock.ts";
+import { allocateTestRunRoot } from "./test-run-roots.ts";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -83,7 +91,10 @@ function formatCase(c: DiscoveredTestCase): string {
   return `(${c.path}, ${JSON.stringify(c.name)})`;
 }
 
-async function runOne(c: DiscoveredTestCase): Promise<number> {
+async function runOne(
+  c: DiscoveredTestCase,
+  workerEnv: Record<string, string>,
+): Promise<number> {
   const filter = `/^${escapeRegExp(c.name)}$/`;
   const junitPath = await Deno.makeTempFile({ prefix: "giterloper-junit-", suffix: ".xml" });
   try {
@@ -100,6 +111,7 @@ async function runOne(c: DiscoveredTestCase): Promise<number> {
         c.path,
       ],
       cwd: root,
+      env: workerEnv,
       // JUnit reporter echoes the full XML to stdout; suppress noise while keeping stderr for Deno diagnostics.
       stdout: "null",
       stderr: "inherit",
@@ -168,6 +180,12 @@ try {
         }
       }
 
+      const { absoluteParent } = await allocateTestRunRoot(root);
+      const workerEnv: Record<string, string> = {
+        ...Deno.env.toObject(),
+        [GITERLOPER_MCP_TEST_SESSION_PARENT]: absoluteParent,
+      };
+
       const jobs = workerCount();
       const concurrency = Math.min(jobs, cases.length);
       let nextIndex = 0;
@@ -178,7 +196,7 @@ try {
           const i = nextIndex++;
           if (i >= cases.length) return;
           const c = cases[i]!;
-          const code = await runOne(c);
+          const code = await runOne(c, workerEnv);
           if (code !== 0) failures++;
         }
       }

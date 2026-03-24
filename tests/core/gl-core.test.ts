@@ -4,6 +4,7 @@ import path from "node:path";
 import { makeState, validateSessionId } from "../../lib/gl-core.ts";
 import { GlError } from "../../lib/errors.ts";
 import { sessionDir } from "../../lib/mcp-session-store.ts";
+import { effectiveGiterloperSessionsRoot } from "../../lib/session-layout.ts";
 
 const PROJECT_ROOT = path.resolve(Deno.cwd());
 
@@ -30,7 +31,8 @@ Deno.test("makeState('_cli') returns paths under .giterloper/_cli/", () => {
 Deno.test("makeState({ mcpTestMode: true }) uses .giterloper_test/<sessionId>", () => {
   const state = makeState("t1", { mcpTestMode: true });
   assertEquals(state.mcpTestMode, true);
-  const sessionRoot = path.join(PROJECT_ROOT, ".giterloper_test", "t1");
+  const sessionsBase = effectiveGiterloperSessionsRoot(PROJECT_ROOT, true);
+  const sessionRoot = path.join(sessionsBase, "t1");
   assertEquals(state.rootDir, sessionRoot);
 });
 
