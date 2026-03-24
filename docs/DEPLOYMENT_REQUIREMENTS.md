@@ -1,6 +1,6 @@
 # Giterloper deployment requirements
 
-**Layering:** This file is **operational** guidance only. It must not be treated as the normative product contract. MCP transport, sessions, and auth are defined in [`specs/MCP.md`](../specs/MCP.md); on any mismatch, update this doc (see [HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)).
+**Layering:** This file is **operational** guidance only. It must not be treated as the normative product contract. MCP transport, sessions, and auth are defined in [`specs/mcp.md`](../specs/mcp.md); on any mismatch, update this doc (see [HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)).
 
 Consolidated from repo analysis and deployment discussion. Target: single-user hobby, under ~USD 20/month.
 
@@ -32,9 +32,9 @@ Consolidated from repo analysis and deployment discussion. Target: single-user h
 
 ## 4. Network and environment requirements
 
-- **Inbound:** HTTP on MCP_HOST:MCP_PORT (default 127.0.0.1:3443). Routes: `GET /health` (no auth), MCP over HTTP at `/mcp` (see [`specs/MCP.md`](../specs/MCP.md) for required methods and session headers; CORS may surface `OPTIONS`). No TLS in-app; use reverse proxy in production. On Fly.io, bind to `0.0.0.0` and use the port Fly assigns (e.g. 8080) or set in env—[`fly.toml`](../fly.toml) uses 8080 with a `/health` check.
+- **Inbound:** HTTP on MCP_HOST:MCP_PORT (default 127.0.0.1:3443). Routes: `GET /health` (no auth), MCP over HTTP at `/mcp` (see [`specs/mcp.md`](../specs/mcp.md) for required methods and session headers; CORS may surface `OPTIONS`). No TLS in-app; use reverse proxy in production. On Fly.io, bind to `0.0.0.0` and use the port Fly assigns (e.g. 8080) or set in env—[`fly.toml`](../fly.toml) uses 8080 with a `/health` check.
 - **Outbound:** Git (HTTPS/SSH to pin repos: clone, fetch, push, ls-remote). GitHub API (api.github.com: commits, merges, refs) when pin source is GitHub. Optional: `gh auth token` if GITERLOPER_GH_TOKEN unset.
-- **Env (spot-checked vs `lib/gl-mcp-server.ts`, `lib/mcp-session-store.ts`, `lib/gl-core.ts`):** `MCP_HOST`, `MCP_PORT`, `MCP_TOKEN` (Bearer), `MCP_INSECURE` (dev only), `MCP_SESSION_TTL_MS`; `GITERLOPER_GH_TOKEN` (optional, for git + GitHub API); **`KNOWLEDGE_STORE_REMOTE`** (**required** for normal MCP operation: non-empty valid Git remote; server exits at startup if missing/invalid). New sessions bootstrap `_session` from that remote at default branch HEAD before tools run (`specs/MCP.md`). For MCP test mode (session root **`.giterloper_test`**), start the process with **`--mcp-test-mode`** and set **`TEST_KNOWLEDGE_STORE_REMOTE`** per `specs/MCP.md` and `tests/README.md`—not for production defaults.
+- **Env (spot-checked vs `lib/gl-mcp-server.ts`, `lib/mcp-session-store.ts`, `lib/gl-core.ts`):** `MCP_HOST`, `MCP_PORT`, `MCP_TOKEN` (Bearer), `MCP_INSECURE` (dev only), `MCP_SESSION_TTL_MS`; `GITERLOPER_GH_TOKEN` (optional, for git + GitHub API); **`KNOWLEDGE_STORE_REMOTE`** (**required** for normal MCP operation: non-empty valid Git remote; server exits at startup if missing/invalid). New sessions bootstrap `_session` from that remote at default branch HEAD before tools run (`specs/mcp.md`). For MCP test mode (session root **`.giterloper_test`**), start the process with **`--mcp-test-mode`** and set **`TEST_KNOWLEDGE_STORE_REMOTE`** per `specs/mcp.md` and `tests/README.md`—not for production defaults.
 
 ## 5. Deploy and session behavior
 

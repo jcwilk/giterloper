@@ -2,7 +2,7 @@
 /**
  * Ensures `memsearch` is on PATH for this process (and subprocesses that inherit env).
  * If missing, creates repo-root `.venv` and runs `pip install memsearch` (PEP 668–safe).
- * See specs/MCP.md (memsearch mandatory at MCP startup); this is harness/ingress only.
+ * See specs/mcp.md (memsearch mandatory at MCP startup); this is harness/ingress only.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";

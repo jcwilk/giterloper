@@ -99,14 +99,14 @@ export interface CreateServerOptions extends McpSessionLayoutOpts {
    */
   knowledgeStoreRemote?: string | null;
   /**
-   * Test-only: skip memsearch PATH probe (specs/MCP.md — narrow hook for startup failure tests).
+   * Test-only: skip memsearch PATH probe (specs/mcp.md — narrow hook for startup failure tests).
    * Production entrypoints MUST NOT set this.
    */
   skipMemsearchVerification?: boolean;
 }
 
 /**
- * Returned by {@link createServer}: MCP server plus hooks for session pin bootstrap (specs/MCP.md).
+ * Returned by {@link createServer}: MCP server plus hooks for session pin bootstrap (specs/mcp.md).
  */
 export interface McpServerBundle {
   server: McpServer;
@@ -126,7 +126,7 @@ export interface McpStartupSnapshot {
 }
 
 /**
- * Validates knowledge remote for the active mode (specs/MCP.md). Skips when
+ * Validates knowledge remote for the active mode (specs/mcp.md). Skips when
  * `knowledgeStoreRemote === null` (harness: no auto-bootstrap / optional env).
  */
 export function mcpStartupState(
@@ -282,7 +282,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     return payload;
   }
 
-  /** Parity with GET /health (specs/MCP.md — Observability). */
+  /** Parity with GET /health (specs/mcp.md — Observability). */
   function mcpObservabilityPayload(): {
     mcpTestMode: boolean;
     configuredKnowledgeStoreRemote: string;

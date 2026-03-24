@@ -9,7 +9,7 @@ import { parseMcpResponse, parseToolResult, setupSession } from "../helpers/mcp-
 import { withIsolatedGiterloperProjectRoot } from "../helpers/mcp-project-root-isolation.ts";
 import { MCP_INSECURE_TEST_AUTH } from "../helpers/mcp-test-auth.ts";
 
-const MCP_SCHEMA = "specs/MCP.md (transport, tools/list); specs/pin-semantics.md (pin inputs)";
+const MCP_SCHEMA = "specs/mcp.md (transport, tools/list); specs/pin-semantics.md (pin inputs)";
 
 /**
  * tools/list: giterloper_pin_set exposes branch and ref; no source on inputs.
@@ -87,7 +87,7 @@ Deno.test("pin_set rejects unknown arguments", async () => {
   });
 });
 
-/** MCP must not accept client `source`; repo identity is server config only (specs/MCP.md, specs/pin-semantics.md). */
+/** MCP must not accept client `source`; repo identity is server config only (specs/mcp.md, specs/pin-semantics.md). */
 Deno.test("pin_set rejects source argument", async () => {
   await withIsolatedGiterloperProjectRoot(async () => {
     const app = await createMcpAppForTest({

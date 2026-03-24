@@ -1,6 +1,6 @@
 /**
  * MCP observability: GET /health and giterloper_state_inspect expose mcpTestMode +
- * configuredKnowledgeStoreRemote with identical semantics (specs/MCP.md).
+ * configuredKnowledgeStoreRemote with identical semantics (specs/mcp.md).
  */
 import { assertEquals } from "jsr:@std/assert";
 import { createMcpAppForTest } from "../../lib/gl-mcp-server.ts";

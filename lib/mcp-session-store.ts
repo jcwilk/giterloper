@@ -1,6 +1,6 @@
 /**
  * MCP session store and cleanup. Manages session-local state under the session base dir
- * (`.giterloper` or `.giterloper_test` per specs/MCP.md) + `<sessionId>/`.
+ * (`.giterloper` or `.giterloper_test` per specs/mcp.md) + `<sessionId>/`.
  * Provides explicit cleanup via giterloper_session_end and DELETE /mcp, plus stale-session
  * scavenging by last-activity TTL. Decoupled from tool handlers.
  *

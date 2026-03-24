@@ -1,6 +1,6 @@
 /**
  * Session filesystem layout and MCP test mode resolution.
- * Normative: specs/core.md (session root), specs/MCP.md (modes, env vars, literal directory names).
+ * Normative: specs/core.md (session root), specs/mcp.md (modes, env vars, literal directory names).
  */
 import path from "node:path";
 
@@ -177,7 +177,7 @@ export function effectiveKnowledgeStoreRemote(
 }
 
 /**
- * Structural check for MCP startup (specs/MCP.md): non-empty remotes must look like a Git remote
+ * Structural check for MCP startup (specs/mcp.md): non-empty remotes must look like a Git remote
  * before the server listens. Does not probe the network.
  */
 export function isPlausibleKnowledgeStoreRemote(s: string): boolean {

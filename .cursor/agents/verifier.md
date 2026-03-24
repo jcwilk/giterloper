@@ -37,7 +37,7 @@ When the change set touches behavior in a slice, **read the governing area spec*
 | Paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md` (and `specs/pin-semantics.md` when pin-adjacent behavior is in scope) |
 | Pin-law, `giterloper_pin_set`, branch/ref matrix, `tests/pin-semantics/` | `specs/pin-semantics.md` |
 | `gl` / `gl-maintenance` CLI behavior, `tests/cli/` | `specs/cli.md` |
-| MCP tools, transport, session pin surface, `tests/mcp/` | `specs/MCP.md` (pin configuration law: `specs/pin-semantics.md`) |
+| MCP tools, transport, session pin surface, `tests/mcp/` | `specs/mcp.md` (pin configuration law: `specs/pin-semantics.md`) |
 
 Pin configuration at user-facing boundaries is defined in **`specs/pin-semantics.md`**; paths and **`pinned.yaml`** storage in **`specs/core.md`**, with canonical on-disk layout **`.giterloper/<sessionId>/`**—do **not** cite removed legacy **`docs/PIN_*`** paths as authority.
 

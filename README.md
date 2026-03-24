@@ -12,7 +12,7 @@ For AI agent and contributor workflow and conventions, see [`AGENTS.md`](./AGENT
 
 - **Constitution** — `docs/CONSTITUTION.md` defines the contract between Giterloper and knowledge stores. Use `gl install-remote <pin>` to copy it to a pin as `GITERLOPER.md`.
 - **`gl` skill** — `.cursor/skills/gl/` provides the CLI for managing knowledge stores.
-- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. MCP tool contracts and transport behavior: [`specs/MCP.md`](./specs/MCP.md).
+- **MCP server** — Giterloper can run as an HTTP/SSE MCP server for version-pinned retrieval and knowledge intake. Indexing (when implemented) is isolated per pin+sha via memsearch; no cross-version index reuse. MCP tool contracts and transport behavior: [`specs/mcp.md`](./specs/mcp.md).
 
 ## Knowledge stores
 
@@ -29,7 +29,7 @@ Each pin uses an exact commit SHA. The CLI defaults to session `_cli` (override 
 
 ## Quick start
 
-1. Prerequisites: git, [Deno](https://deno.land), and **Python 3** (for **`memsearch`**). **`deno task check`**, **`deno task test`**, **`deno task mcp:serve`**, and **`./scripts/check_all.sh`** auto-provision **`.venv`** + **`memsearch`** when needed; raw **`deno run lib/gl-mcp-server.ts`** without **`scripts/with-memsearch.ts`** still requires **`memsearch` on `PATH`** ([specs/MCP.md](./specs/MCP.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
+1. Prerequisites: git, [Deno](https://deno.land), and **Python 3** (for **`memsearch`**). **`deno task check`**, **`deno task test`**, **`deno task mcp:serve`**, and **`./scripts/check_all.sh`** auto-provision **`.venv`** + **`memsearch`** when needed; raw **`deno run lib/gl-mcp-server.ts`** without **`scripts/with-memsearch.ts`** still requires **`memsearch` on `PATH`** ([specs/mcp.md](./specs/mcp.md)). See [AGENTS.md](./AGENTS.md) and [tests/README.md](./tests/README.md).
 2. Add a pin: `./.cursor/skills/gl/scripts/gl pin add <name> <source> [--ref <ref>] [--branch <branch>]` (clones automatically).
    - Or load existing pins: `./.cursor/skills/gl/scripts/gl pin load` (or `--pin <name>` for one).
 3. Verify: `./.cursor/skills/gl/scripts/gl diagnostic`.
