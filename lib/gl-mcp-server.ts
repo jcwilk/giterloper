@@ -625,7 +625,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Configure pins",
       description:
-        "Configure pins per specs/pin-semantics.md. Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
+        "View or configure the session pin and named pins (branch/ref matrix; reserved pin name _session). Repository identity is server-defined (KNOWLEDGE_STORE_REMOTE or TEST_KNOWLEDGE_STORE_REMOTE per mode); MCP inputs do not accept a repo/source override. Omit pin to operate on the session pin (stored as name _session); never pass pin=_session. With pin omitted and neither branch nor ref, returns the session pin. For named pins, specify at least one of branch or ref when adding or changing. ref may be a SHA or branch/tag; resolved to SHA from the configured remote. Pins store name, sha, optionally branch.",
       inputSchema: z
         .object({
           pin: z

@@ -109,7 +109,7 @@ The internal session pin name is always **`_session`**. Callers target it by **o
 | `giterloper_insert_pending` | Queue markdown under `knowledge/_pending/`. |
 | `giterloper_reconcile_pending` | Fold pending content into topic files under `knowledge/`. |
 | `giterloper_merge` | Merge one pin’s branch into another via the GitHub API. |
-| `giterloper_pin_set` | View or configure the session pin and named pins per **specs/pin-semantics.md** (branch/ref matrix, reserved `_session`). Repository identity is server-only; inputs are **pin**, **ref**, **branch** only—no **source**. |
+| `giterloper_pin_set` | View or configure the session pin and named pins (branch/ref matrix, reserved `_session`). Repository identity is server-only; inputs are **pin**, **ref**, **branch** only—no **source**. Pin naming and the full branch/ref matrix are normative in **[`specs/pin-semantics.md`](./pin-semantics.md)**—this row summarizes MCP-facing obligations only. |
 | `giterloper_state_inspect` | List pins; optional clone/freshness checks. |
 | `giterloper_session_end` | Tear down session-local server state. |
 
