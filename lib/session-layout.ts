@@ -1,17 +1,17 @@
 /**
  * Session filesystem layout and MCP test mode resolution.
- * Normative: specs/core.md (session root), specs/mcp.md (modes, env vars, literal directory names).
+ * Normative layout: core + MCP slices under `specs/` (session root, modes, env vars, literal directory names).
  */
 import path from "node:path";
 
 import { EXIT, fail } from "./errors.ts";
 
-/** Product root override (same semantics as `makeState` / specs/core.md). */
+/** Product root override (same semantics as `makeState` / shared core under `specs/`). */
 export const GITERLOPER_PROJECT_ROOT_ENV = "GITERLOPER_PROJECT_ROOT" as const;
 
 /**
  * Optional MCP test session parent (basename-only override for `.giterloper_test` trees).
- * Ignored unless MCP test mode is active. See specs/core.md.
+ * Ignored unless MCP test mode is active. See shared core slice under `specs/`.
  */
 export const GITERLOPER_MCP_TEST_SESSION_PARENT = "GITERLOPER_MCP_TEST_SESSION_PARENT" as const;
 
@@ -91,7 +91,7 @@ export function resolveValidatedMcpTestSessionParent(
   return path.isAbsolute(t) ? path.resolve(t) : path.resolve(projectRootAnchor, t);
 }
 
-/** Optional per-call layout overrides (in-process MCP tests, `createServer`); see specs/core.md. */
+/** Optional per-call layout overrides (in-process MCP tests, `createServer`); see shared core under `specs/`. */
 export type McpSessionLayoutOpts = {
   /** Product root; when omitted, callers use {@link resolveProductRoot()} / env. */
   projectRoot?: string;
@@ -177,7 +177,7 @@ export function effectiveKnowledgeStoreRemote(
 }
 
 /**
- * Structural check for MCP startup (specs/mcp.md): non-empty remotes must look like a Git remote
+ * Structural check for MCP startup (MCP slice under `specs/`): non-empty remotes must look like a Git remote
  * before the server listens. Does not probe the network.
  */
 export function isPlausibleKnowledgeStoreRemote(s: string): boolean {

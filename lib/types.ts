@@ -24,9 +24,9 @@ export interface GlState {
   stagedRoot: string;
   pinnedPath: string;
   globalJson: boolean;
-  /** Mutable paths (pinned.yaml, versions, staged, indexes) root under session base + sessionId (see specs/core.md). */
+  /** Mutable paths (pinned.yaml, versions, staged, indexes) root under session base + sessionId (shared core under `specs/`). */
   sessionId: string;
-  /** `.giterloper` vs `.giterloper_test` per specs/mcp.md */
+  /** `.giterloper` vs `.giterloper_test` per MCP mode (MCP slice under `specs/`). */
   mcpTestMode: boolean;
   /** Set by makeState callers so retry logs distinguish cli vs mcp. */
   retryLogRole?: RetryLogRole;

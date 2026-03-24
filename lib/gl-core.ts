@@ -91,7 +91,7 @@ export function validateSessionId(sessionId: string | null | undefined): string 
 
 /**
  * Creates GlState. Mutable paths root under `<projectRoot>/<sessionBase>/<sessionId>/`
- * (pinned.yaml, versions, staged, indexes). Session base follows MCP test mode (specs/core.md, specs/mcp.md).
+ * (pinned.yaml, versions, staged, indexes). Session base follows MCP test mode (core + MCP slices under `specs/`).
  */
 export function makeState(
   sessionId: string,

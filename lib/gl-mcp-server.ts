@@ -99,14 +99,14 @@ export interface CreateServerOptions extends McpSessionLayoutOpts {
    */
   knowledgeStoreRemote?: string | null;
   /**
-   * Test-only: skip memsearch PATH probe (specs/mcp.md — narrow hook for startup failure tests).
+   * Test-only: skip memsearch PATH probe (narrow hook for startup failure tests; MCP memsearch rule under `specs/`).
    * Production entrypoints MUST NOT set this.
    */
   skipMemsearchVerification?: boolean;
 }
 
 /**
- * Returned by {@link createServer}: MCP server plus hooks for session pin bootstrap (specs/mcp.md).
+ * Returned by {@link createServer}: MCP server plus hooks for session pin bootstrap (MCP slice under `specs/`).
  */
 export interface McpServerBundle {
   server: McpServer;
@@ -126,7 +126,7 @@ export interface McpStartupSnapshot {
 }
 
 /**
- * Validates knowledge remote for the active mode (specs/mcp.md). Skips when
+ * Validates knowledge remote for the active mode (MCP slice under `specs/`). Skips when
  * `knowledgeStoreRemote === null` (harness: no auto-bootstrap / optional env).
  */
 export function mcpStartupState(
@@ -282,7 +282,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     return payload;
   }
 
-  /** Parity with GET /health (specs/mcp.md — Observability). */
+  /** Parity with GET /health (MCP observability under `specs/`). */
   function mcpObservabilityPayload(): {
     mcpTestMode: boolean;
     configuredKnowledgeStoreRemote: string;
@@ -532,7 +532,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const state = stateForSession(extra);
         const effSource = effectivePinForResolve(sourcePin);
         const effTarget = effectivePinForResolve(targetPin);
-        // Per specs/pin-semantics.md — Merge tool exception: both omitted → merge into itself.
+        // Merge tool: both pins omitted → merge into itself (invalid).
         if (effSource === undefined && effTarget === undefined) {
           return {
             ok: false,
@@ -563,7 +563,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         }
         requirePinBranch(source, "merge");
         requirePinBranch(target, "merge");
-        // Base === head on GitHub is not a valid merge; map here so callers get invalid_argument (specs/pin-semantics.md).
+        // Base === head on GitHub is not a valid merge; map here so callers get invalid_argument.
         if (source.source === target.source && source.branch === target.branch) {
           return {
             ok: false,
@@ -666,7 +666,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const rlog = retryLogFromGlState(state);
         const pins = readPins(state);
 
-        // Omit pin: operate on session pin. Per specs/pin-semantics.md (Pin name / session pin).
+        // Omit pin: operate on session pin.
         if (!pin || pin.trim() === "") {
           const branchProvided = branch !== undefined && branch?.trim() !== "";
           const shaProvided = ref !== undefined && ref?.trim() !== "";
@@ -752,7 +752,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
               message: "Updated session pin branch",
             });
           }
-          // ref only, no branch: update session pin to resolved ref SHA, branchlessly. Per specs/pin-semantics.md — "2. ref specified, branch not specified".
+          // ref only, no branch: update session pin to resolved ref SHA, branchlessly.
           const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPin.source;
           if (!repoRemote?.trim()) {
             return {
@@ -790,7 +790,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
         const branchProvided = branch !== undefined && branch?.trim() !== "";
         const shaProvided = ref !== undefined && ref?.trim() !== "";
 
-        // Per specs/pin-semantics.md — "4. Neither branch nor ref specified" for named-pin mutation → FAIL.
+        // Named-pin mutation requires at least one of branch or ref.
         if (!branchProvided && !shaProvided) {
           return {
             ok: false,
@@ -800,7 +800,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           };
         }
 
-        // Branch + pin: create/update named pin. Per specs/pin-semantics.md — case 1 (ref not specified) uses session pin SHA; case 3 (both ref and branch) uses resolved ref SHA.
+        // Branch + pin: create/update named pin (ref omitted → inherit session SHA; ref+branch → resolved ref SHA).
         if (branchProvided) {
           const repoRemote = mcpPinSetRepoRemote(pins) ?? sessionPinForInheritance?.source;
           if (!repoRemote?.trim()) {
@@ -1121,7 +1121,7 @@ export function createHttpMcpApp(
  * Creates a fresh MCP app with its own transport and server. Use in tests that need
  * an independent initialize (the shared mcpApp rejects a second initialize).
  *
- * Session layout follows specs/core.md: by default `makeState` and the session store read
+ * Session layout follows shared core under `specs/`: by default `makeState` and the session store read
  * `GITERLOPER_PROJECT_ROOT` / `GITERLOPER_MCP_TEST_SESSION_PARENT` from the process (subprocess
  * children inherit via `integrationMcpModeChildEnv`). For parallel in-process tests, pass
  * {@link McpSessionLayoutOpts.projectRoot} and/or {@link McpSessionLayoutOpts.mcpTestSessionParent}

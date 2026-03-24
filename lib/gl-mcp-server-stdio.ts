@@ -2,7 +2,7 @@
 /**
  * Giterloper MCP server over stdio. One process-scoped session; same tool/session
  * semantics as HTTP. Logging goes to stderr so stdout stays clean for JSON-RPC.
- * See docs/STDIO_TRANSPORT_SPIKE.md and specs/mcp.md.
+ * See docs/STDIO_TRANSPORT_SPIKE.md; MCP transport parity under `specs/`.
  */
 import { randomUUID } from "node:crypto";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
