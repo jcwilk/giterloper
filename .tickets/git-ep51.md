@@ -13,7 +13,7 @@ parent: git-05a6
 
 **git-ed8c** makes `run-tests.ts` **block** until the orchestrator slot is free, with user-visible stdout—agents invoking `deno task test` / `check_all` normally need **no** separate wait script.
 
-Add small **composed** scripts (shell and/or `deno run scripts/...`; optional **`deno.json` tasks** with stable names—document from repo root) for edge cases (CI probes, humans checking state without running tests). **Parsing rules** for active/stale/idle **must match git-ed8c verbatim** (shared helper module recommended in implementation to avoid drift).
+Add small **composed** scripts (shell and/or `deno run scripts/...`; optional **`deno.json` tasks** with stable names—document from repo root) for edge cases (CI probes, humans checking state without running tests). **Parsing rules** for active/stale/idle **must match git-ed8c**—implementation should **export a single shared module** (lock path, record parse/format, liveness+fingerprint checks) **imported by both** `run-tests.ts` and these scripts so parsers cannot drift.
 
 1) **status / check:** Read the **git-ed8c** lock record; report whether an orchestrator is **active** (PID alive + fingerprint match); useful exit codes (e.g. 0 = idle, 1 = active, 2 = stale record—tune and document). **STDOUT** should show PID and short reason.
 
