@@ -1,6 +1,6 @@
 ---
 id: git-vsoz
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T15:59:56Z
