@@ -16,9 +16,9 @@ Verify the harness still runs **one `deno test` subprocess per discovered logica
 **Review:**
 - Worker pool + `runOne` still match per-case scheduling.
 - **GITERLOPER_PROJECT_ROOT** and other process-global env: grep tests for `Deno.env.set`/`delete`; confirm parallel cases do not race (see `tests/helpers/mcp-project-root-isolation.ts`, subprocess-only env where required).
-- **`.giterloper_test` deletion** at harness start vs other actors—delegate **leaked MCP OS processes** to **git-7qgy**; here focus on **two harnesses** / harness vs long-lived external MCP.
+- **`.giterloper_test` deletion** at harness start vs other actors—delegate **leaked MCP OS processes** to **git-7qgy**; here focus on **true concurrent orchestrators** (should be prevented by **git-ed8c** blocking lock), **bypass** paths (`deno task test:cli`, raw `deno test`), and harness vs long-lived external MCP.
 
-**Verifier / flake narrative (closure note, ≥1 short paragraph):** Running `./scripts/check_all.sh` while another `run-tests.ts` deletes `.giterloper*` can present as flakes; primary mitigation is **git-ed8c**. Optional one-line pointer in verifier runbook only if maintainers want it—**not** required by default.
+**Verifier / flake narrative (closure note, ≥1 short paragraph):** With **git-ed8c**, second canonical harness invocations **block** instead of racing deletes; residual flake risk = **bypass** entrypoints, stale locks, or external MCP still touching `.giterloper_test`. Tie mitigations to **git-05a6** / **git-7qgy** as appropriate. Optional one-line pointer in verifier runbook only if maintainers want it—**not** required by default.
 
 If bugs found: fix in this ticket or spawn a child with evidence. Optional **low-cost** invariant (e.g. discovery fixture test)—do not require heavy `Deno.Command` mocking.
 

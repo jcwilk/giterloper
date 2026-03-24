@@ -22,7 +22,7 @@ Investigate sources of many concurrent `deno` / `gl-mcp-server*.ts` / `--mcp-tes
 
 **Out-of-repo:** Cursor MCP configs using `mcp:serve-stdio:test` / similar—document; not the unified harness.
 
-Deliverables: tests/README.md subsection (preferred): spawn API table, teardown paths, expected vs leak, optional reproducible `pgrep` commands for closure notes. Follow-up tickets for code fixes (process-group kill, etc.).
+Deliverables: tests/README.md subsection (preferred): spawn API table, teardown paths, expected vs leak, optional reproducible `pgrep` commands for closure notes. Follow-up tickets for code fixes (e.g. process-group **SIGTERM for MCP test subprocess teardown / orphan cleanup**—**not** killing the unified harness orchestrator or waiters; epic **git-05a6** forbids orchestrator kill-after-timeout).
 
 ## Acceptance Criteria
 

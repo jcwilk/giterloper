@@ -9,20 +9,23 @@ priority: 1
 assignee: user.email
 parent: git-05a6
 ---
-# Composed scripts: harness status, wait-then-stop policy
+# Composed scripts: harness status and optional wait-for-idle (no kill-after-timeout)
 
-Add small composed scripts (shell and/or deno run scripts/) for operators and agents:
+**git-ed8c** makes `run-tests.ts` **block** until the orchestrator slot is free, with user-visible stdout—agents invoking `deno task test` / `check_all` normally need **no** separate wait script.
 
-1) status/check: reports whether unified harness lock is held and whether PID is alive; exit 0 if no active harness, non-zero if active (or distinguish codes if useful).
+Add small **composed** scripts (shell and/or `deno run scripts/...`; optional **`deno.json` tasks** with stable names—document from repo root) for edge cases (CI probes, humans checking state without running tests). **Parsing rules** for active/stale/idle **must match git-ed8c verbatim** (shared helper module recommended in implementation to avoid drift).
 
-2) wait-or-stop: **default path = wait only** up to a configurable duration (default 10 minutes), polling the lock record (**PID + fingerprint per git-ed8c**); exit 0 if the harness finishes or lock clears cleanly. If still active **after** the wait elapses, **stop the owning harness** using a **documented** strategy: prefer **process-group** termination (e.g. Linux `kill` to the same session/group as `run-tests.ts` children) so `deno test` workers and MCP grandchildren are more likely to reap; if only single-PID SIGTERM is implemented, **document limitations** and rely on **git-7qgy** follow-ups for orphan cleanup. SIGTERM first, optional SIGKILL after grace—**no extra `--force-kill` for post-timeout**. Killing **before** the wait elapses MUST require an explicit flag (e.g. `--force-kill-now`) or direct user instruction. Document that any kill may abort a run a human is watching.
+1) **status / check:** Read the **git-ed8c** lock record; report whether an orchestrator is **active** (PID alive + fingerprint match); useful exit codes (e.g. 0 = idle, 1 = active, 2 = stale record—tune and document). **STDOUT** should show PID and short reason.
 
-These scripts **only** target the **git-ed8c** harness lock / owning PID—no broad `pkill deno`.
+2) **optional wait-for-idle:** For tooling that **cannot** call `run-tests.ts` but must pause until the harness is idle: poll the same lock contract and block with **occasional stdout** (similar tone to git-ed8c). **Must not** kill the active orchestrator. **No** default **timeout-then-kill** behavior anywhere in this ticket—queued agents rely on the active run finishing naturally.
+
+**Explicitly out of scope for git-ep51:** Kill-after-timeout, “make room” SIGTERM/SIGKILL of the harness, or process-group slaughter of waiters’ peers. If an **emergency** human-only kill path is ever desired, it must be a **separate** ticket with strong warnings—not bundled here.
+
+Scripts target only the **git-ed8c** lock contract—no broad `pkill deno`.
 
 ## Acceptance Criteria
 
-- Two entrypoints from repo root; `--help` documents: default = wait; **post-timeout kill is allowed without an additional kill flag**; **early kill** requires explicit opt-in; **kill strategy** (process group vs single PID) documented with honest limits.
-- Status script validates **PID + fingerprint** before reporting “active harness.”
-- Referenced from tests/README.md (and AGENTS.md only if a single operational sentence is needed).
-- Depends on **git-ed8c** lock file path and semantics.
+- At least **harness-status** (name adjustable) shipped and documented from repo root; **wait-for-idle** optional if justified in ticket closure note.
+- `--help` states **no kill / no timeout-kill**; references tests/README.md.
+- Depends on **git-ed8c** lock path and record format.
 
