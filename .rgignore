@@ -1,0 +1,2 @@
+# Ephemeral per-run session parents and artifacts (noisy for ripgrep)
+tests/roots/

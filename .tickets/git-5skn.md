@@ -1,6 +1,6 @@
 ---
 id: git-5skn
-status: open
+status: closed
 deps: [git-y614]
 links: []
 created: 2026-03-24T05:35:41Z
