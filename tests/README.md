@@ -19,6 +19,17 @@ This document is the canonical reference for test strategy, test execution, harn
 
 **Harness and helpers** (`tests/helpers/`, the unified runner, AST discovery and scheduling mechanics) are **not** product-behavior specs. Their contracts live **here** (runner, isolation, cleanup, collision rules). [specs/core.md](../specs/core.md) states that helper modules under **`tests/helpers/`** are harness-only and intentionally **not** mirrored in area specs—this README is the operational source for those details.
 
+## Repository layout (brief)
+
+Stable hubs around this test guide (low-churn pointers only; harness detail stays in the sections linked below):
+
+- **`lib/`** — product source (CLI, MCP shared core, git/pin helpers, and related libraries).
+- **`specs/`** — normative product contracts by slice; pairing with **`tests/*`** topic trees is summarized in the table above.
+- **`docs/`** — operational and deployment notes. Per the repo [hierarchical truth and alignment mandate](../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md), **`docs/`** is demoted relative to **`specs/`** for product truth—do not treat deployment prose as overriding area specs.
+- **`.tickets/`** — ticket files for tracked work; use **`./tk`** from the repo root (see [AGENTS.md](../AGENTS.md)).
+- **`.giterloper/`** — normal session state under **`<projectRoot>/.giterloper/<sessionId>/`**. **`.giterloper_test/`** — MCP test-mode session trees under the effective session parent. Layout, env overrides, and harness cleanup are covered under **[Target architecture](#target-architecture-canonical)** (especially **On-disk session layout** and **MCP test mode**).
+- **`scripts/`** — check scripts, unified test harness, memsearch bootstrap wrappers, Docker and maintenance entrypoints. Runner behavior lives under **[Target architecture](#target-architecture-canonical)**.
+
 ## Hierarchical alignment
 
 When you touch **behavior** that belongs under a slice spec, treat **spec**, **tests**, and **implementation** as one story: prefer commits or PRs that keep them aligned together (or clearly sequenced) so the layers do not drift without an explicit decision.

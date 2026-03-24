@@ -1,6 +1,6 @@
 ---
 id: git-61ko
-status: open
+status: closed
 deps: [git-7cxd]
 links: []
 created: 2026-03-24T17:07:55Z
