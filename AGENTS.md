@@ -71,7 +71,7 @@ The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process
 
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
 - **MCP server:** `deno task mcp:serve` / `mcp:serve-stdio` from workspace root (loads repo-root **`.env`** via Deno **`--env-file`**; copy **`.env.example`** → **`.env`** and fill remotes first). For MCP test mode (session under **`.giterloper_test`**), use **`mcp:serve:test`** / **`mcp:serve-stdio:test`**. Raw **`deno run`** without **`--env-file`** does not load **`.env`**—either use the tasks or pass **`--env-file=.env`** yourself.
-- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: logical cases are discovered via **`scripts/discover-test-cases.ts`** (AST, fail-closed); each case is a separate **`deno test`** subprocess with a JUnit report and a **≥1 testcase / zero failures** gate (see [tests/README.md](./tests/README.md)). A **bounded worker pool** backfills from the queue; concurrency is capped only by **`DENO_JOBS`** (default **16**) for all cases under `tests/core/`, `tests/cli/`, and `tests/mcp/`. Integration tests use per-case temp `cwd`, session state under **`.giterloper/<sessionId>/`** or **`.giterloper_test/<sessionId>/`** when MCP test mode applies, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). The harness deletes **repo-root** **`.giterloper/`** and **`.giterloper_test/`** once at suite start so session dirs from prior runs do not accumulate (disk hygiene, not the isolation model). Typecheck: `deno check lib/gl.ts`.
+- **Tests:** `deno run -A scripts/run-tests.ts` (or `deno task test`) runs the unified harness: logical cases are discovered via **`scripts/discover-test-cases.ts`** (AST, fail-closed); each case is a separate **`deno test`** subprocess with a JUnit report and a **≥1 testcase / zero failures** gate (see [tests/README.md](./tests/README.md)). A **bounded worker pool** backfills from the queue; concurrency is capped only by **`DENO_JOBS`** (default **16**) for **all** discovered logical cases under **`tests/`** (every `*.test.ts` case the preflight finds, including **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`**, **`tests/pin-semantics/`**, and any future topic subtrees using the same discovery rules). Integration tests use per-case temp `cwd`, session state under **`.giterloper/<sessionId>/`** or **`.giterloper_test/<sessionId>/`** when MCP test mode applies, and **injected** MCP/config (not mutable process-global `Deno.env` in tests). The harness deletes **repo-root** **`.giterloper/`** and **`.giterloper_test/`** once at suite start so session dirs from prior runs do not accumulate (disk hygiene, not the isolation model). Typecheck: `deno check lib/gl.ts`.
 
 **Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
 
@@ -83,7 +83,7 @@ See [CONVENTIONS.md](./CONVENTIONS.md) for type-safety, interface/type usage, an
 
 A rigorous, thoughtfully designed test suite is essential for agentic coding. It is the clearest way to verify that implemented behavior matches intended behavior.
 
-Topic integration tests—especially MCP workflow tests against a live remote—are especially valuable as executable workflow documentation for both humans and agents. Keep that coverage high-signal and intentionally scoped: less is more. Avoid overlapping scenarios and competing sources of truth. CLI-facing behavior lives in `tests/cli/` (real `gl` / `gl-maintenance`); higher-level agent paths live in `tests/mcp/`.
+Topic integration tests—especially MCP workflow tests against a live remote—are especially valuable as executable workflow documentation for both humans and agents. Keep that coverage high-signal and intentionally scoped: less is more. Avoid overlapping scenarios and competing sources of truth. CLI-facing behavior lives in `tests/cli/` (real `gl` / `gl-maintenance`); higher-level agent paths live in `tests/mcp/`; **pin-law** (`giterloper_pin_set`, branch/ref matrix, …) lives in `tests/pin-semantics/` per [tests/README.md](./tests/README.md).
 
 Use [tests/README.md](./tests/README.md) as the canonical source for all test-specific guidance (execution, shared-remote collision avoidance, independence, cleanup rules, and the target harness layout under `.giterloper/<sessionId>/`).
 
@@ -102,7 +102,7 @@ Transient network and GitHub REST failures are retried in `lib/retry-external.ts
 
 - **`lib/`** — TypeScript source for the gl CLI (paths, add-queue, pinned, git, etc.)
 - **`.cursor/skills/gl/scripts/gl`** — Executable shell script; run from workspace root
-- **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`** — topic-based tests; full suite: `deno run -A scripts/run-tests.ts` or `deno task check`
+- **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`**, **`tests/pin-semantics/`** — topic-based product-behavior tests; full suite: `deno run -A scripts/run-tests.ts` or `deno task check`
 - **`tests/helpers/`** — `gl.ts` (runGl, runGlJson), `cleanup.ts` (cleanupTestKnowledgeRepo), `mcp-test-auth.ts` (in-process MCP HTTP test auth defaults)
 
 ## pinned.yaml Format

@@ -34,15 +34,16 @@ When the change set touches behavior in a slice, **read the governing area spec*
 
 | If the change concerns… | Read (at minimum) |
 |-------------------------|-------------------|
-| Core pins, paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md`, `specs/pin-semantics.md` |
+| Paths, session state, shared library contracts exercised by `tests/core/` | `specs/core.md` (and `specs/pin-semantics.md` when pin-adjacent behavior is in scope) |
+| Pin-law, `giterloper_pin_set`, branch/ref matrix, `tests/pin-semantics/` | `specs/pin-semantics.md` |
 | `gl` / `gl-maintenance` CLI behavior, `tests/cli/` | `specs/cli.md` |
-| MCP tools, transport, session pin surface, `tests/mcp/` | `specs/MCP.md` |
+| MCP tools, transport, session pin surface, `tests/mcp/` | `specs/MCP.md` (pin configuration law: `specs/pin-semantics.md`) |
 
 Pin configuration at user-facing boundaries is defined in **`specs/pin-semantics.md`**; paths and **`pinned.yaml`** storage in **`specs/core.md`**, with canonical on-disk layout **`.giterloper/<sessionId>/`**—do **not** cite removed legacy **`docs/PIN_*`** paths as authority.
 
 ## Tests: strict anchoring (aligned with tests/README)
 
-**Product-behavior** tests live under **`tests/core/`**, **`tests/cli/`**, and **`tests/mcp/`**, each paired with an area spec (see **[tests/README.md](../../tests/README.md)** — spec anchoring, harness carve-out for **`tests/helpers/`**, runner and isolation). **Reject** new or retained **product-behavior** assertions in those trees that **lack** a spec anchor in the **matching** area spec (the **theme** must be covered or implied; exact 1:1 bullet mapping is not required). **Harness-only** mechanics are governed by **tests/README**, not by area specs—do not treat that carve-out as an excuse for silent product law in the three product trees.
+**Product-behavior** tests live under **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`**, and **`tests/pin-semantics/`**, each paired with area spec(s) as in **[tests/README.md](../../tests/README.md)** (spec anchoring, harness carve-out for **`tests/helpers/`**, runner and isolation, **`tests/mcp/`** vs **`specs/pin-semantics.md`** for pin-law). **Reject** new or retained **product-behavior** assertions in those trees that **lack** a spec anchor in the **matching** area spec (the **theme** must be covered or implied; exact 1:1 bullet mapping is not required). **Harness-only** mechanics are governed by **tests/README**, not by area specs—do not treat that carve-out as an excuse for silent product law in the **four** product-behavior trees.
 
 **Reject** **materially new** product behavior (use judgment together with the precedence rules above) that has **no** representation in the applicable **`specs/*`** text when the change set clearly introduces contract-worthy behavior.
 

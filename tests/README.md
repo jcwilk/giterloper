@@ -4,13 +4,16 @@ This document is the canonical reference for test strategy, test execution, harn
 
 ## Spec anchoring and scope (strict)
 
-**Product-behavior** tests—assertions about what the product **must** do—live only under **`tests/core/`**, **`tests/cli/`**, and **`tests/mcp/`**. Each directory is paired with one **area spec**; tests strengthen the link between **coded behavior** and **normative spec constraints**. Do not add or keep product-behavior coverage in those trees that has **no** representation in the matching spec (new themes need spec updates in the same change set, unless the user explicitly directs a spec change separately).
+**Product-behavior** tests—assertions about what the product **must** do—live only under **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`**, and **`tests/pin-semantics/`**. Each directory is paired with one **primary** area spec (and related specs where noted); tests strengthen the link between **coded behavior** and **normative spec constraints**. Do not add or keep product-behavior coverage in those trees that has **no** representation in the matching spec (new themes need spec updates in the same change set, unless the user explicitly directs a spec change separately).
 
 | Test folder | Authoritative product spec |
 |-------------|----------------------------|
-| `tests/core/` | [specs/core.md](../specs/core.md), [specs/pin-semantics.md](../specs/pin-semantics.md) |
+| `tests/core/` | [specs/core.md](../specs/core.md) |
+| `tests/pin-semantics/` | [specs/pin-semantics.md](../specs/pin-semantics.md) |
 | `tests/cli/` | [specs/cli.md](../specs/cli.md) |
-| `tests/mcp/` | [specs/MCP.md](../specs/MCP.md) |
+| `tests/mcp/` | [specs/MCP.md](../specs/MCP.md) — **primary** pairing for MCP transport, tools, and startup. **Pin naming, session pin rules, and the branch/ref matrix** (`giterloper_pin_set` law) are normatively defined in [specs/pin-semantics.md](../specs/pin-semantics.md); **`specs/MCP.md`** defers there (do not duplicate that matrix as a second authority in MCP-focused tests). |
+
+**Cross-slice:** **`tests/core/`** exercises shared **library** behavior under **`specs/core.md`** and may still touch pin-adjacent mechanics; **executable pin-law** for **`specs/pin-semantics.md`** lives under **`tests/pin-semantics/`**. Where both specs constrain the same behavior, they must **agree**—no silent conflicting product law across trees.
 
 **Not** every assertion maps to a single spec bullet; the rule is that the **theme** (scenario, contract, or error shape under test) is **covered or implied** in the paired spec so the suite does not encode silent product law. If a test disagrees with its paired area spec, treat the spec as authoritative and align **implementation and tests** to it.
 
@@ -36,7 +39,7 @@ Treat the following as the **contract** for test layout, isolation, and the unif
   - runs a **fail-closed AST preflight** via **`scripts/discover-test-cases.ts`** (see **AST test discovery** below) and schedules one subprocess per discovered logical case—there is **no** `tests/test-case-manifest.json` and **no** `gen:test-manifest` task;
   - **deletes `<repository-root>/.giterloper`** and **`<repository-root>/.giterloper_test`** if they exist before scheduling so session directories from earlier runs do not accumulate on disk over many suite invocations. This is a **hygiene** step only; it is **not** relied on for parallelism or per-case isolation (tests still use temp `cwd` and unique session ids as below).
   - runs each case as its own **`deno test`** subprocess with an anchored **`--filter`** regex so only that case executes, **`--reporter junit`** to a temp report file, and a **JUnit gate**: parsed summary must show **≥1** executed testcase and **zero** failures/errors (Deno can exit 0 when a filter matches nothing—exit code alone is not sufficient). Harness diagnostics go to **stderr**; subprocess **stderr** is inherited for Deno messages.
-  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** discovered cases (`tests/core/`, `tests/cli/`, `tests/mcp/`).
+  - uses a **bounded worker pool** that **backfills** from the queue as subprocesses finish. **`DENO_JOBS`** sets the number of concurrent workers (default **16** if unset) for **all** discovered logical cases under **`tests/`** (every `*.test.ts` case the AST preflight finds—currently including **`tests/core/`**, **`tests/cli/`**, **`tests/mcp/`**, **`tests/pin-semantics/`**, and any future topic subtrees that follow the same discovery rules).
 - There is **no** phase barrier (“all core, then all integration”); scheduling is one global queue capped only by **`DENO_JOBS`**.
 
 ### AST test discovery (fail-closed)
@@ -146,7 +149,7 @@ Use this before persisting ticket work (for example verifier and work-next use i
 ### Parallel execution
 
 - Cap subprocess concurrency with **`DENO_JOBS`** (integer; default 16 in the harness) for every logical case.
-- **`tests/cli/`**, **`tests/mcp/`**, and **`tests/core/`** follow the **same** isolation rules: no reliance on shared repo-root **`.giterloper/`** or **`.giterloper_test/`** or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext` plus **`integrationMcpModeChildEnv`** in subprocesses; MCP uses **`createMcpAppForTest`** with default test mode).
+- **`tests/cli/`**, **`tests/mcp/`**, **`tests/core/`**, **`tests/pin-semantics/`**, and any other discovered product-behavior trees follow the **same** isolation rules: no reliance on shared repo-root **`.giterloper/`** or **`.giterloper_test/`** or mutable **`Deno.env`** between concurrent cases (CLI uses `TestRuntimeContext` plus **`integrationMcpModeChildEnv`** in subprocesses; MCP uses **`createMcpAppForTest`** with default test mode).
 
 ### Layout and individual commands
 
@@ -155,12 +158,13 @@ Tests are grouped by **topic**, not by duration:
 | Directory | Role |
 |-----------|------|
 | `tests/core/` | Fast, local library behavior (paths, pinned state, queues, etc.) |
+| `tests/pin-semantics/` | Executable **pin-law** coverage ([specs/pin-semantics.md](../specs/pin-semantics.md)): `giterloper_pin_set`, branch/ref matrix, session vs named pins, and related errors |
 | `tests/cli/` | `gl` / `gl-maintenance` workflows against a real remote |
 | `tests/mcp/` | MCP server behavior, including HTTP client workflow tests |
 
 - **Typecheck:** `deno check lib/gl.ts` — required when touching TypeScript; run with test changes.
 - **Full test suite (CI-equivalent):** `deno run -A scripts/run-tests.ts` — runs the unified harness (bounded parallel case execution per target architecture above).
-- **Topic only:** `deno task test:core`, `deno task test:cli`, or `deno task test:mcp` — scoped runs under `tests/core/`, `tests/cli/`, or `tests/mcp/` for fast feedback; same isolation expectations as the full suite.
+- **Topic only:** `deno task test:core`, `deno task test:cli`, `deno task test:mcp`, or `deno task test:pin-semantics` — scoped runs under `tests/core/`, `tests/cli/`, `tests/mcp/`, or `tests/pin-semantics/` for fast feedback; same isolation expectations as the full suite.
 
 ## CLI / MCP integration tests: collision avoidance (CRITICAL)
 

@@ -1,6 +1,6 @@
 ---
 id: git-c2km
-status: open
+status: closed
 deps: [git-srk4]
 links: []
 created: 2026-03-24T02:22:16Z
@@ -33,3 +33,9 @@ parent: git-shfx
 - `deno task test` discovers cases under `tests/pin-semantics/` when present.
 - Verifier: **mandatory** update to slice table **and** strict three-folder anchoring paragraph—no leftover “only three” language.
 - Mandate §1 and §5 updated per design; root **README** intro **`tests/`** slice list **and** topic-only task list (if any) include **`tests/pin-semantics/`** / **`test:pin-semantics`**.
+
+## Notes
+
+**2026-03-24T02:40:59Z**
+
+Added tests/pin-semantics/ (slice-smoke), deno task test:pin-semantics, tests/README four-tree pairing (core→core.md only; pin-semantics row; MCP defers pin-law), mandate §1/§5, verifier table+four-tree anchoring, AGENTS.md, root README, specs/pin-semantics intro. Discovery unchanged (recursive tests/).
