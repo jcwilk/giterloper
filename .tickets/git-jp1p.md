@@ -1,6 +1,6 @@
 ---
 id: git-jp1p
-status: open
+status: closed
 deps: [git-toud]
 links: []
 created: 2026-03-24T05:35:41Z

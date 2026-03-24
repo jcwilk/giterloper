@@ -14,3 +14,6 @@
 .cursor/plans/
 
 logs/giterloper-retry.log
+
+# Per-harness MCP test session parent trees (git-jp1p); allocated under tests/roots/giterloper-test-runs/
+tests/roots/
