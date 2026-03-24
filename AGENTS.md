@@ -8,7 +8,19 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Orthogonality** (root instructions vs `specs/*`) is defined in the mandate (**§1**). Area specs conform to repo-wide root instructions, not the other way around.
 
-**Examples in instruction text:** Process-oriented markdown (this file, skills, mandate, CONTRIBUTING-style notes, and **generic** code comments) should **not** use **real repository paths or filenames** as illustrations of “general rules” (for example listing specific `specs/*.md` files to mean “and any related normative docs”). That pattern **couples** guidance to the current layout: a spec split or rename forces wide, low-value churn. **Prefer contrived placeholders** (“the applicable area spec(s) under `specs/`”, `specs/<slice>.md`) when the point is universal. **Exception:** when the text is **literally about that exact file**—not a stand-in for “any normative doc”—concrete paths are appropriate; navigational slice links live under **Where to read contracts** below.
+### Spec path literals
+
+**Tier (a) — allowlisted hubs (concrete `specs/<file>.md` paths are appropriate):** **Where to read contracts** and **pairing** bullets in this file (slice spec ↔ user-visible strings); the slice table in **`.cursor/agents/verifier.md`**; pairing or anchoring sections in **`tests/README.md`**; and (when present) **`specs/README.md`** as a path hub.
+
+**Tier (b) — area specs:** Files under **`specs/`** may use precise cross-links and deferrals to sibling slice files.
+
+**Tier (c) — process-oriented prose:** Skills under **`.cursor/skills/`**, mandate narrative, CONTRIBUTING-style notes, and **generic** comments in root / **`lib/`** / **`docs/`** should use slice labels or **`specs/`** without enumerating real basenames unless the sentence is **literally about that exact file**—see **Examples in instruction text** below.
+
+**Reserved for alignment work:** Ticket bodies, verifier consultation prompts, and **file-tickets** / **work-next** citations may keep concrete **`specs/<file>.md`** paths where they anchor spec–test–code alignment (consistent with pairing obligations).
+
+**Pairing invariant:** Nothing here relaxes **CLI help ↔ CLI slice spec** or **MCP tool strings ↔ MCP slice spec** synchronization; when those surfaces drift, fix them **together** (see **Pairing slice specs with user-visible strings** below).
+
+**Examples in instruction text (tier (c)):** Process-oriented markdown (this file, skills, mandate, CONTRIBUTING-style notes, and **generic** code comments) should **not** use **real repository paths or filenames** as illustrations of “general rules” (for example listing specific `specs/*.md` files to mean “and any related normative docs”). That pattern **couples** guidance to the current layout: a spec split or rename forces wide, low-value churn. **Prefer contrived placeholders** (“the applicable area spec(s) under `specs/`”, `specs/<slice>.md`) when the point is universal. **Exception:** when the text is **literally about that exact file**—not a stand-in for “any normative doc”—concrete paths are appropriate; navigational slice links live under **Where to read contracts** below (tier (a)).
 
 ## Skills vs agents (orchestration)
 

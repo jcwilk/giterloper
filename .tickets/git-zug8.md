@@ -1,6 +1,6 @@
 ---
 id: git-zug8
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T16:00:09Z
@@ -16,4 +16,8 @@ Author explicit repo policy for when concrete specs/<name>.md paths are required
 ## Acceptance Criteria
 
 AGENTS.md includes a concise 'Spec path literals' (or equivalent) subsection stating the tier rules without contradicting pairing rules (CLI help ↔ CLI slice spec, MCP tool strings ↔ MCP slice spec). HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md: the **§1 illustrative pairing sentence** that lists four real `specs/*.md` basenames as examples of area specs uses placeholders like `specs/<slice>.md` where the point is the general hierarchy (per AGENTS); do not rewrite other mandate sections that are already slice-generic unless they still enumerate real basenames. Verifier slice table stays concrete. Close note: one-line confirmation that `.cursor/skills/*.md` were scanned for tier (c) compliance (expect mostly `specs/*` placeholders already). Policy is actionable for downstream tickets.
+
+## Closure
+
+**Skills scan (tier (c)):** `.cursor/skills/*.md` reviewed—no concrete `specs/<basename>.md` path literals; only `specs/*`, `specs/<slice>.md`, or generic `specs/*.md` patterns.
 
