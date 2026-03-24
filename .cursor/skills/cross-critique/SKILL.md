@@ -79,9 +79,11 @@ If **one or more** Task calls **error, abort, or time out**:
 2. **Cluster** findings into themes (same underlying issue = one theme).
 3. **Prevalence:** For each theme, note how many lanes raised it (**x/k** or **x/4**, per **Partial lane failures**). Treat strong agreement as higher signal unless clearly a shared misconception—if lanes disagree, say so explicitly.
 4. **Impact:** When ranking, weight **high-impact** items **and** **widely reported** items toward the **top**. Place **low-impact** or **single-lane** nitpicks **lower** (still list them).
-5. **Present to the user** in a short opening summary, then a **ranked aggregate list**:
-   - Each row: brief finding, **prevalence**, **impact** (from critics or your reconciled judgment), optional one-line “why lanes disagreed” if relevant.
-   - Keep full per-lane prose **out of the main list** unless the user asked for it; offer to paste individual reports if useful.
+5. **Present to the user** using this **debrief format** (in order):
+   - **Brief orientation** — Very short summary of overall results: whether the critique reads as mostly positive, negative, or mixed; whether critics converged on a dominant theme; anything notable about agreement vs disagreement.
+   - **Ranked concerns** — Themes ordered by impact and prevalence (still note **x/k** or **x/4** where useful). Use **bullet points**, not a table. Each bullet should focus on **shortcomings, weaknesses, or concerns** (not a separate “what went well” list). When one theme needs extra detail (sub-bullets, edge cases), expand that bullet without forcing the same structure on every item.
+   - **Conclusion** — One cohesive synthesis of what the evaluation implies for the target artifact or decision. Mention strengths **only in context** of the overall verdict (e.g. “the core approach is sound, but …”). If there are major flaws, do not give equal weight to minor positives. Aim for a **medium-sized paragraph**, or slightly longer only when nuance is decision-critical. The reader should be able to **act** on this conclusion.
+   - Keep full per-lane prose **out of the debrief** unless the user asked for it; offer to paste individual reports if useful.
 
 ## Rules
 
