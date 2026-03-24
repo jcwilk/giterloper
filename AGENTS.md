@@ -10,7 +10,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 ### Spec path literals
 
-**Tier (a) — allowlisted hubs (concrete `specs/<file>.md` paths are appropriate):** **Where to read contracts** and **pairing** bullets in this file (slice spec ↔ user-visible strings); the slice table in **`.cursor/agents/verifier.md`**; pairing or anchoring sections in **`tests/README.md`**; and (when present) **`specs/README.md`** as a path hub.
+**Tier (a) — allowlisted hubs (concrete `specs/<file>.md` paths are appropriate):** **Where to read contracts** and **pairing** bullets in this file (slice spec ↔ user-visible strings); the slice table in **`.cursor/agents/verifier.md`**; pairing or anchoring sections in **`tests/README.md`**; and (when present) the slice hub at **[specs/README.md](./specs/README.md)**.
 
 **Tier (b) — area specs:** Files under **`specs/`** may use precise cross-links and deferrals to sibling slice files.
 
@@ -38,7 +38,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Pairing slice specs with user-visible strings:** **[specs/cli.md](./specs/cli.md)** and **CLI help text** (and other user-visible CLI contract text) should stay **intentionally in sync**. **[specs/mcp.md](./specs/mcp.md)** and **MCP tool descriptions / user-visible MCP strings** should stay **intentionally in sync**. **A conflict between the slice spec and its paired user-facing strings is a bug**—fix help, descriptions, spec, or implementation **together**; do not silently prefer one side. Slice specs **do not** need to cite AGENTS or restate the full repo-wide stack.
 
-**Normative MCP behavior** is defined only under **[specs/mcp.md](./specs/mcp.md)** (and related area specs); there is no separate MCP contract at the repository root.
+**Normative MCP behavior** is defined only under the **MCP slice** (see **[specs/README.md](./specs/README.md)** and linked area specs); there is no separate MCP contract at the repository root.
 
 **Judgement and spec edits:** When work introduces **materially new** product behavior that belongs in the written contract, update the relevant **`specs/*`** in **task-scoped** fashion only (no drive-by spec edits; no numeric “coverage” quota—use judgement). See the mandate for strict alignment at rollout, **what “mention” means** in specs (**§6**), and pairing rules.
 
@@ -64,11 +64,11 @@ For **deep review**—correctness, design, spec alignment, or high-stakes decisi
 
 ## Run environment: native for dev/test, Docker for prod
 
-**Development and tests** use **native Deno** (and git; **Python + memsearch** when running the MCP server or search-related tests) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead. **MCP** treats **memsearch** as mandatory at server startup ([specs/mcp.md](./specs/mcp.md)); **`gl`** / **`gl-maintenance`** do not require it at CLI boot ([specs/cli.md](./specs/cli.md)).
+**Development and tests** use **native Deno** (and git; **Python + memsearch** when running the MCP server or search-related tests) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead. **MCP** treats **memsearch** as mandatory at server startup (see **MCP** in **[specs/README.md](./specs/README.md)**); **`gl`** / **`gl-maintenance`** do not require it at CLI boot (see **CLI** there).
 
 ### memsearch (install and `PATH`)
 
-Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions. **MCP** still **fails fast** if `memsearch` is not on **`PATH`** at process start ([specs/mcp.md](./specs/mcp.md)).
+Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions. **MCP** still **fails fast** if `memsearch` is not on **`PATH`** at process start (see **MCP** in **[specs/README.md](./specs/README.md)**).
 
 **Default ingress (no manual venv step):** **`./scripts/check_all.sh`**, **`deno task check`**, **`deno task test`**, and the **`mcp:serve` / `mcp:serve-stdio` / `mcp:serve:test` / `mcp:serve-stdio:test`** **`deno.json`** tasks run through **`scripts/bootstrap-memsearch.ts`** / **`scripts/with-memsearch.ts`**. If `memsearch` is not already available, they create **repo-root `.venv`**, **`pip install memsearch`** there, and prepend **`.venv/bin`** (or **`.venv/Scripts`** on Windows) to **`PATH`** for that process and its children. **Python 3** must be on **`PATH`** (`python3 -m venv`).
 
@@ -79,7 +79,7 @@ pip install memsearch
 # or: python3 -m venv .venv && .venv/bin/pip install memsearch
 ```
 
-The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup ([specs/cli.md](./specs/cli.md)); search- or index-backed commands may fail at invocation time if memsearch is missing.
+The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup (see **CLI** in **[specs/README.md](./specs/README.md)**); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
 - **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
 - **MCP server:** `deno task mcp:serve` / `mcp:serve-stdio` from workspace root (loads repo-root **`.env`** via Deno **`--env-file`**; copy **`.env.example`** → **`.env`** and fill remotes first). For MCP test mode (session under **`.giterloper_test`**), use **`mcp:serve:test`** / **`mcp:serve-stdio:test`**. Raw **`deno run`** without **`--env-file`** does not load **`.env`**—either use the tasks or pass **`--env-file=.env`** yourself.
@@ -136,7 +136,7 @@ Branchless pins are read-only.
 
 ### MCP session pin (_session) and pin_set semantics
 
-`giterloper_pin_set` semantics are defined in [`specs/pin-semantics.md`](./specs/pin-semantics.md). Treat that document as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
+`giterloper_pin_set` semantics are defined in the **pin-semantics** slice (see **[specs/README.md](./specs/README.md)**). Treat that spec as the single source of truth for pin/session behavior, branch/ref handling, and error semantics.
 
 ## Cursor Cloud specific instructions
 
@@ -189,11 +189,11 @@ See [tests/README.md](./tests/README.md) for canonical test execution commands a
 
 ### MCP server
 
-The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see [specs/mcp.md](./specs/mcp.md) for tool names, error shape, and the dual-transport parity contract. Omitting the `pin` argument targets the **session pin** (stored as `_session`); do not pass `_session` as the pin name—it is reserved. Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
+The MCP server exposes giterloper over **HTTP/SSE** (Streamable HTTP) or **stdio**. Same tools and session semantics; see the **MCP** slice in **[specs/README.md](./specs/README.md)** for tool names, error shape, and the dual-transport parity contract. Omitting the `pin` argument targets the **session pin** (stored as `_session`); do not pass `_session` as the pin name—it is reserved. Use `giterloper_pin_set` to view or configure the session pin, or to upsert named pins without changing which pin is the session pin. **Parity guardrail:** When changing tools or session behavior, change only the shared core (`createServer` in `lib/gl-mcp-server.ts`) so both transports stay in sync; add transport-specific logic only in the HTTP app or stdio entrypoint.
 
 **Index isolation:** Search/index backends (memsearch when implemented) enforce per pin+sha isolation. Querying pin+sha A can never read index for pin+sha B. No cross-version index reuse; stale or mismatched metadata causes explicit failure (fail closed). See `lib/memsearch-adapter.ts`.
 
-**Local env file (operational):** Committed **`.env.example`** lists **`KNOWLEDGE_STORE_REMOTE`** and **`TEST_KNOWLEDGE_STORE_REMOTE`** (empty placeholders). Copy to gitignored **`.env`** and set values. Variable **semantics** and mode rules are normative in [`specs/mcp.md`](./specs/mcp.md); there is **no** env var that toggles MCP test mode—use the **`--mcp-test-mode`** flag on the server entrypoint (or the **`:test`** `deno` tasks below).
+**Local env file (operational):** Committed **`.env.example`** lists **`KNOWLEDGE_STORE_REMOTE`** and **`TEST_KNOWLEDGE_STORE_REMOTE`** (empty placeholders). Copy to gitignored **`.env`** and set values. Variable **semantics** and mode rules are normative in the **MCP** slice (see **[specs/README.md](./specs/README.md)**); there is **no** env var that toggles MCP test mode—use the **`--mcp-test-mode`** flag on the server entrypoint (or the **`:test`** `deno` tasks below).
 
 **Run (native; default for dev):** Prefer `deno task` so **`--env-file=.env`** is applied (requires a Deno build that supports **`deno run --env-file=...`**—current stable Deno satisfies this).
 ```bash
@@ -212,7 +212,7 @@ Equivalent manual invocations load the same file: `deno run -A --env-file=.env l
 
 For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md).
 
-**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server startup (non-empty valid Git remote URL, e.g. `https://github.com/owner/repo`). The server fails fast at boot if it is missing or invalid. Each new MCP session bootstraps the **`_session`** pin from that remote at its default branch HEAD before tool handlers run; repository identity is server-defined only (MCP tools do not accept a client `source` override). For automation or integration-style stacks that use session state under **`.giterloper_test`**, start the MCP entrypoint with **`--mcp-test-mode`** (or a **`:test`** task) and set **`TEST_KNOWLEDGE_STORE_REMOTE`**—see [`specs/mcp.md`](./specs/mcp.md) and [`tests/README.md`](./tests/README.md). Use the same flag on **`gl`** / **`gl-maintenance`** when subprocesses must write under **`.giterloper_test`**.
+**Config:** `MCP_PORT` (default 3443), `MCP_HOST` (default 127.0.0.1). **`KNOWLEDGE_STORE_REMOTE`** is **required** for normal MCP server startup (non-empty valid Git remote URL, e.g. `https://github.com/owner/repo`). The server fails fast at boot if it is missing or invalid. Each new MCP session bootstraps the **`_session`** pin from that remote at its default branch HEAD before tool handlers run; repository identity is server-defined only (MCP tools do not accept a client `source` override). For automation or integration-style stacks that use session state under **`.giterloper_test`**, start the MCP entrypoint with **`--mcp-test-mode`** (or a **`:test`** task) and set **`TEST_KNOWLEDGE_STORE_REMOTE`**—see the **MCP** slice in **[specs/README.md](./specs/README.md)** and [`tests/README.md`](./tests/README.md). Use the same flag on **`gl`** / **`gl-maintenance`** when subprocesses must write under **`.giterloper_test`**.
 
 **Endpoints:** `GET /health` — health diagnostics (unauthenticated); `GET|POST /mcp` — MCP Streamable HTTP (requires auth unless insecure mode).
 
