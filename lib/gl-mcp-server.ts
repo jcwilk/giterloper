@@ -1110,7 +1110,7 @@ export function createHttpMcpApp(
  *
  * Session paths use `makeState` / `GITERLOPER_MCP_TEST_SESSION_PARENT` when that env is set in the
  * process (subprocess children inherit via `integrationMcpModeChildEnv`). Parallel in-process apps
- * share process env; an explicit session-parent override on this factory is deferred (git-8qen).
+ * share process env; an explicit session-parent override on this factory is deferred (git-z8do).
  */
 export type CreateMcpAppForTestOptions = CreateServerOptions & {
   auth?: McpAuthRuntime;

@@ -1,4 +1,4 @@
-import { assertEquals, assertThrows } from "jsr:@std/assert";
+import { assertEquals, assertNotEquals, assertThrows } from "jsr:@std/assert";
 import path from "node:path";
 
 import { GlError } from "../../lib/errors.ts";
@@ -140,6 +140,31 @@ Deno.test("effectiveGiterloperSessionsRoot relative session parent under project
     })),
     path.join("/proj", "sessions-run", ".giterloper_test")
   );
+});
+
+Deno.test("different session parents yield different session dirs for the same sessionId (isolation)", () => {
+  const fakeEnv = (m: Record<string, string>) => ({
+    get(key: string): string | undefined {
+      return m[key];
+    },
+  });
+  const sessionId = "e2e_isolation_same_id_01";
+  const parentA = path.resolve("/tmp", "giterloper-sess-parent-a");
+  const parentB = path.resolve("/tmp", "giterloper-sess-parent-b");
+  const productRoot = path.resolve("/tmp", "giterloper-product-root");
+  const dirA = path.join(
+    effectiveGiterloperSessionsRoot(productRoot, true, fakeEnv({
+      [GITERLOPER_MCP_TEST_SESSION_PARENT]: parentA,
+    })),
+    sessionId
+  );
+  const dirB = path.join(
+    effectiveGiterloperSessionsRoot(productRoot, true, fakeEnv({
+      [GITERLOPER_MCP_TEST_SESSION_PARENT]: parentB,
+    })),
+    sessionId
+  );
+  assertNotEquals(dirA, dirB);
 });
 
 Deno.test("integrationMcpModeChildEnv forwards GITERLOPER_MCP_TEST_SESSION_PARENT when set", async () => {

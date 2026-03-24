@@ -1,6 +1,6 @@
 ---
 id: git-8qen
-status: open
+status: closed
 deps: [git-y614]
 links: []
 created: 2026-03-24T05:35:41Z
@@ -21,3 +21,9 @@ Add or extend tests under **`tests/core/`** / **`tests/mcp/`** as appropriate:
 
 - New tests pass under `./scripts/check_all.sh` (or targeted `deno task test` cases cited in closure note).
 - Closure note lists **test file paths** and the behaviors they lock; verifier can re-run those cases.
+
+## Notes
+
+**2026-03-24T06:21:33Z**
+
+Closure: tests/core/session-layout.test.ts — isolation (different session parents, same sessionId → different dirs). tests/core/integration-session-parent-child-env.test.ts — child inherits GITERLOPER_MCP_TEST_SESSION_PARENT via same env merge as runGl/mcp-subprocess (printenv). Follow-up git-z8do for createMcpAppForTest explicit sessionParent; gl-mcp-server comment updated. Re-run: deno test -A tests/core/session-layout.test.ts tests/core/integration-session-parent-child-env.test.ts
