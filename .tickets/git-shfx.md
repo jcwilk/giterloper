@@ -10,7 +10,7 @@ assignee: user.email
 ---
 # Epic: Pin-semantics test slice, citations, decoupled instruction examples
 
-Follow-up to spec split (8511791).
+Follow-up to spec split (8511791). **User-directed:** normative spec/README/AGENTS edits in this epic are intentional alignment work, not agent-initiated “routine AGENTS churn.”
 
 **Delivery order (child tickets):** `git-kms9` → `git-srk4` → `git-c2km` → `git-ewer` (linear deps).
 

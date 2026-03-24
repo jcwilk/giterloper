@@ -13,6 +13,8 @@ parent: git-shfx
 
 **After `git-c2km`:** Directory, `deno task test:pin-semantics`, and harness docs exist. This ticket **populates** `tests/pin-semantics/` with pin-law coverage and **cleans citations** in tests and lib.
 
+**MCP surface vs pin law:** Tests that assert **MCP-only** concerns (e.g. **`tools/list`** schema shape for `giterloper_pin_set`, **`source` absent**, transport/session wiring) should **stay in `tests/mcp/`** unless clearly duplicated; **`tests/pin-semantics/`** should own **branch/ref matrix, session vs named pin, merge exception, reserved `_session`** behavior per **`specs/pin-semantics.md`**, even if invoked via MCP helpers. Document per-file split choices in the close note.
+
 Move or surgically split tests whose **primary** job is normative pin configuration: **`giterloper_pin_set`** branch/ref matrix, merge-tool exception, reserved `_session`, named-pin validation—per **`specs/pin-semantics.md`**. Primary sources: **`tests/mcp/mcp-pin-set.test.ts`**, **`tests/mcp/mcp-merge.test.ts`** (pin-name / merge-exception), **`tests/mcp/mcp-insert-pending.test.ts`** (see below), **`tests/core/pin-lifecycle.test.ts`**. **Incidental** pin usage stays in MCP/CLI integration tests; **transport / session bootstrap / HTTP parity** stay in **`tests/mcp/`**. Shared helpers remain under **`tests/helpers/`**; fix imports.
 
 **`mcp-insert-pending.test.ts`:** Either **move** the `_session` pin-law case(s) into `tests/pin-semantics/` (preferred if clean) or **leave** in MCP with updated spec comments only—**document the choice** in the close note.
