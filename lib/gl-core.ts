@@ -12,9 +12,11 @@ import { resolveSha } from "./git.ts";
 import {
   effectiveGiterloperSessionsRoot,
   effectiveKnowledgeStoreRemote,
+  effectiveMcpTestSessionParentOverride,
   KNOWLEDGE_STORE_REMOTE_ENV,
   resolveMcpTestMode,
   resolveProductRoot,
+  type McpSessionLayoutOpts,
 } from "./session-layout.ts";
 import type { GlState, Pin, RetryLogRole } from "./types.ts";
 
@@ -93,13 +95,26 @@ export function validateSessionId(sessionId: string | null | undefined): string 
  */
 export function makeState(
   sessionId: string,
-  opts?: { retryLogRole?: RetryLogRole; mcpTestMode?: boolean }
+  opts?: {
+    retryLogRole?: RetryLogRole;
+    mcpTestMode?: boolean;
+  } & Pick<McpSessionLayoutOpts, "projectRoot" | "mcpTestSessionParent">
 ): GlState {
-  const projectRootResolved = resolveProductRoot();
+  const rootOpt = opts?.projectRoot?.trim();
+  const projectRootResolved =
+    rootOpt && rootOpt.length > 0
+      ? path.resolve(rootOpt)
+      : resolveProductRoot();
   const mcpTestMode = resolveMcpTestMode(opts?.mcpTestMode);
+  const layoutForParent: McpSessionLayoutOpts = {
+    projectRoot: opts?.projectRoot,
+    mcpTestSessionParent: opts?.mcpTestSessionParent,
+  };
   const sessionsRoot = effectiveGiterloperSessionsRoot(
     projectRootResolved,
-    mcpTestMode
+    mcpTestMode,
+    Deno.env,
+    effectiveMcpTestSessionParentOverride(mcpTestMode, layoutForParent)
   );
   const validated = validateSessionId(sessionId);
   const sessionRoot = path.join(sessionsRoot, validated);

@@ -1,6 +1,6 @@
 ---
 id: git-z8do
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-24T06:21:21Z

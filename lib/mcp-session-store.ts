@@ -11,14 +11,32 @@ import path from "node:path";
 
 import {
   effectiveGiterloperSessionsRoot,
+  effectiveMcpTestSessionParentOverride,
+  type McpSessionLayoutOpts,
   resolveMcpTestMode,
   resolveProductRoot,
 } from "./session-layout.ts";
 
+export type { McpSessionLayoutOpts };
+
+function resolveLayoutProjectRoot(layout?: McpSessionLayoutOpts): string {
+  const o = layout?.projectRoot?.trim();
+  return o && o.length > 0 ? path.resolve(o) : resolveProductRoot();
+}
+
 /** Direct children are session id directories only (see docs/DEPLOYMENT_REQUIREMENTS.md). */
-function giterloperRootPath(mcpTestMode?: boolean): string {
+function giterloperRootPath(
+  mcpTestMode?: boolean,
+  layout?: McpSessionLayoutOpts
+): string {
   const mode = resolveMcpTestMode(mcpTestMode);
-  return effectiveGiterloperSessionsRoot(resolveProductRoot(), mode);
+  const pr = resolveLayoutProjectRoot(layout);
+  return effectiveGiterloperSessionsRoot(
+    pr,
+    mode,
+    Deno.env,
+    effectiveMcpTestSessionParentOverride(mode, layout)
+  );
 }
 
 const LAST_ACTIVITY_FILENAME = ".last_activity";
@@ -28,8 +46,12 @@ const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
  * Returns the directory path for a session. Does not validate sessionId.
  * @param mcpTestMode When omitted, **normal** session layout (see `resolveMcpTestMode` in `session-layout.ts`).
  */
-export function sessionDir(sessionId: string, mcpTestMode?: boolean): string {
-  return path.join(giterloperRootPath(mcpTestMode), sessionId);
+export function sessionDir(
+  sessionId: string,
+  mcpTestMode?: boolean,
+  layout?: McpSessionLayoutOpts
+): string {
+  return path.join(giterloperRootPath(mcpTestMode, layout), sessionId);
 }
 
 /**
@@ -49,10 +71,11 @@ export function isSafeSessionId(sessionId: string | null | undefined): sessionId
  */
 export function removeSessionData(
   sessionId: string | null | undefined,
-  mcpTestMode?: boolean
+  mcpTestMode?: boolean,
+  layout?: McpSessionLayoutOpts
 ): void {
   if (!isSafeSessionId(sessionId)) return;
-  const dir = sessionDir(sessionId, mcpTestMode);
+  const dir = sessionDir(sessionId, mcpTestMode, layout);
   if (!existsSync(dir)) return;
   try {
     rmSync(dir, { recursive: true });
@@ -65,8 +88,12 @@ export function removeSessionData(
  * Records last activity for a session. Writes a timestamp file used by scavenge.
  * Call after validating sessionId (e.g. in stateForSession).
  */
-export function touchSession(sessionId: string, mcpTestMode?: boolean): void {
-  const dir = sessionDir(sessionId, mcpTestMode);
+export function touchSession(
+  sessionId: string,
+  mcpTestMode?: boolean,
+  layout?: McpSessionLayoutOpts
+): void {
+  const dir = sessionDir(sessionId, mcpTestMode, layout);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const stamp = Date.now().toString();
   try {
@@ -80,9 +107,13 @@ export function touchSession(sessionId: string, mcpTestMode?: boolean): void {
  * Removes sessions whose last activity is older than ttlMs.
  * Returns the number of sessions removed.
  */
-export function scavengeStaleSessions(ttlMs: number, mcpTestMode?: boolean): number {
+export function scavengeStaleSessions(
+  ttlMs: number,
+  mcpTestMode?: boolean,
+  layout?: McpSessionLayoutOpts
+): number {
   if (ttlMs <= 0) return 0;
-  const gRoot = giterloperRootPath(mcpTestMode);
+  const gRoot = giterloperRootPath(mcpTestMode, layout);
   if (!existsSync(gRoot)) return 0;
   const now = Date.now();
   const cutoff = now - ttlMs;

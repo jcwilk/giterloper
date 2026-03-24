@@ -5,6 +5,7 @@ import { GlError } from "../../lib/errors.ts";
 import {
   effectiveGiterloperSessionsRoot,
   effectiveKnowledgeStoreRemote,
+  effectiveMcpTestSessionParentOverride,
   GITERLOPER_MCP_TEST_SESSION_PARENT,
   giterloperSessionsRoot,
   GITERLOPER_SESSION_BASE_NORMAL,
@@ -31,6 +32,25 @@ Deno.test("resolveMcpTestMode is explicit only (no env inference)", () => {
   assertEquals(resolveMcpTestMode(undefined), false);
   assertEquals(resolveMcpTestMode(false), false);
   assertEquals(resolveMcpTestMode(true), true);
+});
+
+Deno.test("effectiveMcpTestSessionParentOverride: projectRoot alone implies trim-empty override", () => {
+  assertEquals(
+    effectiveMcpTestSessionParentOverride(true, { projectRoot: "/tmp/p" }),
+    ""
+  );
+  assertEquals(effectiveMcpTestSessionParentOverride(false, { projectRoot: "/tmp/p" }), undefined);
+});
+
+Deno.test("effectiveMcpTestSessionParentOverride: explicit mcpTestSessionParent wins over projectRoot", () => {
+  const alt = path.resolve("/tmp", "sess-par");
+  assertEquals(
+    effectiveMcpTestSessionParentOverride(true, {
+      projectRoot: "/tmp/p",
+      mcpTestSessionParent: alt,
+    }),
+    alt
+  );
 });
 
 Deno.test("effectiveKnowledgeStoreRemote reads mode-appropriate env key", () => {
@@ -125,6 +145,37 @@ Deno.test("effectiveGiterloperSessionsRoot uses session parent in MCP test mode"
       [GITERLOPER_MCP_TEST_SESSION_PARENT]: alt,
     })),
     path.join(alt, ".giterloper_test")
+  );
+});
+
+Deno.test("effectiveGiterloperSessionsRoot explicit override wins over env in MCP test mode", () => {
+  const fakeEnv = (m: Record<string, string>) => ({
+    get(key: string): string | undefined {
+      return m[key];
+    },
+  });
+  const fromEnv = path.resolve("/tmp", "env-parent");
+  const fromOverride = path.resolve("/tmp", "override-parent");
+  assertEquals(
+    effectiveGiterloperSessionsRoot("/proj", true, fakeEnv({
+      [GITERLOPER_MCP_TEST_SESSION_PARENT]: fromEnv,
+    }), fromOverride),
+    path.join(fromOverride, ".giterloper_test")
+  );
+});
+
+Deno.test("effectiveGiterloperSessionsRoot empty-string override ignores env in MCP test mode", () => {
+  const fakeEnv = (m: Record<string, string>) => ({
+    get(key: string): string | undefined {
+      return m[key];
+    },
+  });
+  const fromEnv = path.resolve("/tmp", "env-only");
+  assertEquals(
+    effectiveGiterloperSessionsRoot("/proj", true, fakeEnv({
+      [GITERLOPER_MCP_TEST_SESSION_PARENT]: fromEnv,
+    }), "   "),
+    path.join("/proj", ".giterloper_test")
   );
 });
 

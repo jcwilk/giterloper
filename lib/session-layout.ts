@@ -91,18 +91,64 @@ export function resolveValidatedMcpTestSessionParent(
   return path.isAbsolute(t) ? path.resolve(t) : path.resolve(projectRootAnchor, t);
 }
 
+/** Optional per-call layout overrides (in-process MCP tests, `createServer`); see specs/core.md. */
+export type McpSessionLayoutOpts = {
+  /** Product root; when omitted, callers use {@link resolveProductRoot()} / env. */
+  projectRoot?: string;
+  /**
+   * MCP test mode only: parent directory of the literal `.giterloper_test` segment.
+   * When **provided** (including empty string after trim), overrides
+   * {@link GITERLOPER_MCP_TEST_SESSION_PARENT} for that resolution. When **omitted** (`undefined`),
+   * env is read as usual **unless** {@link McpSessionLayoutOpts.projectRoot} is set (non-empty trim),
+   * in which case the session parent defaults to that product root (harness env ignored).
+   */
+  mcpTestSessionParent?: string;
+};
+
+/**
+ * Resolves the optional 4th argument for {@link effectiveGiterloperSessionsRoot} from
+ * {@link McpSessionLayoutOpts}: explicit `mcpTestSessionParent` wins; else non-empty `projectRoot`
+ * implies default test sessions under that root (trim-empty override); else env applies.
+ */
+export function effectiveMcpTestSessionParentOverride(
+  mcpTestMode: boolean,
+  layout?: McpSessionLayoutOpts
+): string | undefined {
+  if (!mcpTestMode) return undefined;
+  if (layout?.mcpTestSessionParent !== undefined) {
+    return layout.mcpTestSessionParent;
+  }
+  const root = layout?.projectRoot?.trim();
+  if (root && root.length > 0) {
+    return "";
+  }
+  return undefined;
+}
+
 /**
  * Directory containing `.giterloper` or `.giterloper_test` session trees per mode and env
  * (matches `makeState` / MCP session store). In MCP test mode, optional
  * {@link GITERLOPER_MCP_TEST_SESSION_PARENT} relocates the parent of the literal `.giterloper_test` segment.
+ *
+ * When `mcpTestSessionParentOverride` is **defined**, it replaces the env var for this call
+ * (trimmed empty → session tree under `projectRoot` / `.giterloper_test`).
  */
 export function effectiveGiterloperSessionsRoot(
   projectRoot: string,
   mcpTestMode: boolean,
-  env: Pick<typeof Deno.env, "get"> = Deno.env
+  env: Pick<typeof Deno.env, "get"> = Deno.env,
+  mcpTestSessionParentOverride?: string
 ): string {
   if (!mcpTestMode) {
     return path.join(projectRoot, GITERLOPER_SESSION_BASE_NORMAL);
+  }
+  if (mcpTestSessionParentOverride !== undefined) {
+    const t = mcpTestSessionParentOverride.trim();
+    if (!t) {
+      return path.join(projectRoot, GITERLOPER_SESSION_BASE_TEST);
+    }
+    const sessionsParent = resolveValidatedMcpTestSessionParent(t, projectRoot);
+    return path.join(sessionsParent, GITERLOPER_SESSION_BASE_TEST);
   }
   const raw = env.get(GITERLOPER_MCP_TEST_SESSION_PARENT)?.trim();
   if (!raw) {

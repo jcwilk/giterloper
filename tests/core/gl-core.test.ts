@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from "jsr:@std/assert";
+import { assertEquals, assertNotEquals, assertRejects } from "jsr:@std/assert";
 import path from "node:path";
 
 import { makeState, validateSessionId } from "../../lib/gl-core.ts";
@@ -50,6 +50,67 @@ Deno.test("makeState mcp test mode + GITERLOPER_MCP_TEST_SESSION_PARENT keeps pr
     if (prev === undefined) Deno.env.delete(key);
     else Deno.env.set(key, prev);
     Deno.removeSync(tmp, { recursive: true });
+  }
+});
+
+Deno.test("makeState mcpTestSessionParent option overrides GITERLOPER_MCP_TEST_SESSION_PARENT", () => {
+  const tmpEnv = Deno.makeTempDirSync();
+  const tmpOpt = Deno.makeTempDirSync();
+  const key = "GITERLOPER_MCP_TEST_SESSION_PARENT";
+  const prev = Deno.env.get(key);
+  Deno.env.set(key, tmpEnv);
+  try {
+    const state = makeState("t3", {
+      mcpTestMode: true,
+      mcpTestSessionParent: tmpOpt,
+    });
+    assertEquals(state.projectRoot, PROJECT_ROOT);
+    assertEquals(state.rootDir, path.join(tmpOpt, ".giterloper_test", "t3"));
+    assertEquals(
+      sessionDir("t3", true, { mcpTestSessionParent: tmpOpt }),
+      state.rootDir
+    );
+    assertNotEquals(state.rootDir, path.join(tmpEnv, ".giterloper_test", "t3"));
+  } finally {
+    if (prev === undefined) Deno.env.delete(key);
+    else Deno.env.set(key, prev);
+    Deno.removeSync(tmpEnv, { recursive: true });
+    Deno.removeSync(tmpOpt, { recursive: true });
+  }
+});
+
+Deno.test("makeState projectRoot option relocates product root and session anchor", () => {
+  const tmpRoot = Deno.makeTempDirSync();
+  const state = makeState("t4", {
+    mcpTestMode: true,
+    projectRoot: tmpRoot,
+  });
+  assertEquals(state.projectRoot, path.resolve(tmpRoot));
+  assertEquals(
+    state.rootDir,
+    path.join(tmpRoot, ".giterloper_test", "t4")
+  );
+  Deno.removeSync(tmpRoot, { recursive: true });
+});
+
+Deno.test("makeState explicit projectRoot ignores GITERLOPER_MCP_TEST_SESSION_PARENT (harness case)", () => {
+  const tmpRoot = Deno.makeTempDirSync();
+  const tmpEnvParent = Deno.makeTempDirSync();
+  const key = "GITERLOPER_MCP_TEST_SESSION_PARENT";
+  const prev = Deno.env.get(key);
+  Deno.env.set(key, tmpEnvParent);
+  try {
+    const state = makeState("t5", {
+      mcpTestMode: true,
+      projectRoot: tmpRoot,
+    });
+    assertEquals(state.rootDir, path.join(tmpRoot, ".giterloper_test", "t5"));
+    assertNotEquals(state.rootDir, path.join(tmpEnvParent, ".giterloper_test", "t5"));
+  } finally {
+    if (prev === undefined) Deno.env.delete(key);
+    else Deno.env.set(key, prev);
+    Deno.removeSync(tmpRoot, { recursive: true });
+    Deno.removeSync(tmpEnvParent, { recursive: true });
   }
 });
 

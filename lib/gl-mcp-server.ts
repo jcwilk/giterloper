@@ -52,6 +52,7 @@ import {
   effectiveKnowledgeStoreRemote,
   isPlausibleKnowledgeStoreRemote,
   KNOWLEDGE_STORE_REMOTE_ENV,
+  type McpSessionLayoutOpts,
   resolveMcpTestMode,
   TEST_KNOWLEDGE_STORE_REMOTE_ENV,
 } from "./session-layout.ts";
@@ -79,7 +80,7 @@ const PORT = (() => {
 })();
 const HOST = Deno.env.get("MCP_HOST") ?? "127.0.0.1";
 
-export interface CreateServerOptions {
+export interface CreateServerOptions extends McpSessionLayoutOpts {
   /** Resolve session id from transport context. Default: validateSessionId(extra?.sessionId). */
   getSessionId?: (extra: { sessionId?: string } | undefined) => string;
   /**
@@ -180,6 +181,10 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
   const { mcpTestMode, configuredKnowledgeStoreRemote } = startup;
   const knowledgeRemoteOpt = options?.knowledgeStoreRemote;
   const testFsSessionOpt = options?.testFsSessionId;
+  const sessionLayout: McpSessionLayoutOpts = {
+    projectRoot: options?.projectRoot,
+    mcpTestSessionParent: options?.mcpTestSessionParent,
+  };
 
   const server = new McpServer({
     name: "giterloper",
@@ -239,10 +244,15 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     extra: { sessionId?: string } | undefined
   ): GlState {
     const sessionId = resolveSessionId(extra);
-    const state = makeState(sessionId, { retryLogRole: "mcp", mcpTestMode });
+    const state = makeState(sessionId, {
+      retryLogRole: "mcp",
+      mcpTestMode,
+      projectRoot: options?.projectRoot,
+      mcpTestSessionParent: options?.mcpTestSessionParent,
+    });
     ensureSessionDir(state);
     autoInitSessionPin(state, knowledgeRemoteOpt);
-    touchSession(sessionId, mcpTestMode);
+    touchSession(sessionId, mcpTestMode, sessionLayout);
     return state;
   }
 
@@ -1036,7 +1046,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     async (_, extra) =>
       wrapTool(() => {
         const sessionId = resolveSessionId(extra);
-        removeSessionData(sessionId, mcpTestMode);
+        removeSessionData(sessionId, mcpTestMode, sessionLayout);
         return {
           ok: true,
           sessionId,
@@ -1060,7 +1070,7 @@ interface HttpMcpTransport {
 export function createHttpMcpApp(
   transport: HttpMcpTransport,
   authRuntime: McpAuthRuntime = readMcpAuthFromEnv(),
-  sessionOpts?: {
+  sessionOpts?: McpSessionLayoutOpts & {
     mcpTestMode?: boolean;
     configuredKnowledgeStoreRemote?: string;
   }
@@ -1097,7 +1107,10 @@ export function createHttpMcpApp(
   app.all("/mcp", async (c) => {
     if (c.req.method === "DELETE") {
       const sessionId = c.req.header("mcp-session-id");
-      removeSessionData(sessionId, mcpTestModeForHttp);
+      removeSessionData(sessionId, mcpTestModeForHttp, {
+        projectRoot: sessionOpts?.projectRoot,
+        mcpTestSessionParent: sessionOpts?.mcpTestSessionParent,
+      });
     }
     return transport.handleRequest(c.req.raw);
   });
@@ -1108,9 +1121,13 @@ export function createHttpMcpApp(
  * Creates a fresh MCP app with its own transport and server. Use in tests that need
  * an independent initialize (the shared mcpApp rejects a second initialize).
  *
- * Session paths use `makeState` / `GITERLOPER_MCP_TEST_SESSION_PARENT` when that env is set in the
- * process (subprocess children inherit via `integrationMcpModeChildEnv`). Parallel in-process apps
- * share process env; an explicit session-parent override on this factory is deferred (git-z8do).
+ * Session layout follows specs/core.md: by default `makeState` and the session store read
+ * `GITERLOPER_PROJECT_ROOT` / `GITERLOPER_MCP_TEST_SESSION_PARENT` from the process (subprocess
+ * children inherit via `integrationMcpModeChildEnv`). For parallel in-process tests, pass
+ * {@link McpSessionLayoutOpts.projectRoot} and/or {@link McpSessionLayoutOpts.mcpTestSessionParent}
+ * on {@link CreateServerOptions}: with `mcpTestMode: true`, non-empty `projectRoot` pins the test
+ * session tree under that root and ignores `GITERLOPER_MCP_TEST_SESSION_PARENT` unless
+ * `mcpTestSessionParent` is also set.
  */
 export type CreateMcpAppForTestOptions = CreateServerOptions & {
   auth?: McpAuthRuntime;
@@ -1136,6 +1153,8 @@ export async function createMcpAppForTest(
   return createHttpMcpApp(transport, authRuntime, {
     mcpTestMode: testStartup.mcpTestMode,
     configuredKnowledgeStoreRemote: testStartup.configuredKnowledgeStoreRemote,
+    projectRoot: serverOpts.projectRoot,
+    mcpTestSessionParent: serverOpts.mcpTestSessionParent,
   });
 }
 
