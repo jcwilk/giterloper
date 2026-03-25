@@ -1,15 +1,15 @@
 ---
 name: realign-divergences
-description: Compare observed behavior (conversation, logs, repros) to normative specs under specs/*; confirm drift; file alignment tickets, then run work-all to complete them. Use when the user says /realign-divergences or wants spec-vs-reality analysis turned into tracked fixes.
+description: Compare observed behavior to normative specs/*; confirm drift; delegate ticket filing to critique-and-refine (which follows file-tickets), then optionally drain via work-all. Use when the user says /realign-divergences or wants spec-vs-reality analysis turned into tracked fixes.
 ---
 
 # /realign-divergences — Spec vs behavior, then tickets + drain
 
-Execute **inline** in this conversation: read this skill here, then **read and follow** the linked skills at each phase. Do **not** collapse **`work-next`** or **`verifier`** into this thread—**`work-all`** owns delegation.
+Execute **inline** in this conversation: read this skill, then follow linked skills **only** where this file points. **Phases 1–3** stay **in this thread** (same substance as before: governed by **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../../../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**, **[AGENTS.md](../../../AGENTS.md)**, and the **`/spec-change`** stop rule in **`.cursor/skills/spec-change/SKILL.md`**). **Phase 4** is **Task** → **`critique-and-refine`**. **Phase 5** is **`work-all`**, which owns **`work-next`** / **`verifier`**—do not collapse those into this thread.
 
 ## Purpose
 
-Mirror a disciplined **spec comparison** pass (like walking from “what we saw” → “what `specs/*` says” → “is that the same?”), then **persist** remediation as tickets and **drain** them via the repo’s batch workflow.
+Walk **observation** → **normative `specs/*`** → **compare**, then **persist** alignment work as tickets (via delegated critique + filing) and **optionally** drain the queue.
 
 ## Truth precedence (do not skip)
 
@@ -45,25 +45,27 @@ Use **`tests/README.md`** or **`tests/`** only as **secondary** evidence: tests 
 
 ## Phase 4 — File tickets (filing only)
 
-**Only if Phase 3 is “Divergence”** (or the user explicitly wants tickets for an **Ambiguous** item after choosing a direction).
+**Only if** Phase 3 is **Divergence** (or the user explicitly wants tickets for an **Ambiguous** item after choosing a direction).
 
-1. Read and execute **`.cursor/skills/file-tickets/SKILL.md`** in full—including **pre-commit subagent review** and **commit/push** of **`.tickets/*.md`** only (no implementation in this phase).
-2. Tickets MUST cite authoritative **`specs/*`** paths and include acceptance criteria **`work-next`** and **`verifier`** can use.
-3. Structure work so **`./tk ready`** can progress (epic + children, **`./tk dep`** as needed, **`./tk dep cycle`** clean).
+**Spawn** **`critique-and-refine`** via **Task** (`subagent_type: critique-and-refine`). **Do not** run **`.cursor/skills/file-tickets/SKILL.md`** **inline** in this thread for Phase 4—that procedure runs **inside** the subagent **after** **`.cursor/agents/critique-and-refine.md`** (draft bodies → cross-critique → integrate → **file-tickets**: epic/children, deps, pre-commit review, commit/push **`.tickets/*.md` only**).
 
-If **no** tickets end up created (e.g. user pulls back), **do not** run **`work-all`**.
+The Task **`prompt` must be self-contained** (the subagent does not see this chat). Include at least:
+
+- **Goal** / **Deliverable** / **Constraints** / **Starting point** per **`.cursor/agents/critique-and-refine.md`** (optional: `maxCritiqueRounds`, default **3**).
+- **Deliverable:** require **commit and push** of the filing batch’s **`.tickets/*.md`** per **file-tickets** step **7** (unless the user explicitly waives commit/push or aborts)—so Phase 5’s **committed** gate is unambiguous (**critique-and-refine** otherwise defaults commit/push to **no**).
+- **Constraints:** **`.cursor/skills/file-tickets/SKILL.md`** is **authoritative** for conclusions (treat **Starting point** as the “conversation conclusion”), epic/children, **`./tk dep`**, pre-commit review, and **tickets-only** commit/push; **no** implementation.
+- **Starting point:** the **divergence statement(s)** and **spec citations** from Phases 1–3 (and any chosen direction for **Ambiguous** items).
+
+Tickets MUST cite authoritative **`specs/*`** and include acceptance criteria **`work-next`** and **`verifier`** can use; keep **`./tk ready`** workable (epic + children, **`./tk dep`**, **`./tk dep cycle`** clean).
+
+If **no** tickets are **created and committed**, **do not** run **`work-all`**.
 
 ## Phase 5 — Drain the queue
 
-**Only after** Phase 4 produced **committed** tickets and the user did not abort filing.
-
-1. Read and execute **`.cursor/skills/work-all/SKILL.md`**: for each **`./tk ready`** item, spawn **`work-next`** once; re-fetch **`./tk ready`** every iteration.
-2. On **successful** drain per **`work-all`**, run the **Archive** block there (typically **`.cursor/skills/archive-tickets/SKILL.md`** with the **bundled approval** described in **`work-all`**).
-
-If **`./tk ready`** is empty **before** any **`work-next`** completed (e.g. everything blocked on deps), **stop** after Phase 4 and report **blocked** tickets and missing deps—**do not** treat as a successful batch for archiving.
+Invoke the /work-all skill
 
 ## Rules
 
-- **Inline orchestration** — you read specs and compare here; **`work-next`** / **`verifier`** run inside delegated agents as defined elsewhere.
-- **No drive-by spec edits** in this flow unless the user explicitly switched to **`/spec-change`** for a contract change.
-- **Proportionality** — small divergences may be **one** focused ticket; large cross-cutting drift may warrant an **epic** with ordered children.
+- **Skills vs agents** — Do **not** open **`agents/*.md`** and run those workflows **inline** where this skill names a **Task** subagent.
+- **No drive-by spec edits** unless the user explicitly switched to **`/spec-change`** for a contract change.
+- **Proportionality** — one focused ticket vs **epic** + ordered children as the drift warrants.

@@ -1,12 +1,14 @@
 ---
 name: critique-and-refine
-description: Iterative loop: produce or edit a revisable deliverable, run four parallel cross-critique lanes, merge feedback, refine in place (no endless append), repeat until consensus to proceed or caps—generalized for specs, tickets, plans, drafts, or code.
+description: Iterative loop: produce or edit a revisable deliverable, run four parallel critique lanes (cross-critique), merge feedback, refine in place (no endless append), repeat until consensus to proceed or caps—generalized for specs, tickets, plans, drafts, or code.
 model: composer-2-fast
 ---
 
+WHENEVER THIS FILE IS INVOKED DIRECTLY, YOU **MUST** SPAWN THIS FILE AS A SUBAGENT, YOU MUST NOT INLINE IT.
+
 # critique-and-refine — Cross-critique gated refinement
 
-You are an **orchestration subagent**. You own a **tight loop**: draft → multi-model critique → **integrate** feedback into the same artifact → critique again unless the batch says it is safe to stop. Invoke the /cross-critique skill for multi-model critique.
+You are an **orchestration subagent**. You own a **tight loop**: draft → parallel critique → **integrate** feedback into the same artifact → critique again unless the batch says it is safe to stop. Invoke the /cross-critique skill for critique rounds.
 
 ## What this is for
 
@@ -42,8 +44,8 @@ Each iteration should **refine**, not **accumulate**:
 1. **Understand** the brief; read any paths the user named; produce **v1** (or adopt the seed) in the requested form.
 2. **Critique round** — You act as the **parent** for this round (same role as `/cross-critique` in the skill):
    - Read **`.cursor/skills/cross-critique/SKILL.md`** and follow it for this round only (parallelism, `readonly: true`, failure handling).
-   - In **one** turn, spawn **four** Task subagents with types **`cross-critique-gemini`**, **`cross-critique-claude`**, **`cross-critique-openai`**, **`cross-critique-composer`**.
-   - Use the **same** critique `prompt` for all four. It must be **self-contained** (critics do not see the user chat): **evaluation target** + **context pack** per the skill; include the **current full text** of the artifact or an unambiguous **path + revision** so all lanes read identical bytes.
+   - In **one** turn, spawn **four** Task subagents, each with **`subagent_type: critiquer`**.
+   - Build four prompts that share the same **evaluation target** and **context pack**; give each a distinct **`## Critic lane id`** (e.g. `` `cross-critique-1` `` … `` `cross-critique-4` ``) per the skill. The prompt must be **self-contained** (critics do not see the user chat): include the **current full text** of the artifact or an unambiguous **path + revision** so all lanes read identical bytes.
    - Ask critics explicitly whether the artifact is **ready to proceed** (ship / file / hand off) **or** what **blocking** changes remain—so you can classify findings as **gate** vs **optional polish**.
 3. **Reconcile** all returned reports using the skill’s **Parent duties** (cluster themes, prevalence **x/k**, impact rank, debrief for yourself—you may summarize briefly for the user at the end).
 4. **Stop or refine**
@@ -60,7 +62,7 @@ Each iteration should **refine**, not **accumulate**:
 
 ## Hard rules
 
-- **Never** impersonate the four critique models inline.
+- **Never** impersonate the four critique lanes inline.
 - **Never** claim a successful `/cross-critique` equivalent if **any** lanes returned unusable reports.
 - **Always** use **replace-style** refinement.
 - Respect **readonly** on critique Task spawns; **you** perform file edits and ticket tools in this subagent, not the critics.
