@@ -1,12 +1,6 @@
 ---
 name: cross-critique
-description: >-
-  Runs four parallel read-only Task lanes (Gemini, Claude, OpenAI, Composer)
-  to critique an artifact or decision; the parent pastes a self-contained
-  prompt (critics do not see the parent chat) and reconciles reports into
-  prevalence- and impact-ranked findings. Use for /cross-critique or whenever
-  you want multi-model depth on correctness, specs, design, or uncommitted
-  changes.
+description: Runs four parallel read-only Task lanes (Gemini, Claude, OpenAI, Composer) to critique an artifact or decision; the parent pastes a self-contained prompt (critics do not see the parent chat) and reconciles reports into prevalence- and impact-ranked findings. Use for /cross-critique or whenever you want multi-model depth on correctness, specs, design, or uncommitted changes.
 ---
 
 # /cross-critique — Multi-model parallel critique
@@ -21,29 +15,20 @@ description: >-
 
 ## Subagents (one parallel Task per lane)
 
-Spawn **up to four** Task subagents **in one parent message** (see **Partial lane failures** if fewer succeed). Use these **`subagent_type`** values:
-
-| `subagent_type` | Agent file |
-|-----------------|------------|
-| `cross-critique-gemini` | `cross-critique-gemini.md` |
-| `cross-critique-claude` | `cross-critique-claude.md` |
-| `cross-critique-openai` | `cross-critique-openai.md` |
-| `cross-critique-composer` | `cross-critique-composer.md` |
-
-Set **`readonly: true`** on **every** Task call (matches agent frontmatter; defense in depth).
-
-**Extensibility:** Adding another lane requires **both** a new `.cursor/agents/cross-critique-<name>.md` **and** whatever **Cursor / project** registration makes that file’s **`subagent_type`** invokable from Task. Filenames alone do not register types.
+Spawn exactly **four** Task subagents **in one parent message** (see **Partial lane failures** if fewer succeed). Use these **`agents`**:
+* `cross-critique-gemini`
+* `cross-critique-claude`
+* `cross-critique-openai`
+* `cross-critique-composer`
 
 ## If critique lanes are unavailable
 
-When the Task tool **rejects** a `subagent_type`, types are missing from the picker, or **zero** lanes return usable reports:
+If the subagents fail to complete for whatever reason:
 
-1. **Stop** using `generalPurpose` (or any type) **with prompt-only “pretend you are model X”**—that defeats multi-model diversity.
+1. **Stop** the turn.
 2. **Tell the user** clearly that parallel critique lanes are not invocable in this session (quote the error if any).
 3. **Optional human fallback:** the user runs separate critiques in other chats/models and pastes results back for the parent to reconcile—same clustering rules as below, with prevalence labeled **x/n** for however many real reports exist.
-4. Do **not** claim success for `/cross-critique` if **zero** lanes produced a report—report degraded or blocked state instead.
-
-“Sequential Task runs” only help if **each** `subagent_type` is accepted when invoked alone; if the type is unknown, repeating the same Task call does not fix registration.
+4. Do **not** claim success for `/cross-critique` unless **all** lanes successfully produced a report.
 
 ## What to put in each Task `prompt`
 
@@ -64,15 +49,6 @@ Use the **same** prompt body for **all** lanes you spawn. It MUST be **self-cont
 
 **Report rubric** (Executive read, Findings, Gaps, Critic lane, **END CRITIC REPORT**) is centralized in **[`lane-contract.md`](./lane-contract.md)**; lane agent files point critics there.
 
-## Partial lane failures
-
-If **one or more** Task calls **error, abort, or time out**:
-
-- Reconcile using **every successful** report; state **how many lanes returned** (e.g. “3/4 lanes”).
-- In the aggregate, express prevalence as **x/k** where **k** is the successful count, **or** keep **x/4** and note which lanes are missing/unknown.
-- **Optional:** retry **only failed** lanes **once** if the failure looks transient; do not infinite-loop.
-- If **zero** lanes succeed, treat as **blocked** (see **If critique lanes are unavailable**).
-
 ## Parent duties after all lanes return
 
 1. **Read** all returned reports (do not cherry-pick one).
@@ -89,5 +65,5 @@ If **one or more** Task calls **error, abort, or time out**:
 
 - **Read-only critics** — no ticket closure, commits, or file writes from critique lanes.
 - **Parallelism** — Prefer four Task calls in **one** parent message.
-- **Proportionality** — If the user’s ask is trivial, shrink the context pack; still run all four lanes unless the user waives.
+- **Proportionality** — If the user’s ask is trivial, shrink the context pack; still run all four lanes.
 - **Repo norms** — For product behavior targets, reconciliation respects giterloper **spec → test → code** precedence (`AGENTS.md`).

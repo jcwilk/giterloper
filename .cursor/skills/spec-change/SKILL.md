@@ -1,16 +1,13 @@
 ---
 name: spec-change
-description: >-
-  Human-driven spec edits under specs/*, optional alignment tickets for
-  forward work only, verifier when tickets exist, persist. Use when the user
-  says /spec-change or asks to change product specs and plan follow-ups.
+description: Human-driven spec edits under specs/*, optional alignment tickets for forward work only, verifier when tickets exist, persist. Use when the user says /spec-change or asks to change product specs and plan follow-ups.
 ---
 
 # /spec-change — Human-directed specification updates
 
 Execute this procedure **inline** in the current conversation (read this skill here; do **not** spawn a subagent for it).
 
-**Purpose:** Apply requested edits under **`specs/*`** and, when the spec diff **creates or exposes** work still to be done elsewhere (tests, `lib/`, paired user-visible strings, `docs/` conformance), **plan that forward work** as tickets. This is **not** autopilot like **`work-next`**.
+**Purpose:** Apply requested edits under **`specs/*`** and, when the spec diff **creates or exposes** work owed in the rest of the system before it can be normative with the newly authorative set of specs, **plan that forward work** as tickets. Do **not** work on the tickets.
 
 **Assumes** ticket **git-incv** semantics: when this flow **does** produce alignment tickets and bundles them with specs, **`verifier`** may treat the result as a **planning-shaped** commit. See **`.cursor/agents/verifier.md`**.
 

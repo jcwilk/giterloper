@@ -1,10 +1,6 @@
 ---
 name: realign-divergences
-description: >-
-  Compare observed behavior (conversation, logs, repros) to normative specs under
-  specs/*; confirm drift; file alignment tickets, then run work-all to complete
-  them. Use when the user says /realign-divergences or wants spec-vs-reality
-  analysis turned into tracked fixes.
+description: Compare observed behavior (conversation, logs, repros) to normative specs under specs/*; confirm drift; file alignment tickets, then run work-all to complete them. Use when the user says /realign-divergences or wants spec-vs-reality analysis turned into tracked fixes.
 ---
 
 # /realign-divergences — Spec vs behavior, then tickets + drain
