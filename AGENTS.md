@@ -28,11 +28,13 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **`.cursor/agents/`** is for **subagent** workflows: spawn with the **Task** tool using the matching **`subagent_type`**. Pass a self-contained prompt; the subagent owns its loop.
 
-**Always respect the folder boundary.** Do **not** open an **`agents/*.md`** file and “just do what it says” in the parent thread—that collapses agents into skills and drops delegation, filing review, and isolation the definitions assume. When the user points at an **agent** definition or asks for an agentic workflow that lives under **`agents/`**, **spawn via Task** as that workflow specifies—do **not** impersonate it inline unless the user **explicitly** asks you to waive delegation and work inline.
+### Subagents (`agents/*.md`) — Task only
 
-**Verifier-shaped gates:** For ticket acceptance or consultation flows that call for the **verifier**, **spawn** the **`verifier`** subagent via Task—do **not** impersonate it inline.
+**Mandatory:** Workflows under **`.cursor/agents/`** run **only** via the **Task** tool with the matching **`subagent_type`** (same stem as the file, e.g. **`verifier`**, **`work-next`**, **`critique-and-refine`**, **`spec-change`**). Pass a **self-contained** prompt; the subagent owns its loop.
 
-**Product spec edits** use the **`/spec-change`** skill (`.cursor/skills/spec-change/SKILL.md`) **inline**, not a subagent.
+**Do not impersonate subagents in the parent thread.** That includes opening an **`agents/*.md`** file and following it inline, **and** reproducing the same steps yourself without Task—both collapse delegation and break the isolation those definitions assume. An **ALL-CAPS “spawn as subagent” banner** at the top of an agent file means **use Task**, not “treat this file as instructions for the current chat.”
+
+**You must Task the subagent when any of these apply (non-exhaustive):** the user **@**-references or invokes a slash command at an **`agents/*.md`** definition. **Heavier surrounding tasks** (e.g. “also update these files afterward”) **do not** cancel subagent delegation—run the subagent first unless the user **explicitly** waives it.
 
 ## Source-of-truth precedence (CRITICAL)
 
