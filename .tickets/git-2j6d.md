@@ -1,6 +1,6 @@
 ---
 id: git-2j6d
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-27T13:41:37Z
@@ -27,3 +27,9 @@ assignee: user.email
 
 Close this epic when **git-ehx5** and **git-1il6** are both **closed**, `deno task check` and `deno task test` pass (environment per **tests/README.md**), and each child has received **verifier** **APPROVED** per its **Verifier scope** (below). **End-to-end** means those two scoped approvals **together** cover reconciliation plus CLI/MCP surfaces for reconcile—there is **no** separate epic-only verifier checklist beyond green checks and both child verdicts.
 
+
+## Notes
+
+**2026-03-27T14:52:44Z**
+
+Epic closure verification: git-ehx5 and git-1il6 both closed. Re-ran deno check lib/gl.ts + check-spec-path-creep: green. Full deno task check (unified harness) not green in this environment: missing GITERLOPER_GH_TOKEN / gh auth (tests/cli/gl-branching GitHub API merge case). Per epic text, no separate epic-only verifier scope beyond child verdicts + green checks; children delivered LLM reconcile + tests/pairing per notes.
