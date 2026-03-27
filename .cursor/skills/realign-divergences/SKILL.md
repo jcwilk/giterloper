@@ -44,6 +44,7 @@ Invoke the **`/work-all`** skill if the user wants the queue drained.
 
 ## Rules
 
+- **No merge to `main`** from this flow unless the user explicitly asked (**AGENTS.md** — **Git branches and `main` (default)**); ticket commits push the **current branch** only.
 - **No spec edits** in this flow.
 - **Proportionality** — one ticket vs epic + children as warranted.
 - Tickets must stay **usable** by **`work-next`** / **`verifier`** (citations to **`specs/*`**, clear acceptance).

@@ -58,7 +58,7 @@ Each iteration should **refine**, not **accumulate**:
 ## After the loop
 
 - Return to the **root parent**: final artifact location or pasted text, **round count**, **proceed vs capped**, and **unresolved** critique themes (if any).
-- **Commit/push** only if the user’s brief required it and you have permission to use the persist workflow; otherwise leave the tree as agreed (often: no commit so the parent can review).
+- **Commit/push** only if the user’s brief required it and you have permission to use the persist workflow; otherwise leave the tree as agreed (often: no commit so the parent can review). When pushing, update the **current branch** on **`origin`** only—**do not** merge to **`main`** unless the brief explicitly asked (**AGENTS.md** — **Git branches and `main` (default)**).
 
 ## Hard rules
 

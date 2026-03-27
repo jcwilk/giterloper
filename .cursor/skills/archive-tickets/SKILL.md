@@ -15,4 +15,4 @@ Move closed tickets to `.tickets/.archive/` to keep the active directory managea
 1. **Preview**: List tickets in `.tickets/*.md` whose YAML frontmatter contains `status: closed`. Optionally filter by age (e.g., only tickets modified more than N days ago). Present the list to the user.
 2. **On approval**: Create `.tickets/.archive/` if needed. For each closed ticket to archive, `mv` it to `.tickets/.archive/<filename>`. Skip any that fail the age filter if `--older N` was agreed.
 3. **Commit**: `git add .tickets/ && git commit -m "archive closed tickets"`.
-4. **Push**.
+4. **Push** the **current branch** to **`origin`**; **do not** merge to **`main`** unless the user explicitly asked (**AGENTS.md** — **Git branches and `main` (default)**).

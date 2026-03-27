@@ -12,6 +12,8 @@ WHENEVER THIS WORKFLOW APPLIES, YOU **MUST** SPAWN **`spec-change`** VIA **Task*
 
 Precedence and pairing rules live in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](../../HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)** and **[AGENTS.md](../../AGENTS.md)**—do not restate them here.
 
+**Branches:** After commit/push, **stay on the working branch**. **Do not** merge into **`main`** (or fast-forward **`main`**) unless the parent’s Task prompt **explicitly** asks to merge to **`main`**—see **AGENTS.md** — **Git branches and `main` (default)**.
+
 ## Inputs (parent `Task` prompt)
 
 - The user’s **spec-change request** and **conversation context** needed to carry it out.
@@ -34,3 +36,4 @@ Report **paths touched** under **`specs/`** (and mandate if edited), **commit/pu
 
 - **Task-only** for **`spec-change`**—parents do not impersonate this file inline.
 - **Specs-only** for this workflow—no **`.tickets/`**, **`verifier`**, or **`lib/`** in this agent.
+- **No merge to `main`** here unless the user explicitly requested it in the parent prompt (**AGENTS.md** — **Git branches and `main` (default)**).

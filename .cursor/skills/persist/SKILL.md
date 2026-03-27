@@ -34,6 +34,7 @@ Be **explicit and verbose**. Optimize for both GitHub and agentic usage.
 
 ## Rules
 
+- **Current branch only:** Push updates **`origin/<current-branch>`**. **Do not** merge into **`main`** or fast-forward **`main`** unless the user explicitly asked (**AGENTS.md** — **Git branches and `main` (default)**).
 - **No force push** unless the user explicitly requests it.
 - **No committing secrets** — if any staged file might contain secrets, stop and ask.
 - **Scoped commits**: Prefer one logical commit per context. If the conversation covered multiple distinct changes, you may split into multiple commits with clear messages, or ask the user.

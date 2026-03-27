@@ -20,7 +20,7 @@ Orchestration only: for each item **`./tk ready`** lists, spawn **`work-next` on
 2. If **none** → apply **Queue** above: if you have **not** yet completed steps 3–5 for any ticket in this run, stop and report (no **Archive**). Otherwise the batch drained successfully—continue with **When `./tk ready` is empty** below.
 3. Pick **one** ticket (stable order, e.g. first line).
 4. **Spawn `work-next`:** Cursor **Task** tool, `subagent_type: work-next`; prompt includes the ticket id and `.cursor/agents/work-next.md`.
-5. Confirm: `./tk show <id>` closed, `git status` clean, recent commit, pushed if ahead. If that fails, clean up only fallout from **that** subagent run (commit/close/push as needed), then either **resume from step 1** or, if stuck or you must end the run, **exit** and summarize. **Exit** here (unrecoverable / user halt / stuck) is a **batch abort**—do **not** run **Archive** later in this run.
+5. Confirm: `./tk show <id>` closed, `git status` clean, recent commit, **current branch** pushed if ahead (**do not** merge to **`main`** unless the user explicitly asked—**AGENTS.md** — **Git branches and `main` (default)**). If that fails, clean up only fallout from **that** subagent run (commit/close/push as needed), then either **resume from step 1** or, if stuck or you must end the run, **exit** and summarize. **Exit** here (unrecoverable / user halt / stuck) is a **batch abort**—do **not** run **Archive** later in this run.
 6. Go to step 1.
 
 ### When `./tk ready` is empty

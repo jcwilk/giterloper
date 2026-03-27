@@ -58,6 +58,12 @@ Use the `Ticket` system (`wedow/ticket`) for all tracked work. Access it via `./
 
 Ticket-related workflows are defined under **`.cursor/skills/`** (inline procedures) and **`.cursor/agents/`** (Task subagents); they are user-invoked, not automatic.
 
+### Git branches and `main` (default)
+
+**Default:** Keep working on the **current** git branch. **Push** that branch to **`origin`** when persisting (ticket work, **`persist`**, skills that say commit/push). **Do not** merge the current branch into **`main`**, fast-forward **`main`**, or integrate into the default branch **unless the user explicitly asks** (e.g. merge to **`main`**, land on default branch, open/merge a PR into **`main`**). Absent that, assume **all commits stay on the current branch** until the user moves them.
+
+This does **not** relax **commit and push**: pushes target the **remote for the current branch**, not a merge into **`main`**.
+
 ## Run environment: native for dev/test, Docker for prod
 
 **Development and tests** use **native Deno** (and git; **Python + memsearch** when running the MCP server or search-related tests) on the host. This keeps feedback loops fast for agents and contributors: run the CLI, MCP server, and tests directly without container overhead. **MCP** treats **memsearch** as mandatory at server startup (see **MCP** in **[specs/README.md](./specs/README.md)**); **`gl`** / **`gl-maintenance`** do not require it at CLI boot (see **CLI** there).

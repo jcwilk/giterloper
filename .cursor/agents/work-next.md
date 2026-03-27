@@ -45,7 +45,7 @@ Do not implement changes that move behavior away from authoritative markdown unl
    - If verifier reports issues or actionable feedback, fix them and run verifier again.
    - Repeat until verifier clearly approves.
 6. Only after verifier approval:
-   - Use the persist skill at `.cursor/skills/persist/SKILL.md` to commit and push relevant changes.
+   - Use the persist skill at `.cursor/skills/persist/SKILL.md` to commit and push relevant changes on the **current branch** (**do not** merge to **`main`** unless the user explicitly asked—**AGENTS.md** — **Git branches and `main` (default)**).
 7. Final checks:
    - `./tk show <id>` indicates closed/completed.
    - `git status` is clean.
@@ -53,6 +53,7 @@ Do not implement changes that move behavior away from authoritative markdown unl
 
 ## Hard rules
 
+- **Branching:** Persist only pushes the **current** branch; **do not** merge into **`main`** without explicit user request (**AGENTS.md** — **Git branches and `main` (default)**).
 - Do not skip verifier; approval is mandatory.
 - Verifier runs on proposed (uncommitted) ticket changes; do not persist before approval.
 - Do not leave the repository dirty at the end.
