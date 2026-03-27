@@ -115,6 +115,9 @@ export function spawnMcpHttpIntegrationServer(opts: {
     MCP_INSECURE: "true",
   };
   mergeOpenAiKeyFromRepoDotenv(env);
+  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
+    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
+  }
   if (opts.mcpStateSessionId != null && opts.mcpStateSessionId !== "") {
     env.GITERLOPER_TEST_MCP_STATE_SESSION_ID = opts.mcpStateSessionId;
   }
@@ -143,6 +146,9 @@ export function spawnMcpStdioIntegrationServer(opts?: {
     ...integrationMcpModeChildEnv(),
   };
   mergeOpenAiKeyFromRepoDotenv(env);
+  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
+    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
+  }
   if (opts?.projectRoot != null && opts.projectRoot !== "") {
     env.GITERLOPER_PROJECT_ROOT = opts.projectRoot;
   }

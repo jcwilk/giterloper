@@ -1,6 +1,6 @@
 ---
 id: git-ehx5
-status: open
+status: closed
 deps: []
 links: []
 created: 2026-03-27T13:41:40Z
@@ -39,3 +39,9 @@ Align **lib/reconcile.ts** (and any new modules) with **specs/reconciliation.md*
 - Failure modes match **specs/reconciliation.md** for LLM missing/failed (no bogus success).
 - **Verifier** yields **APPROVED** for this ticket against **specs/reconciliation.md** integration + **On failure** (see **Verifier scope** above), with a green full suite for this change set.
 - Commit and push per project rules when closing (branch policy per **AGENTS.md**).
+
+## Notes
+
+**2026-03-27T14:41:18Z**
+
+Implemented: lib/reconcile-llm.ts OpenAI Chat Completions JSON integration; reconcile() uses runLlmIntegration (integrationOverride | GITERLOPER_RECONCILE_LLM_TEST_STUB=1 | OpenAI with OPENAI_API_KEY or GITERLOPER_RECONCILE_OPENAI_API_KEY). Production path requires real LLM or fails; test harness defaults stub. Added violatesSingleTopicFileShortcut check. Extended core tests; run-tests/deno-test-topic/mcp-subprocess forward stub.

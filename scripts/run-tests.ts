@@ -184,6 +184,7 @@ try {
       const workerEnv: Record<string, string> = {
         ...Deno.env.toObject(),
         [GITERLOPER_MCP_TEST_SESSION_PARENT]: absoluteParent,
+        GITERLOPER_RECONCILE_LLM_TEST_STUB: Deno.env.get("GITERLOPER_RECONCILE_LLM_TEST_STUB") ?? "1",
       };
 
       const jobs = workerCount();

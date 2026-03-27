@@ -1,14 +1,18 @@
 /**
  * Reconcile: integrate knowledge/_pending into the corpus under knowledge/ (recursive
- * .md files) using structured agent-equivalent decomposition (multi-file placement,
- * subdirectory layout, section-level incoming-wins conflict handling).
- * Normative semantics: reconciliation slice under specs/.
+ * .md files). Integration MUST be LLM-backed (OpenAI API) except empty pending, test stub,
+ * or explicit test override — see the reconciliation slice under specs/.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { getRemoteOriginUrl } from "./git.ts";
 import { getFileAddEpochViaApi, parseGithubSource } from "./github.ts";
+import {
+  integrateCorpusWithOpenAi,
+  reconcileLlmTestStubEnabled,
+  type LlmCorpusResult,
+} from "./reconcile-llm.ts";
 import { run, runSoft } from "./run.ts";
 import type { RetryLogContext } from "./types.ts";
 
@@ -36,6 +40,30 @@ export interface ReconcileError {
   ok: false;
   message: string;
   unresolved?: string[];
+}
+
+/** Optional hooks (tests); production uses env + OpenAI or harness test stub. */
+export interface ReconcileOptions {
+  retryLog?: RetryLogContext;
+  /**
+   * When set, used instead of OpenAI / test stub (unit tests).
+   * MUST perform LLM-equivalent integration or return ok: false — never deterministic-only success.
+   */
+  integrationOverride?: ReconcileIntegrationOverride;
+}
+
+export type ReconcileIntegrationOverride = (
+  repoDir: string,
+  entries: PendingEntry[],
+  corpusBefore: Map<string, string>,
+) => Promise<LlmCorpusResult>;
+
+function normalizeReconcileSecond(second?: RetryLogContext | ReconcileOptions): ReconcileOptions {
+  if (!second) return {};
+  if (typeof second === "object" && ("integrationOverride" in second || "retryLog" in second)) {
+    return second as ReconcileOptions;
+  }
+  return { retryLog: second as RetryLogContext };
 }
 
 const FIRST_HEADING = /^#\s+(.+)$/m;
@@ -303,33 +331,28 @@ function validatePendingRepresented(entries: PendingEntry[], corpus: Map<string,
   return true;
 }
 
+/** Spec: MUST NOT integrate only into knowledge/<topic>.md keyed solely by first heading (single-file shortcut). */
+export function violatesSingleTopicFileShortcut(entry: PendingEntry, corpus: Map<string, string>): boolean {
+  if (!isSubstantive(entry.content)) return false;
+  const topic = extractTopic(entry.content, path.basename(entry.path));
+  const singlePath = `knowledge/${topic}.md`;
+  const base = path.basename(entry.path);
+  const needle = `\`${base}\``;
+  const pathsWithSource: string[] = [];
+  for (const [rel, text] of corpus.entries()) {
+    if (text.includes(needle)) pathsWithSource.push(rel);
+  }
+  return pathsWithSource.length === 1 && pathsWithSource[0] === singlePath;
+}
+
 /**
- * Reconcile: integrate pending via multi-file decomposition; strip conflicting corpus sections
- * (incoming wins); atomic single commit or no durable change on failure.
+ * Test-only deterministic integration (same structure as pre-LLM pipeline): multi-file decomposition,
+ * incoming-wins stripping, ## Sources. Used only when GITERLOPER_RECONCILE_LLM_TEST_STUB=1.
  */
-export async function reconcile(
+export function buildCorpusDeterministicIntegrate(
   repoDir: string,
-  retryLog?: RetryLogContext
-): Promise<ReconcileResult | ReconcileError> {
-  const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
-  const entries = await getPendingInCommitOrder(repoDir, retryLog);
-  if (entries.length === 0) {
-    return { ok: true, oldSha, newSha: oldSha, touched: [], deleted: [] };
-  }
-
-  const knowledgePath = path.join(repoDir, KNOWLEDGE_DIR);
-  if (!existsSync(knowledgePath)) {
-    const parent = path.dirname(knowledgePath);
-    if (!existsSync(parent)) {
-      return {
-        ok: false,
-        message: "knowledge/ parent directory does not exist",
-        unresolved: entries.map((e) => e.path),
-      };
-    }
-    mkdirSync(knowledgePath, { recursive: true });
-  }
-
+  entries: PendingEntry[],
+): LlmCorpusResult {
   const planned: PlannedChunk[] = [];
   for (const e of entries) {
     const chunks = decomposePendingEntry(e);
@@ -337,7 +360,6 @@ export async function reconcile(
       return {
         ok: false,
         message: "internal: decomposition must yield at least two corpus files per pending item",
-        unresolved: entries.map((x) => x.path),
       };
     }
     planned.push(...chunks);
@@ -354,8 +376,6 @@ export async function reconcile(
     const full = path.join(repoDir, rel);
     corpus.set(rel, readFileSync(full, "utf8"));
   }
-
-  const plannedPaths = new Set(planned.map((p) => p.relPath));
 
   for (const [rel, text] of [...corpus.entries()]) {
     const stripped = stripH2SectionsMatching(text, incomingKeys);
@@ -384,13 +404,98 @@ export async function reconcile(
   if (!validatePendingRepresented(entries, corpus)) {
     return {
       ok: false,
-      message: "reconcile: could not represent all substantive pending content in corpus (integration failed)",
+      message:
+        "reconcile: could not represent all substantive pending content in corpus (integration failed)",
+    };
+  }
+
+  return { ok: true, corpus };
+}
+
+async function runLlmIntegration(
+  repoDir: string,
+  entries: PendingEntry[],
+  corpusBefore: Map<string, string>,
+  opts: ReconcileOptions,
+): Promise<LlmCorpusResult> {
+  if (opts.integrationOverride) {
+    return await opts.integrationOverride(repoDir, entries, corpusBefore);
+  }
+  if (reconcileLlmTestStubEnabled()) {
+    return buildCorpusDeterministicIntegrate(repoDir, entries);
+  }
+  return await integrateCorpusWithOpenAi(entries, corpusBefore);
+}
+
+/**
+ * Reconcile: LLM-backed integration (OpenAI), optional test stub; atomic commit or rollback on failure.
+ */
+export async function reconcile(
+  repoDir: string,
+  second?: RetryLogContext | ReconcileOptions,
+): Promise<ReconcileResult | ReconcileError> {
+  const opts = normalizeReconcileSecond(second);
+  const retryLog = opts.retryLog;
+  const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
+  const entries = await getPendingInCommitOrder(repoDir, retryLog);
+  if (entries.length === 0) {
+    return { ok: true, oldSha, newSha: oldSha, touched: [], deleted: [] };
+  }
+
+  const knowledgePath = path.join(repoDir, KNOWLEDGE_DIR);
+  if (!existsSync(knowledgePath)) {
+    const parent = path.dirname(knowledgePath);
+    if (!existsSync(parent)) {
+      return {
+        ok: false,
+        message: "knowledge/ parent directory does not exist",
+        unresolved: entries.map((e) => e.path),
+      };
+    }
+    mkdirSync(knowledgePath, { recursive: true });
+  }
+
+  const corpusPaths = listCorpusMarkdownRelPaths(repoDir);
+  const corpusBefore = new Map<string, string>();
+  for (const rel of corpusPaths) {
+    const full = path.join(repoDir, rel);
+    corpusBefore.set(rel, readFileSync(full, "utf8"));
+  }
+
+  const integrated = await runLlmIntegration(repoDir, entries, corpusBefore, opts);
+  if (!integrated.ok) {
+    return {
+      ok: false,
+      message: integrated.message,
       unresolved: entries.map((e) => e.path),
     };
   }
 
+  const corpus = integrated.corpus;
+
+  if (!validatePendingRepresented(entries, corpus)) {
+    return {
+      ok: false,
+      message:
+        "reconcile: could not represent all substantive pending content in corpus (integration failed)",
+      unresolved: entries.map((e) => e.path),
+    };
+  }
+
+  for (const e of entries) {
+    if (violatesSingleTopicFileShortcut(e, corpus)) {
+      return {
+        ok: false,
+        message:
+          "reconcile: integration must not use single-file knowledge/<topic>.md shortcut per the reconciliation slice under specs/",
+        unresolved: entries.map((x) => x.path),
+      };
+    }
+  }
+
+  const snapshotPaths = new Set([...corpusPaths, ...corpus.keys()]);
   const snapshot = new Map<string, string | null>();
-  for (const rel of [...new Set([...corpusPaths, ...plannedPaths])]) {
+  for (const rel of snapshotPaths) {
     const full = path.join(repoDir, rel);
     snapshot.set(rel, existsSync(full) ? readFileSync(full, "utf8") : null);
   }

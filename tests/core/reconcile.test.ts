@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import {
+  buildCorpusDeterministicIntegrate,
   collectH2Keys,
   comparePendingByAddEpoch,
   decomposePendingEntry,
@@ -9,6 +10,7 @@ import {
   splitTwoWays,
   stripBoilerplate,
   stripH2SectionsMatching,
+  violatesSingleTopicFileShortcut,
   type PendingEntry,
 } from "../../lib/reconcile.ts";
 
@@ -88,4 +90,51 @@ Deno.test("comparePendingByAddEpoch orders by addEpoch ascending with addEpoch 0
   ];
   entries.sort(comparePendingByAddEpoch);
   assertEquals(entries.map((e) => e.addEpoch), [50, 100, 0]);
+});
+
+Deno.test("violatesSingleTopicFileShortcut detects single knowledge/<topic>.md integration", () => {
+  const entry: PendingEntry = {
+    path: "knowledge/_pending/x.md",
+    addEpoch: 1,
+    content: "# My Topic\n\nbody",
+  };
+  const topic = extractTopic(entry.content, "x.md");
+  const bad = new Map<string, string>([
+    [`knowledge/${topic}.md`, `text\n\n## Sources\n\n- \`x.md\`\n`],
+  ]);
+  assertEquals(violatesSingleTopicFileShortcut(entry, bad), true);
+
+  const good = new Map<string, string>([
+    [`knowledge/${topic}/part-a.md`, "## A\n\n## Sources\n\n- \`x.md\`\n"],
+    [`knowledge/${topic}/part-b.md`, "## B\n\n## Sources\n\n- \`x.md\`\n"],
+  ]);
+  assertEquals(violatesSingleTopicFileShortcut(entry, good), false);
+});
+
+Deno.test("buildCorpusDeterministicIntegrate produces multi-file corpus with Sources", () => {
+  const tmp = Deno.makeTempDirSync({ prefix: "reconcile-det-" });
+  try {
+    const pendingDir = `${tmp}/knowledge/_pending`;
+    Deno.mkdirSync(pendingDir, { recursive: true });
+    Deno.writeTextFileSync(
+      `${pendingDir}/p.md`,
+      "# Doc Title Here\n\npara one\n\npara two for split.\n",
+    );
+    const entries: PendingEntry[] = [
+      {
+        path: "knowledge/_pending/p.md",
+        addEpoch: 1,
+        content: Deno.readTextFileSync(`${pendingDir}/p.md`),
+      },
+    ];
+    const r = buildCorpusDeterministicIntegrate(tmp, entries);
+    assertEquals(r.ok, true);
+    if (!r.ok) return;
+    assertEquals(r.corpus.size >= 2, true);
+    const union = [...r.corpus.values()].join("\n");
+    assertEquals(union.includes("## Sources"), true);
+    assertEquals(union.includes("`p.md`"), true);
+  } finally {
+    Deno.removeSync(tmp, { recursive: true });
+  }
 });
