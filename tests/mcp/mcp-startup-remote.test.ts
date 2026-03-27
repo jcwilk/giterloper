@@ -16,18 +16,24 @@ import { toRemoteUrl, TEST_SOURCE } from "../helpers/config.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-/** Env safe for spawning Deno without inheriting parent knowledge-store vars. */
-function minimalChildEnv(overrides: Record<string, string | undefined>): Record<string, string> {
-  const base: Record<string, string> = {};
-  for (const k of ["PATH", "HOME", "DENO_DIR", "USER", "TMPDIR", "LANG"]) {
-    const v = Deno.env.get(k);
-    if (v !== undefined) base[k] = v;
-  }
+/** Max time for MCP entrypoint subprocess (must exit before listen, or we abort). */
+const MCP_SPAWN_TIMEOUT_MS = 15_000;
+
+/**
+ * Env for spawning MCP entrypoints under `Deno.Command`.
+ * Deno **merges** `env` with the parent process environment — omitting a key does **not** unset it.
+ * We start from a full copy, set both knowledge remotes to `""` so they override inherited `.env`,
+ * then apply overrides (`undefined` → clear that key to `""` for unset semantics).
+ */
+function childEnvForMcpSpawn(overrides: Record<string, string | undefined>): Record<string, string> {
+  const env: Record<string, string> = { ...Deno.env.toObject() };
+  env[KNOWLEDGE_STORE_REMOTE_ENV] = "";
+  env[TEST_KNOWLEDGE_STORE_REMOTE_ENV] = "";
   for (const [k, v] of Object.entries(overrides)) {
-    if (v === undefined) delete base[k];
-    else base[k] = v;
+    if (v === undefined) env[k] = "";
+    else env[k] = v;
   }
-  return base;
+  return env;
 }
 
 async function runEntrypoint(
@@ -36,12 +42,14 @@ async function runEntrypoint(
   scriptArgs: string[] = []
 ): Promise<{ code: number; stderr: string }> {
   const script = join(ROOT, scriptRelative);
+  const signal = AbortSignal.timeout(MCP_SPAWN_TIMEOUT_MS);
   const cmd = new Deno.Command(Deno.execPath(), {
     args: ["run", "-A", script, ...scriptArgs],
     cwd: ROOT,
     env,
     stdout: "null",
     stderr: "piped",
+    signal,
   });
   const out = await cmd.output();
   return {
@@ -51,7 +59,7 @@ async function runEntrypoint(
 }
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
   }));
@@ -60,7 +68,7 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is u
 });
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "   ",
   }));
   assertEquals(code, 1);
@@ -68,7 +76,7 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is e
 });
 
 Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is invalid", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "not:::a:::remote",
   }));
   assertEquals(code, 1);
@@ -77,7 +85,7 @@ Deno.test("MCP HTTP: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is i
 });
 
 Deno.test("MCP HTTP: exits non-zero when memsearch is not on PATH (remote valid)", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "https://github.com/o/r",
     PATH: "/usr/bin:/bin",
   }));
@@ -88,7 +96,7 @@ Deno.test("MCP HTTP: exits non-zero when memsearch is not on PATH (remote valid)
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [KNOWLEDGE_STORE_REMOTE_ENV]: toRemoteUrl(TEST_SOURCE),
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     }),
@@ -101,7 +109,7 @@ Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE i
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "  ",
     }),
     ["--mcp-test-mode"]
@@ -113,7 +121,7 @@ Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE i
 Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "@@@",
     }),
     ["--mcp-test-mode"]
@@ -125,7 +133,7 @@ Deno.test("MCP HTTP: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE i
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is unset", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server-stdio.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     }),
     ["--mcp-test-mode"]
@@ -137,7 +145,7 @@ Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE 
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is empty", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server-stdio.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "",
     }),
     ["--mcp-test-mode"]
@@ -149,7 +157,7 @@ Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE 
 Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE is invalid", async () => {
   const { code, stderr } = await runEntrypoint(
     "lib/gl-mcp-server-stdio.ts",
-    minimalChildEnv({
+    childEnvForMcpSpawn({
       [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: "not:::valid",
     }),
     ["--mcp-test-mode"]
@@ -160,7 +168,7 @@ Deno.test("MCP stdio: test mode exits non-zero when TEST_KNOWLEDGE_STORE_REMOTE 
 });
 
 Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is unset", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
     [TEST_KNOWLEDGE_STORE_REMOTE_ENV]: undefined,
   }));
@@ -169,7 +177,7 @@ Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is 
 });
 
 Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is empty", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "\t",
   }));
   assertEquals(code, 1);
@@ -177,7 +185,7 @@ Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is 
 });
 
 Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is invalid", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "@@@",
   }));
   assertEquals(code, 1);
@@ -186,7 +194,7 @@ Deno.test("MCP stdio: normal mode exits non-zero when KNOWLEDGE_STORE_REMOTE is 
 });
 
 Deno.test("MCP stdio: exits non-zero when memsearch is not on PATH (remote valid)", async () => {
-  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", minimalChildEnv({
+  const { code, stderr } = await runEntrypoint("lib/gl-mcp-server-stdio.ts", childEnvForMcpSpawn({
     [KNOWLEDGE_STORE_REMOTE_ENV]: "https://github.com/o/r",
     PATH: "/usr/bin:/bin",
   }));
