@@ -1,11 +1,6 @@
 ---
 name: spawn-subagent
-description: >-
-  Explicitly launches Cursor Task subagents from `.cursor/agents/*.md` via the
-  Task tool—never inline mimicry. Use when the user says `/spawn_subagent`,
-  references this skill, or `@`-mentions an agent definition and wants real
-  delegation. Supports serial (default) or parallel multi-spawn when multiple
-  agents or slash invocations are requested.
+description: Explicitly launches Cursor Task subagents from `.cursor/agents/*.md` via the Task tool—never inline mimicry. Use when the user says `/spawn_subagent`, references this skill, or `@`-mentions an agent definition and wants real delegation. Supports serial (default) or parallel multi-spawn when multiple agents or slash invocations are requested.
 ---
 
 # /spawn_subagent — Delegate to Task subagents

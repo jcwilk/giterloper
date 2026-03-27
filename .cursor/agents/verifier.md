@@ -38,6 +38,7 @@ When the change set touches behavior in a slice, **read the governing area spec*
 | Pin-law, `giterloper_pin_set`, branch/ref matrix, `tests/pin-semantics/` | `specs/pin-semantics.md` |
 | `gl` / `gl-maintenance` CLI behavior, `tests/cli/` | `specs/cli.md` |
 | MCP tools, transport, session pin surface, `tests/mcp/` | `specs/mcp.md` (pin configuration law: `specs/pin-semantics.md`) |
+| Reconcile pending / `gl reconcile` (inbox → corpus integration, structured reconcile fields) | `specs/reconciliation.md` (task-scoped; with `specs/cli.md` / `specs/mcp.md` for surface-specific behavior) |
 
 Pin configuration at user-facing boundaries is defined in **`specs/pin-semantics.md`**; paths and **`pinned.yaml`** storage in **`specs/core.md`**, with canonical on-disk layout **`.giterloper/<sessionId>/`**—do **not** cite removed legacy **`docs/PIN_*`** paths as authority.
 
