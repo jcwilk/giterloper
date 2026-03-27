@@ -458,9 +458,9 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
   server.registerTool(
     "giterloper_reconcile_pending",
     {
-      title: "Reconcile pending knowledge",
+      title: "Reconcile pending knowledge (LLM-backed)",
       description:
-        "Integrate knowledge/_pending into the corpus under knowledge/ (recursive .md files) using structured decomposition (multiple files/subdirectories, incoming-wins conflict handling, ## Sources). All-or-nothing with CLI gl reconcile. Normative semantics: reconciliation slice under specs/. Omit pin to use the session pin.",
+        "Integrate knowledge/_pending into the corpus under knowledge/ (recursive .md files) using LLM-backed integration (OpenAI Chat Completions; same semantics as CLI gl reconcile). Requires API key configuration for production. Normative: reconciliation slice under specs/. All-or-nothing; omit pin to use the session pin.",
       inputSchema: z.object({
         pin: z
           .string()

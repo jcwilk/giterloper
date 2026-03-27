@@ -348,7 +348,7 @@ async function cmdReconcile(state: GlState, args: string[]) {
     args,
     [
       "Usage: gl reconcile [--pin <name>]",
-      "Integrate knowledge/_pending into the corpus under knowledge/**/*.md (structured decomposition, multiple files/subdirs as needed, incoming-wins section conflict handling, ## Sources). All-or-nothing: pending is removed only in the same successful commit as the corpus update.",
+      "Integrate knowledge/_pending into the corpus under knowledge/**/*.md using LLM-backed integration (OpenAI Chat Completions; set OPENAI_API_KEY or GITERLOPER_RECONCILE_OPENAI_API_KEY). Normative semantics: reconciliation slice under specs/. Multi-file placement, incoming-wins conflict handling, ## Sources. All-or-nothing: on failure nothing is published; pending is removed only in the same successful commit as the corpus update.",
     ].join("\n")
   );
   let rest = [...args];

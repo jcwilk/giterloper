@@ -1,4 +1,7 @@
 import { assertEquals } from "jsr:@std/assert";
+import { existsSync } from "node:fs";
+
+import { integrateCorpusWithOpenAi } from "../../lib/reconcile-llm.ts";
 import {
   buildCorpusDeterministicIntegrate,
   collectH2Keys,
@@ -6,6 +9,7 @@ import {
   decomposePendingEntry,
   extractTopic,
   normalizeHeading,
+  reconcile,
   splitPreambleAndH2,
   splitTwoWays,
   stripBoilerplate,
@@ -13,6 +17,7 @@ import {
   violatesSingleTopicFileShortcut,
   type PendingEntry,
 } from "../../lib/reconcile.ts";
+import { run } from "../../lib/run.ts";
 
 Deno.test("extractTopic uses first # heading", () => {
   assertEquals(extractTopic("# Foo Bar\n\nbody", "x.md"), "foo-bar");
@@ -111,7 +116,53 @@ Deno.test("violatesSingleTopicFileShortcut detects single knowledge/<topic>.md i
   assertEquals(violatesSingleTopicFileShortcut(entry, good), false);
 });
 
-Deno.test("buildCorpusDeterministicIntegrate produces multi-file corpus with Sources", () => {
+Deno.test("reconcile returns failure when LLM integration reports ok: false (no bogus success)", async () => {
+  const tmp = Deno.makeTempDirSync({ prefix: "reconcile-llm-fail-" });
+  try {
+    run("git", ["-C", tmp, "init"]);
+    run("git", ["-C", tmp, "config", "user.email", "t@test"]);
+    run("git", ["-C", tmp, "config", "user.name", "t"]);
+    const pendingDir = `${tmp}/knowledge/_pending`;
+    Deno.mkdirSync(pendingDir, { recursive: true });
+    Deno.writeTextFileSync(`${pendingDir}/p.md`, "# T\n\nbody");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "init"]);
+    const r = await reconcile(tmp, {
+      integrationOverride: async () => ({ ok: false, message: "simulated LLM failure" }),
+    });
+    assertEquals(r.ok, false);
+    if (r.ok) return;
+    assertEquals(r.message.includes("simulated LLM failure"), true);
+    assertEquals(existsSync(`${pendingDir}/p.md`), true);
+  } finally {
+    Deno.removeSync(tmp, { recursive: true });
+  }
+});
+
+Deno.test("integrateCorpusWithOpenAi does not succeed without API key", async () => {
+  const oldOpen = Deno.env.get("OPENAI_API_KEY");
+  const oldDedicated = Deno.env.get("GITERLOPER_RECONCILE_OPENAI_API_KEY");
+  try {
+    Deno.env.delete("OPENAI_API_KEY");
+    Deno.env.delete("GITERLOPER_RECONCILE_OPENAI_API_KEY");
+    const r = await integrateCorpusWithOpenAi(
+      [{ path: "knowledge/_pending/x.md", addEpoch: 1, content: "# A\n\nb" }],
+      new Map(),
+    );
+    assertEquals(r.ok, false);
+    if (r.ok) return;
+    assertEquals(r.message.includes("API key"), true);
+  } finally {
+    if (oldOpen !== undefined) Deno.env.set("OPENAI_API_KEY", oldOpen);
+    else Deno.env.delete("OPENAI_API_KEY");
+    if (oldDedicated !== undefined) {
+      Deno.env.set("GITERLOPER_RECONCILE_OPENAI_API_KEY", oldDedicated);
+    } else Deno.env.delete("GITERLOPER_RECONCILE_OPENAI_API_KEY");
+  }
+});
+
+/** Harness-only: same shape as LLM success path when GITERLOPER_RECONCILE_LLM_TEST_STUB=1 (not a production substitute). */
+Deno.test("buildCorpusDeterministicIntegrate (test stub path) produces multi-file corpus with Sources", () => {
   const tmp = Deno.makeTempDirSync({ prefix: "reconcile-det-" });
   try {
     const pendingDir = `${tmp}/knowledge/_pending`;

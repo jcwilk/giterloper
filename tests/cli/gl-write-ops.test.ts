@@ -125,6 +125,7 @@ Deno.test("install-remote copies docs/CONSTITUTION.md to GITERLOPER.md and advan
   }
 });
 
+/** End-to-end reconcile: test runner sets GITERLOPER_RECONCILE_LLM_TEST_STUB (see scripts/run-tests.ts) so integration is deterministic without a live model. */
 Deno.test("reconcile processes _pending into decomposed corpus files and deletes pending", () => {
   const pinName = scratchPinName(ctx, "reconcile");
   const branch = `${pinName}-branch`;

@@ -107,7 +107,7 @@ The internal session pin name is always **`_session`**. Callers target it by **o
 | `giterloper_search` | Search the knowledge store at a pinned SHA (on-demand index). |
 | `giterloper_retrieve` | Read file content by path at a pinned SHA. |
 | `giterloper_insert_pending` | Queue markdown under `knowledge/_pending/`. |
-| `giterloper_reconcile_pending` | **LLM-assisted** reconciliation: inbox **`knowledge/_pending/`** → corpus **`knowledge/**/*.md`**. Normative semantics: **[`specs/reconciliation.md`](./reconciliation.md)**. MCP-only notes: subsection **`giterloper_reconcile_pending`** below. |
+| `giterloper_reconcile_pending` | **LLM-backed** reconciliation (OpenAI Chat Completions in implementation; test harness may use **`GITERLOPER_RECONCILE_LLM_TEST_STUB=1`**): inbox **`knowledge/_pending/`** → corpus **`knowledge/**/*.md`**. Normative semantics: **[`specs/reconciliation.md`](./reconciliation.md)**. MCP-only notes: subsection **`giterloper_reconcile_pending`** below. |
 | `giterloper_merge` | Merge one pin’s branch into another via the GitHub API. |
 | `giterloper_pin_set` | View or configure the session pin and named pins (branch/ref matrix, reserved `_session`). Repository identity is server-only; inputs are **pin**, **ref**, **branch** only—no **source**. Pin naming and the full branch/ref matrix are normative in **[`specs/pin-semantics.md`](./pin-semantics.md)**—this row summarizes MCP-facing obligations only. |
 | `giterloper_state_inspect` | List pins; optional clone/freshness checks. |
@@ -119,7 +119,7 @@ The internal session pin name is always **`_session`**. Callers target it by **o
 
 ### `giterloper_reconcile_pending`
 
-**Normative behavior** (inbox, integration rules, provenance, completeness, **`addEpoch`** ordering, structured fields, pin lifecycle, **`reconciliation_conflict`**) is defined in **[`specs/reconciliation.md`](./reconciliation.md)**. **MCP tool descriptions** and titles **MUST** stay alignable with that document.
+**Normative behavior** (inbox, integration rules, provenance, completeness, **`addEpoch`** ordering, structured fields, pin lifecycle, **`reconciliation_conflict`**) is defined in **[`specs/reconciliation.md`](./reconciliation.md)**. **MCP tool descriptions** and titles **MUST** stay alignable with that document. Integration is **LLM-backed** in production (API key required); the tools table row above summarizes transport-facing wording.
 
 **Shared with CLI:** Same **reconcile** semantics as **`gl reconcile`** (**[`specs/cli.md`](./cli.md)** — **`reconcile`**). **Deltas vs CLI:** transport (stdio vs HTTP headers), session/pin resolution at the MCP boundary, and JSON-RPC **tool result** envelope/wrapping—success-body fields **`oldSha`**, **`newSha`**, **`touched`**, **`deleted`** match **`specs/reconciliation.md`** (atomic **all-or-nothing** reconcile; no partial success payload). (The former name **`giterloper_reconcile`** refers to **`giterloper_merge`**, not pending reconciliation—see **Legacy** under **Pins and tools** above.)
 

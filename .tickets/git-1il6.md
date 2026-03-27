@@ -1,6 +1,6 @@
 ---
 id: git-1il6
-status: open
+status: closed
 deps: [git-ehx5]
 links: []
 created: 2026-03-27T13:41:43Z
