@@ -196,7 +196,6 @@ export async function reconcilePending(
   newSha: string;
   touched: string[];
   deleted: string[];
-  unresolved: string[];
 }> {
   const toolArgs: Record<string, unknown> = {};
   if (args.pin != null && args.pin !== "") toolArgs.pin = args.pin;
@@ -209,7 +208,6 @@ export async function reconcilePending(
     newSha: string;
     touched: string[];
     deleted: string[];
-    unresolved: string[];
   };
 }
 

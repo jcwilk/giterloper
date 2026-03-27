@@ -1,10 +1,14 @@
 import { assertEquals } from "jsr:@std/assert";
 import {
+  collectH2Keys,
   comparePendingByAddEpoch,
+  decomposePendingEntry,
   extractTopic,
-  groupByTopic,
-  mergeTopicContent,
+  normalizeHeading,
+  splitPreambleAndH2,
+  splitTwoWays,
   stripBoilerplate,
+  stripH2SectionsMatching,
   type PendingEntry,
 } from "../../lib/reconcile.ts";
 
@@ -27,52 +31,53 @@ Deno.test("stripBoilerplate collapses multiple newlines", () => {
   assertEquals(stripBoilerplate("x\n\n\ny\n\nz"), "x\n\ny\n\nz");
 });
 
-Deno.test("groupByTopic groups by extracted topic", () => {
-  const entries = [
-    { path: "knowledge/_pending/a.md", addEpoch: 1, content: "# Foo\nx" },
-    { path: "knowledge/_pending/b.md", addEpoch: 2, content: "# Foo\ny" },
-    { path: "knowledge/_pending/c.md", addEpoch: 3, content: "# Bar\nz" },
-  ];
-  const map = groupByTopic(entries);
-  assertEquals(map.get("foo")?.length, 2);
-  assertEquals(map.get("bar")?.length, 1);
+Deno.test("splitPreambleAndH2 separates intro and H2 sections", () => {
+  const { preamble, h2sections } = splitPreambleAndH2("# T\n\nintro\n\n## A\n\na\n\n## B\n\nb");
+  assertEquals(preamble.includes("# T"), true);
+  assertEquals(h2sections.length, 2);
+  assertEquals(h2sections[0].title, "A");
+  assertEquals(h2sections[1].title, "B");
 });
 
-Deno.test("mergeTopicContent builds merged content with Sources", () => {
-  const entries = [
-    { path: "knowledge/_pending/f1.md", addEpoch: 1, content: "body one" },
-    { path: "knowledge/_pending/f2.md", addEpoch: 2, content: "body two" },
-  ];
-  const out = mergeTopicContent(null, entries);
-  assertEquals(out.includes("body one"), true);
-  assertEquals(out.includes("body two"), true);
-  assertEquals(out.includes("## Sources"), true);
-  assertEquals(out.includes("`f1.md`"), true);
-  assertEquals(out.includes("`f2.md`"), true);
+Deno.test("decomposePendingEntry yields at least two corpus paths", () => {
+  const entry: PendingEntry = {
+    path: "knowledge/_pending/x.md",
+    addEpoch: 1,
+    content: "# One Topic\n\nOnly body no H2.",
+  };
+  const chunks = decomposePendingEntry(entry);
+  assertEquals(chunks.length >= 2, true);
+  assertEquals(chunks[0].relPath.startsWith("knowledge/one-topic/"), true);
+  assertEquals(chunks[0].pendingBasename, "x.md");
 });
 
-Deno.test("mergeTopicContent appends to existing", () => {
-  const entries = [
-    { path: "knowledge/_pending/new.md", addEpoch: 1, content: "new content" },
-  ];
-  const out = mergeTopicContent("existing body", entries);
-  assertEquals(out.includes("existing body"), true);
-  assertEquals(out.includes("new content"), true);
-  assertEquals(out.includes("---"), true);
+Deno.test("decomposePendingEntry splits multiple H2 into multiple files", () => {
+  const entry: PendingEntry = {
+    path: "knowledge/_pending/y.md",
+    addEpoch: 1,
+    content: "# T\n\n## First\n\na\n\n## Second\n\nb",
+  };
+  const chunks = decomposePendingEntry(entry);
+  assertEquals(chunks.length, 2);
+  assertEquals(chunks.every((c) => c.relPath.includes("knowledge/t/")), true);
 });
 
-Deno.test("mergeTopicContent applies stripBoilerplate to existing content", () => {
-  const out = mergeTopicContent("a\n\n\n\nb", []);
-  assertEquals(out.includes("\n\n\n"), false);
-  assertEquals(out, "a\n\nb");
+Deno.test("stripH2SectionsMatching removes H2 keys present in set", () => {
+  const keys = new Set([normalizeHeading("Status")]);
+  const md = "# X\n\n## Status\n\nold\n\n## Other\n\nkeep";
+  const out = stripH2SectionsMatching(md, keys);
+  assertEquals(out.includes("old"), false);
+  assertEquals(out.includes("keep"), true);
 });
 
-Deno.test("mergeTopicContent applies stripBoilerplate to entry content", () => {
-  const out = mergeTopicContent(null, [{ path: "p.md", addEpoch: 1, content: "x\n\n\n\ny" }]);
-  assertEquals(out.includes("x\n\n\n\ny"), false);
-  assertEquals(out.includes("x\n\ny"), true);
-  const beforeSources = out.split("## Sources")[0];
-  assertEquals(beforeSources.includes("\n\n\n"), false);
+Deno.test("collectH2Keys lists normalized headings", () => {
+  assertEquals(collectH2Keys("## Foo Bar\n\nx"), [normalizeHeading("Foo Bar")]);
+});
+
+Deno.test("splitTwoWays splits at paragraph boundary", () => {
+  const [a, b] = splitTwoWays("line1\n\nline2");
+  assertEquals(a.includes("line1"), true);
+  assertEquals(b.includes("line2"), true);
 });
 
 Deno.test("comparePendingByAddEpoch orders by addEpoch ascending with addEpoch 0 last", () => {

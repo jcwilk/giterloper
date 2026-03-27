@@ -1,6 +1,6 @@
 ---
 id: git-cwzo
-status: open
+status: closed
 deps: []
 links: [git-pbau]
 created: 2026-03-27T01:29:36Z

@@ -460,7 +460,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Reconcile pending knowledge",
       description:
-        "Process knowledge/_pending into topic files under knowledge/. Groups by topic, adds Sources, deletes pending only after content is represented. Equivalent to CLI gl reconcile. Omit pin to use the session pin.",
+        "Integrate knowledge/_pending into the corpus under knowledge/ (recursive .md files) using structured decomposition (multiple files/subdirectories, incoming-wins conflict handling, ## Sources). All-or-nothing with CLI gl reconcile. Normative semantics: reconciliation slice under specs/. Omit pin to use the session pin.",
       inputSchema: z.object({
         pin: z
           .string()
@@ -501,7 +501,6 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           newSha: result.newSha,
           touched: result.touched,
           deleted: result.deleted,
-          unresolved: result.unresolved,
         };
       })
   );

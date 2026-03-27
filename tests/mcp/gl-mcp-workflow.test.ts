@@ -102,18 +102,22 @@ Deno.test({
       assertEquals(reconcileRes.oldSha !== reconcileRes.newSha, true, "reconcile advances sha");
 
       // 7. Retrieve reconciled content from session pin (omit pin)
-      assertExists(reconcileRes.touched, "reconcile touched paths");
-      const topicPath = reconcileRes.touched[0];
-      assertExists(topicPath, "at least one touched path");
+      const touched = reconcileRes.touched;
+      assertExists(touched, "reconcile touched paths");
+      assertEquals(touched.length > 0, true, "at least one touched path");
 
-      const readRes = await retrieve(client, { path: topicPath });
-      assertEquals(readRes.ok, true);
-      assertEquals(readRes.effectiveSha, reconcileRes.newSha);
-      assertEquals(
-        readRes.content.includes(MARKER_A) || readRes.content.includes(MARKER_B),
-        true,
-        "content reflects inserts"
-      );
+      const readHead = await retrieve(client, { path: touched[0] });
+      assertEquals(readHead.ok, true);
+      assertEquals(readHead.effectiveSha, reconcileRes.newSha);
+
+      let union = "";
+      for (const p of touched) {
+        const r = await retrieve(client, { path: p });
+        if (r.ok) union += r.content;
+      }
+      assertEquals(union.includes(MARKER_A) && union.includes(MARKER_B), true, "markers appear in corpus");
+
+      const topicPath = touched[0];
 
       // 8. Snapshot isolation: retrieve same path from snapshot pin
       let snapshotContent: string | null = null;

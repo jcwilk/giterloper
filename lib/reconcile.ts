@@ -1,8 +1,8 @@
 /**
- * Topic-first reconciliation: integrate knowledge/_pending into knowledge/ by topic.
- * Processes pending files in commit order, groups by subject, merges into topic files,
- * adds Sources, deletes pending only after successful representation.
- * Rudimentary but deterministic and auditable.
+ * Reconcile: integrate knowledge/_pending into the corpus under knowledge/ (recursive
+ * .md files) using structured agent-equivalent decomposition (multi-file placement,
+ * subdirectory layout, section-level incoming-wins conflict handling).
+ * Normative semantics: reconciliation slice under specs/.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -29,7 +29,6 @@ export interface ReconcileResult {
   oldSha: string;
   newSha: string;
   touched: string[];
-  unresolved: string[];
   deleted: string[];
 }
 
@@ -41,7 +40,7 @@ export interface ReconcileError {
 
 const FIRST_HEADING = /^#\s+(.+)$/m;
 
-/** Extract topic from content: first # heading, or "general". Sanitized for filename. */
+/** Extract topic from content: first # heading, or "general". Sanitized for path segment. */
 export function extractTopic(content: string, fallbackFilename: string): string {
   const m = content.match(FIRST_HEADING);
   const raw = m ? m[1].trim() : path.basename(fallbackFilename, ".md");
@@ -56,6 +55,137 @@ export function extractTopic(content: string, fallbackFilename: string): string 
 /** Rudimentary strip: collapse 3+ newlines to 2. Preserves citations/links. */
 export function stripBoilerplate(text: string): string {
   return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+interface H2Section {
+  title: string;
+  body: string;
+}
+
+/** Normalize heading text for conflict keys. */
+export function normalizeHeading(title: string): string {
+  return title.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function slugSegment(s: string): string {
+  return normalizeHeading(s)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "section";
+}
+
+/** Split into preamble (before first ##) and H2 sections. */
+export function splitPreambleAndH2(content: string): { preamble: string; h2sections: H2Section[] } {
+  const lines = content.split(/\n/);
+  let firstH2 = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      firstH2 = i;
+      break;
+    }
+  }
+  if (firstH2 === -1) {
+    return { preamble: content.trim(), h2sections: [] };
+  }
+  const preamble = lines.slice(0, firstH2).join("\n");
+  const restLines = lines.slice(firstH2);
+  const h2sections: H2Section[] = [];
+  let i = 0;
+  while (i < restLines.length) {
+    const m = restLines[i].match(/^##\s+(.+)$/);
+    if (!m) break;
+    const title = m[1].trim();
+    i++;
+    const bodyLines: string[] = [];
+    while (i < restLines.length && !/^##\s/.test(restLines[i])) {
+      bodyLines.push(restLines[i]);
+      i++;
+    }
+    h2sections.push({ title, body: bodyLines.join("\n") });
+  }
+  return { preamble: preamble.trim(), h2sections };
+}
+
+function rebuildFromPreambleAndH2(preamble: string, sections: H2Section[]): string {
+  const parts: string[] = [];
+  if (preamble.trim()) parts.push(preamble.trim());
+  for (const s of sections) {
+    parts.push(`## ${s.title}\n\n${s.body}`.trim());
+  }
+  return parts.join("\n\n").trim();
+}
+
+/** Remove H2 sections whose normalized title is in keys (incoming wins). */
+export function stripH2SectionsMatching(content: string, keys: Set<string>): string {
+  const { preamble, h2sections } = splitPreambleAndH2(content);
+  const kept = h2sections.filter((s) => !keys.has(normalizeHeading(s.title)));
+  const out = rebuildFromPreambleAndH2(preamble, kept);
+  return stripBoilerplate(out);
+}
+
+/** Collect normalized H2 titles from markdown. */
+export function collectH2Keys(markdown: string): string[] {
+  const keys: string[] = [];
+  for (const line of markdown.split(/\n/)) {
+    const m = line.match(/^##\s+(.+)$/);
+    if (m) keys.push(normalizeHeading(m[1]));
+  }
+  return keys;
+}
+
+/** Split markdown into two substantive parts for multi-file placement. */
+export function splitTwoWays(markdown: string): [string, string] {
+  const t = markdown.trim();
+  const paraBreak = t.indexOf("\n\n");
+  if (paraBreak > 0 && paraBreak < t.length - 2) {
+    return [t.slice(0, paraBreak).trim(), t.slice(paraBreak + 2).trim()];
+  }
+  const mid = Math.max(1, Math.floor(t.length / 2));
+  return [t.slice(0, mid).trim(), t.slice(mid).trim()];
+}
+
+export interface PlannedChunk {
+  relPath: string;
+  markdown: string;
+  pendingBasename: string;
+}
+
+/**
+ * Decompose one pending entry into at least two corpus files under knowledge/<topic>/...
+ * (agent-equivalent placement — not a single topic-file append for the whole item).
+ */
+export function decomposePendingEntry(entry: PendingEntry): PlannedChunk[] {
+  const topic = extractTopic(entry.content, path.basename(entry.path));
+  const stem = path.basename(entry.path, ".md");
+  const baseDir = `${KNOWLEDGE_DIR}/${topic}`;
+  const pendingBasename = path.basename(entry.path);
+  const { preamble, h2sections } = splitPreambleAndH2(entry.content);
+
+  if (h2sections.length >= 2) {
+    return h2sections.map((sec, idx) => {
+      const md =
+        idx === 0
+          ? rebuildFromPreambleAndH2(preamble, [sec])
+          : `## ${sec.title}\n\n${sec.body}`.trim();
+      return {
+        relPath: `${baseDir}/${stem}-sec-${idx}-${slugSegment(sec.title)}.md`,
+        markdown: stripBoilerplate(md),
+        pendingBasename,
+      };
+    });
+  }
+  if (h2sections.length === 1) {
+    const md = rebuildFromPreambleAndH2(preamble, h2sections);
+    const [a, b] = splitTwoWays(md);
+    return [
+      { relPath: `${baseDir}/${stem}-part-01.md`, markdown: a, pendingBasename },
+      { relPath: `${baseDir}/${stem}-part-02.md`, markdown: b, pendingBasename },
+    ];
+  }
+  const [a, b] = splitTwoWays(preamble);
+  return [
+    { relPath: `${baseDir}/${stem}-part-01.md`, markdown: a, pendingBasename },
+    { relPath: `${baseDir}/${stem}-part-02.md`, markdown: b, pendingBasename },
+  ];
 }
 
 /** Get add timestamp for a file: from GitHub API when available, else from git log. */
@@ -112,7 +242,6 @@ export async function getPendingInCommitOrder(
     const rel = `${PENDING_DIR}/${f}`;
     const fullPath = path.join(repoDir, rel);
     if (!existsSync(fullPath)) continue;
-    // Read content before any await so another test/process cannot remove the file mid-flight (parallel suite).
     let content: string;
     try {
       content = readFileSync(fullPath, "utf8");
@@ -128,43 +257,55 @@ export async function getPendingInCommitOrder(
   return entries;
 }
 
-/** Group entries by topic. */
-export function groupByTopic(entries: PendingEntry[]): Map<string, PendingEntry[]> {
-  const map = new Map<string, PendingEntry[]>();
-  for (const e of entries) {
-    const topic = extractTopic(e.content, path.basename(e.path));
-    const list = map.get(topic) ?? [];
-    list.push(e);
-    map.set(topic, list);
+function walkMarkdownFiles(dir: string, baseRel: string, out: string[]): void {
+  if (!existsSync(dir)) return;
+  for (const name of readdirSync(dir, { withFileTypes: true })) {
+    const rel = baseRel ? `${baseRel}/${name.name}` : name.name;
+    const full = path.join(dir, name.name);
+    if (name.isDirectory()) {
+      if (name.name === "_pending") continue;
+      walkMarkdownFiles(full, rel, out);
+    } else if (name.isFile() && name.name.endsWith(".md")) {
+      out.push(rel.replace(/\\/g, "/"));
+    }
   }
-  return map;
 }
 
-/** Build merged content for a topic: existing + new entries with Sources. */
-export function mergeTopicContent(
-  existingContent: string | null,
-  entries: PendingEntry[]
-): string {
-  const parts: string[] = [];
-  if (existingContent && existingContent.trim()) {
-    parts.push(stripBoilerplate(existingContent));
+/** List all corpus .md files under knowledge/ (recursive), excluding _pending. */
+export function listCorpusMarkdownRelPaths(repoDir: string): string[] {
+  const root = path.join(repoDir, KNOWLEDGE_DIR);
+  const out: string[] = [];
+  walkMarkdownFiles(root, "", out);
+  return out.map((p) => `${KNOWLEDGE_DIR}/${p}`.replace(/\\/g, "/"));
+}
+
+function appendSourcesSection(markdown: string, sources: string[]): string {
+  const uniq = [...new Set(sources)].sort();
+  const block = `\n\n## Sources\n\n${uniq.map((s) => `- \`${s}\``).join("\n")}`;
+  const t = markdown.trimEnd();
+  if (/\n## Sources\n/.test(t)) {
+    return `${t}\n${uniq.map((s) => `- \`${s}\``).join("\n")}\n`;
   }
-  const sources: string[] = [];
+  return `${t}${block}\n`;
+}
+
+function isSubstantive(text: string): boolean {
+  return stripBoilerplate(text).length > 0;
+}
+
+function validatePendingRepresented(entries: PendingEntry[], corpus: Map<string, string>): boolean {
+  const union = [...corpus.values()].join("\n");
   for (const e of entries) {
-    const body = stripBoilerplate(e.content);
-    const filename = path.basename(e.path);
-    sources.push(`- \`${filename}\``);
-    parts.push(body);
+    if (!isSubstantive(e.content)) continue;
+    const base = path.basename(e.path);
+    if (!union.includes(`\`${base}\``)) return false;
   }
-  const merged = parts.join("\n\n---\n\n");
-  const sourcesBlock = sources.length > 0 ? `\n\n## Sources\n\n${sources.join("\n")}` : "";
-  return merged + sourcesBlock;
+  return true;
 }
 
 /**
- * Reconcile: process pending into topic files, delete pending only after success.
- * Returns oldSha/newSha, touched paths, unresolved (if any), deleted pending paths.
- * No silent data loss: unresolved files stay in _pending.
+ * Reconcile: integrate pending via multi-file decomposition; strip conflicting corpus sections
+ * (incoming wins); atomic single commit or no durable change on failure.
  */
 export async function reconcile(
   repoDir: string,
@@ -173,50 +314,153 @@ export async function reconcile(
   const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
   const entries = await getPendingInCommitOrder(repoDir, retryLog);
   if (entries.length === 0) {
-    return { ok: true, oldSha, newSha: oldSha, touched: [], unresolved: [], deleted: [] };
+    return { ok: true, oldSha, newSha: oldSha, touched: [], deleted: [] };
   }
 
-  const byTopic = groupByTopic(entries);
   const knowledgePath = path.join(repoDir, KNOWLEDGE_DIR);
   if (!existsSync(knowledgePath)) {
     const parent = path.dirname(knowledgePath);
     if (!existsSync(parent)) {
-      return { ok: false, message: "knowledge/ parent directory does not exist", unresolved: entries.map((e) => e.path) };
+      return {
+        ok: false,
+        message: "knowledge/ parent directory does not exist",
+        unresolved: entries.map((e) => e.path),
+      };
     }
     mkdirSync(knowledgePath, { recursive: true });
   }
 
-  const touched: string[] = [];
-  const toDelete: string[] = [];
+  const planned: PlannedChunk[] = [];
+  for (const e of entries) {
+    const chunks = decomposePendingEntry(e);
+    if (chunks.length < 2) {
+      return {
+        ok: false,
+        message: "internal: decomposition must yield at least two corpus files per pending item",
+        unresolved: entries.map((x) => x.path),
+      };
+    }
+    planned.push(...chunks);
+  }
 
-  for (const [topic, topicEntries] of byTopic) {
-    const topicFile = `${topic}.md`;
-    const topicPath = path.join(KNOWLEDGE_DIR, topicFile);
-    const fullPath = path.join(repoDir, topicPath);
-    const existing = existsSync(fullPath) ? readFileSync(fullPath, "utf8") : null;
-    const merged = mergeTopicContent(existing, topicEntries);
-    writeFileSync(fullPath, merged.endsWith("\n") ? merged : `${merged}\n`, "utf8");
-    touched.push(topicPath);
-    for (const e of topicEntries) {
-      toDelete.push(path.join(repoDir, e.path));
+  const incomingKeys = new Set<string>();
+  for (const p of planned) {
+    for (const k of collectH2Keys(p.markdown)) incomingKeys.add(k);
+  }
+
+  const corpusPaths = listCorpusMarkdownRelPaths(repoDir);
+  const corpus = new Map<string, string>();
+  for (const rel of corpusPaths) {
+    const full = path.join(repoDir, rel);
+    corpus.set(rel, readFileSync(full, "utf8"));
+  }
+
+  const plannedPaths = new Set(planned.map((p) => p.relPath));
+
+  for (const [rel, text] of [...corpus.entries()]) {
+    const stripped = stripH2SectionsMatching(text, incomingKeys);
+    if (!stripped.trim()) {
+      corpus.delete(rel);
+    } else {
+      corpus.set(rel, stripped);
     }
   }
 
-  for (const p of toDelete) {
-    if (existsSync(p)) rmSync(p);
+  const byPath = new Map<string, { body: string; sources: Set<string> }>();
+  for (const p of planned) {
+    const prev = byPath.get(p.relPath);
+    const sources = prev?.sources ?? new Set<string>();
+    sources.add(p.pendingBasename);
+    const mergedBody = prev
+      ? `${prev.body}\n\n---\n\n${p.markdown}`.trim()
+      : p.markdown;
+    byPath.set(p.relPath, { body: mergedBody, sources });
   }
-  const deleted = entries.map((e) => e.path);
 
-  run("git", ["-C", repoDir, "add", "-A", PENDING_DIR, KNOWLEDGE_DIR]);
-  run("git", ["-C", repoDir, "commit", "-m", `gl: reconcile ${entries.length} pending into topic files`]);
-  const newSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
+  for (const [rel, { body, sources }] of byPath.entries()) {
+    corpus.set(rel, appendSourcesSection(body, [...sources]));
+  }
 
-  return {
-    ok: true,
-    oldSha,
-    newSha,
-    touched,
-    unresolved: [],
-    deleted,
-  };
+  if (!validatePendingRepresented(entries, corpus)) {
+    return {
+      ok: false,
+      message: "reconcile: could not represent all substantive pending content in corpus (integration failed)",
+      unresolved: entries.map((e) => e.path),
+    };
+  }
+
+  const snapshot = new Map<string, string | null>();
+  for (const rel of [...new Set([...corpusPaths, ...plannedPaths])]) {
+    const full = path.join(repoDir, rel);
+    snapshot.set(rel, existsSync(full) ? readFileSync(full, "utf8") : null);
+  }
+
+  const pendingSnapshot = entries.map((e) => ({
+    rel: e.path,
+    content: readFileSync(path.join(repoDir, e.path), "utf8"),
+  }));
+
+  const touched: string[] = [];
+  try {
+    for (const [rel, content] of corpus.entries()) {
+      const full = path.join(repoDir, rel);
+      mkdirSync(path.dirname(full), { recursive: true });
+      writeFileSync(full, content.endsWith("\n") ? content : `${content}\n`, "utf8");
+      touched.push(rel);
+    }
+
+    for (const rel of corpusPaths) {
+      if (!corpus.has(rel)) {
+        const full = path.join(repoDir, rel);
+        if (existsSync(full)) rmSync(full);
+      }
+    }
+
+    for (const p of pendingSnapshot) {
+      const full = path.join(repoDir, p.rel);
+      if (existsSync(full)) rmSync(full);
+    }
+
+    run("git", ["-C", repoDir, "add", "-A", PENDING_DIR, KNOWLEDGE_DIR]);
+    run("git", ["-C", repoDir, "commit", "-m", `gl: reconcile ${entries.length} pending (integrated corpus)`]);
+    const newSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
+
+    const deleted = entries.map((e) => e.path);
+    return {
+      ok: true,
+      oldSha,
+      newSha,
+      touched: [...new Set(touched)].sort(),
+      deleted,
+    };
+  } catch (e) {
+    for (const [rel, prev] of snapshot.entries()) {
+      const full = path.join(repoDir, rel);
+      try {
+        if (prev === null) {
+          if (existsSync(full)) rmSync(full);
+        } else {
+          mkdirSync(path.dirname(full), { recursive: true });
+          writeFileSync(full, prev, "utf8");
+        }
+      } catch {
+        /* best-effort rollback */
+      }
+    }
+    for (const p of pendingSnapshot) {
+      try {
+        const full = path.join(repoDir, p.rel);
+        mkdirSync(path.dirname(full), { recursive: true });
+        writeFileSync(full, p.content, "utf8");
+      } catch {
+        /* best-effort rollback */
+      }
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      ok: false,
+      message: `reconcile failed: ${msg}`,
+      unresolved: entries.map((x) => x.path),
+    };
+  }
 }

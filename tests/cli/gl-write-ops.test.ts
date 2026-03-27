@@ -125,7 +125,7 @@ Deno.test("install-remote copies docs/CONSTITUTION.md to GITERLOPER.md and advan
   }
 });
 
-Deno.test("reconcile processes _pending into topic files and deletes pending", () => {
+Deno.test("reconcile processes _pending into decomposed corpus files and deletes pending", () => {
   const pinName = scratchPinName(ctx, "reconcile");
   const branch = `${pinName}-branch`;
   try {
@@ -142,13 +142,20 @@ Deno.test("reconcile processes _pending into topic files and deletes pending", (
       deleted?: string[];
     };
     assertEquals(result.action, "reconciled");
-    assertEquals(result.touched?.includes("knowledge/reconcile-test-topic.md"), true);
+    const touched = result.touched ?? [];
+    assertEquals(touched.some((p) => p.startsWith("knowledge/reconcile-test-topic/")), true);
+    assertEquals(touched.length >= 2, true);
     assertEquals(result.deleted?.includes("knowledge/_pending/reconcile-test.md"), true);
-    const topicPath = path.join(stagedDir(pinName, branch), "knowledge", "reconcile-test-topic.md");
-    assertEquals(existsSync(topicPath), true);
-    const topicBody = readFileSync(topicPath, "utf8");
-    assertEquals(topicBody.includes("reconcile-e2e-marker"), true);
-    assertEquals(topicBody.includes("## Sources"), true);
+    const staged = stagedDir(pinName, branch);
+    const topicDir = path.join(staged, "knowledge", "reconcile-test-topic");
+    assertEquals(existsSync(topicDir), true);
+    let combined = "";
+    for (const rel of touched.filter((p) => p.startsWith("knowledge/reconcile-test-topic/"))) {
+      combined += readFileSync(path.join(staged, rel), "utf8");
+    }
+    assertEquals(combined.includes("reconcile-e2e-marker"), true);
+    assertEquals(combined.includes("## Sources"), true);
+    assertEquals(combined.includes("`reconcile-test.md`"), true);
     const pendingPath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", "reconcile-test.md");
     assertEquals(existsSync(pendingPath), false);
     const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);

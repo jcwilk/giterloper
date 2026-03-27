@@ -348,7 +348,7 @@ async function cmdReconcile(state: GlState, args: string[]) {
     args,
     [
       "Usage: gl reconcile [--pin <name>]",
-      "Process knowledge/_pending into topic files under knowledge/. Deletes pending only after content is represented.",
+      "Integrate knowledge/_pending into the corpus under knowledge/**/*.md (structured decomposition, multiple files/subdirs as needed, incoming-wins section conflict handling, ## Sources). All-or-nothing: pending is removed only in the same successful commit as the corpus update.",
     ].join("\n")
   );
   let rest = [...args];
@@ -379,7 +379,6 @@ async function cmdReconcile(state: GlState, args: string[]) {
       newSha: result.newSha,
       touched: result.touched,
       deleted: result.deleted,
-      unresolved: result.unresolved,
     },
     state.globalJson
   );
