@@ -1,0 +1,82 @@
+# Reconciliation (inbox → corpus)
+
+This document is the **normative** product contract for **reconcile** semantics shared by the **CLI** command **`gl reconcile`** and the **MCP** tool **`giterloper_reconcile_pending`**.
+
+---
+
+## Inbox and corpus
+
+- **Inbox:** **`knowledge/_pending/`** holds **pending** markdown items (files or entries), typically queued by **`giterloper_insert_pending`** (MCP) or **`gl insert`** (CLI).
+- **Corpus:** Durable knowledge lives under **`knowledge/**/*.md`** **outside** the inbox (arbitrary subdirectory structure under **`knowledge/`** as the implementation creates or updates it).
+- **Pending queue filenames** (how basenames are formed) are specified in **`specs/core.md`** — **Pending queue filenames**.
+
+---
+
+## Integration (decomposition and placement)
+
+The operation **MUST** process each pending item and use an **LLM** or **equivalent agent-assisted** decomposition—not limited to a fixed vendor or model—to **break up** inbox content and **integrate** it **throughout** the existing markdown under **`knowledge/`**, including creating or updating **multiple** **`.md`** files and **`knowledge/`** **subdirectories** when a hierarchy improves navigation.
+
+The implementation **MUST NOT** satisfy the contract by only merging each pending file into a **single** existing topic file keyed solely by first heading or filename stem (i.e. **not** a “single-file-append” shortcut for the whole run).
+
+### Structure (SHOULD-level quality)
+
+File names, subdirectory layout, headings, and chunk boundaries **SHOULD** be chosen so the corpus stays **coherent** for readers and **findable** via markdown indexing and search (sensible granularity, not one giant undifferentiated file when multiple topics are present).
+
+### Conflict resolution (incoming knowledge wins)
+
+When **new** knowledge from **`_pending/`** and **existing** corpus content **disagree** on substance, the integration **MUST** treat the **incoming** pending material as **authoritative** for that reconcile run. **Existing** passages in **`knowledge/**/*.md`** that conflict with the new knowledge **MUST** be **revised or removed** so the integrated corpus **aligns** with the pending content. The implementation **MUST NOT** preserve stale corpus claims over pending **solely** because they appeared first, and **MUST NOT** fail a run **only** because the corpus previously stated something incompatible with pending.
+
+---
+
+## Provenance
+
+Corpus files that receive integrated pending content **MUST** include a **`## Sources`** section listing **contributing pending filenames** (the pending entry basenames as integrated in that run). **Normative `## Sources` obligations live in this document**; **`specs/core.md`** records path and **pending queue filename** rules only.
+
+---
+
+## Integration completeness and atomicity
+
+**Substantive** content is content not treated as empty or negligible for integration purposes (for example not only whitespace with no integratable meaning); exact classification is **implementation-defined** but **MUST** respect the rules below.
+
+**All-or-nothing:** A reconcile run **MUST** either **fully succeed** or **make no durable publish** of that run’s knowledge changes. **Full success** means: every pending item in scope for the run has its **substantive** content **represented** in the corpus; **`## Sources`** and corpus writes are complete for that integration; **pending** files removed from **`_pending/`** are only those fully integrated in that run; and the clone is **pushed** with the **pin SHA** advanced **as applicable**. The implementation **MUST NOT** ship a **partial** reconcile (some pending integrated and published while others remain silently unaddressed).
+
+**On failure:** If reconcile cannot complete for **any** reason (LLM or tooling failure, validation, network/push failure, an **irreconcilable** situation **not** covered by **Conflict resolution (incoming knowledge wins)** above, etc.), the implementation **MUST** **bail**: **MUST NOT** push, **MUST NOT** advance the **pin SHA**, **MUST NOT** delete pending files, and **MUST NOT** persist corpus changes that would leave operators without a clear failure signal. Callers **MUST** be able to detect failure (for example CLI non-zero exit, MCP tool result **`ok: false`**) so operators are **notified** and can **fix** the underlying issue and retry. **SHOULD** include actionable detail in the error path (for example **`details`** in the MCP error envelope, or stderr/JSON error fields for CLI) when that helps locate the problem.
+
+**Local work:** The implementation **MAY** prepare changes in a working tree or scratch area during the run; **MUST** leave the **authoritative** clone and pin state **unchanged** from the run’s starting point if the run does not reach **full success** (or **MUST** apply an equivalent rollback so no partial publish remains).
+
+---
+
+## Ordering when multiple pending entries apply
+
+Each pending entry has an integer **`addEpoch`** used only to order work within a reconcile run: **ascending** numeric order, with **`0`** meaning **unknown** or unavailable and sorting **after** all positive values. When multiple pending entries are processed in one reconcile run, that ordering **MUST** follow this rule. **`specs/core.md`** defers here (see **Reconciliation** section).
+
+---
+
+## Results, pin lifecycle, and structured fields
+
+When the operation mutates the clone and pushes, the implementation **MUST** advance the **pin SHA** after push (same pin lifecycle as other write flows that advance the pin).
+
+Structured **success** output **MUST** include only paths that reflect a **fully completed** run:
+
+- **`oldSha`** — pin SHA before the operation’s writes/push (as applicable).
+- **`newSha`** — pin SHA after successful push when the clone was advanced.
+- **`touched`** — paths of corpus files under **`knowledge/`** (and any other paths the product reports) created or updated by this run’s integration; CLI and MCP **MUST** use the **same field names, JSON shapes, and element meanings** for parity.
+- **`deleted`** — pending paths removed in that run because they were **fully integrated** (empty if nothing was pending).
+
+There is **no** “partial success” body: if the run does not fully succeed, the product **MUST** use the **failure** path above, not a success payload with leftover work.
+
+**Parity:** **`gl reconcile`** structured output (for example with **`--json`**) **MUST** expose the **same semantic fields** as the MCP tool’s success body for the same **fully successful** reconcile operation, allowing for transport-level wrapping differences.
+
+---
+
+## Errors: `reconciliation_conflict`
+
+Normative structured tool failures use the shared error envelope (**`specs/mcp.md`** — **Error envelope and codes**). The code **`reconciliation_conflict`** is among the normative codes. Because **incoming knowledge wins** over conflicting corpus text (**Conflict resolution (incoming knowledge wins)** above), **`reconciliation_conflict`** is **not** for “corpus vs pending disagree.” Implementations **SHOULD** use **`reconciliation_conflict`** when reconcile fails because integration still cannot be completed—for example **contradictory pending items within the same run** that the product cannot sequence or merge, or another **irreconcilable** semantic situation **not** solvable by editing the corpus toward pending—as opposed to generic external or argument failures—so callers can distinguish **reconcile-specific** integration failures.
+
+---
+
+## Non-goals (clarifying boundaries)
+
+- This spec does **not** define MCP transport, HTTP auth, stdio session wiring, or **`giterloper_merge`** (GitHub merge API); those belong to **`specs/mcp.md`** and related docs.
+- It does **not** enumerate **CLI** global flags beyond what **pairing** requires for **`reconcile`**; full CLI invocation rules are in **`specs/cli.md`**.
+- It does **not** duplicate **pin semantics**; branched pins and write prerequisites follow **`specs/pin-semantics.md`** and the CLI/MCP slices where write tools require a branch.

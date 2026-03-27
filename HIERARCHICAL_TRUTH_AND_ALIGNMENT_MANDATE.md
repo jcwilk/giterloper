@@ -18,7 +18,7 @@ This document defines how **layers of truth** relate in this repository: univers
 
 **Root instruction files** (for example [AGENTS.md](./AGENTS.md), [CONVENTIONS.md](./CONVENTIONS.md), and similar top-level guidance) govern **universal** agent behavior, development process, and coding standards for the whole repo.
 
-**Area specs** under `specs/` govern **product behavior** for that slice only. Topic test folders pair with those specs for **executable** alignment—for example a **`specs/<slice>.md`** (and matching **`tests/<topic>/`**) per product area (shared library and pins, CLI, MCP, …), with deferrals such as MCP → pin-law documented in **`tests/README.md`**. See **§5** for rollout pairing.
+**Area specs** under `specs/` govern **product behavior** for that slice only. Topic test folders **`tests/<topic>/`** pair with those specs for **executable** alignment by **naming convention** and the slice hub **[`specs/README.md`](./specs/README.md)** (which normative files exist and how slices defer to each other—for example MCP → pin-law). Harness layout and runner rules live in **`tests/README.md`**, which is **not** a maintained index of every folder-to-spec mapping. See **§5** for rollout pairing.
 
 If these layers appear to overlap, **call the overlap out explicitly**. In general, **area specs should be adjusted to conform to repo-wide root instructions**, not the other way around. **Changing root instructions** is reserved for **systemic or process change** requested by the user—not for routine product tweaks.
 
@@ -69,7 +69,7 @@ Agents should use **commits** (and ticket linkage where applicable) to show **jo
 
 ## 5. Initial spec rollout and test folders
 
-**Strict alignment at rollout:** every **topic or behavior exercised by tests** in a given test folder (for example `tests/core/`, `tests/pin-semantics/`, `tests/cli/`, `tests/mcp/`) **must be represented** in the **matching area spec or specs** under `specs/` so the suite starts in **strict alignment** with written product truth. A slice may use **more than one** spec file (for example shared core behavior plus a dedicated pin contract); together they must cover what the paired tests encode as product law. **Pairing details** (including which folder owns **pin-law** vs **core library** coverage) are documented in **`tests/README.md`**.
+**Strict alignment at rollout:** every **topic or behavior exercised by tests** in a given test folder **must be represented** in the **matching area spec or specs** under `specs/` so the suite starts in **strict alignment** with written product truth. A slice may use **more than one** spec file (for example shared core behavior plus a dedicated pin contract); together they must cover what the tests encode as product law. **Which spec files exist and how slices relate** is documented in **`specs/README.md`**; **test topic trees** follow **`tests/<topic>/`** naming aligned with those slices—**not** a table maintained in **`tests/README.md`**.
 
 ---
 

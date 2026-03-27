@@ -113,7 +113,9 @@ For a **newly created branch** (pin added from base ref with a branch name not y
 
 ### `reconcile [--pin <name>]`
 
-Processes **`knowledge/_pending/`** into topic files under **`knowledge/`**, then deletes pending files only after their content is represented in topics. Reconciled topic bodies include a **Sources** section. Successful reconcile **advances the pin SHA** and reports touched and deleted paths in structured output.
+**Normative reconcile semantics** (inbox → corpus integration, provenance, completeness, ordering, structured fields, pin lifecycle) are defined in **[`specs/reconciliation.md`](./reconciliation.md)**. **CLI help** and **`--json`** field names **MUST** stay alignable with that document.
+
+**CLI-only:** Command name **`reconcile`**; optional **`--pin <name>`**; structured output via **`--json`** (same semantic fields as MCP success body per **`specs/reconciliation.md`**). Successful reconcile **advances the pin SHA** after push when the clone was mutated.
 
 ### `install-remote <pin>`
 

@@ -4,13 +4,13 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Layered truth (root vs `specs/` vs tests vs code):** read the full mandate in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)**—it defines orthogonality, precedence within a product slice, **`docs/` demotion** (operational notes, not a lock on product truth), **hierarchical alignment** vs **hierarchical divergence**, verifier expectations for area specs, and rules for spec scope and growth.
 
-**This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** (`.cursor/agents/verifier.md`) for agent workflows. For **verifier**-shaped gates, **spawn** the **`verifier`** subagent via Task—do not impersonate it inline (see **Skills vs agents** below). **`specs/`**, **tests/README**, the verifier definition, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
+**This file is the canonical place** to nudge reading other root onboarding/instruction docs, the mandate, **`specs/*`**, [tests/README.md](./tests/README.md), and the ticket **verifier** agent definition under **`.cursor/agents/`** for agent workflows. For **verifier**-shaped gates, **spawn** the **`verifier`** subagent via Task—do not impersonate it inline (see **Skills vs agents** below). **`specs/`**, **tests/README**, the verifier definition, and **`lib/`** do not repeat “see AGENTS” hooks; they assume these universal rules. **Routine edits to AGENTS.md are rare and human-directed**—do not treat refreshing AGENTS, filing tickets for wording-only AGENTS churn, or spec-change machinery as default workflow for small doc tweaks.
 
 **Orthogonality** (root instructions vs `specs/*`) is defined in the mandate (**§1**). Area specs conform to repo-wide root instructions, not the other way around.
 
 ### Spec path literals
 
-**Tier (a) — allowlisted hubs (concrete `specs/<file>.md` paths are appropriate):** **Where to read contracts** and **pairing** bullets in this file (slice spec ↔ user-visible strings); the slice table in **`.cursor/agents/verifier.md`**; pairing or anchoring sections in **`tests/README.md`**; and (when present) the slice hub at **[specs/README.md](./specs/README.md)**.
+**Tier (a) — allowlisted hubs (concrete `specs/<file>.md` paths are appropriate where navigation needs them):** **Where to read contracts** and **pairing** in this file; the slice consultation table in **`.cursor/agents/verifier.md`**; harness and anchoring conventions in **`tests/README.md`**; and the slice hub at **[specs/README.md](./specs/README.md)** (authoritative list of area spec paths—prefer linking the hub over duplicating a full file list here).
 
 **Tier (b) — area specs:** Files under **`specs/`** may use precise cross-links and deferrals to sibling slice files.
 
@@ -20,7 +20,7 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Pairing invariant:** Nothing here relaxes **CLI help ↔ CLI slice spec** or **MCP tool strings ↔ MCP slice spec** synchronization; when those surfaces drift, fix them **together** (see **Pairing slice specs with user-visible strings** below).
 
-**Examples in instruction text (tier (c)):** Process-oriented markdown (this file, skills, mandate, CONTRIBUTING-style notes, and **generic** code comments) should **not** use **real repository paths or filenames** as illustrations of “general rules” (for example listing specific `specs/*.md` files to mean “and any related normative docs”). That pattern **couples** guidance to the current layout: a spec split or rename forces wide, low-value churn. **Prefer contrived placeholders** (“the applicable area spec(s) under `specs/`”, `specs/<slice>.md`) when the point is universal. **Exception:** when the text is **literally about that exact file**—not a stand-in for “any normative doc”—concrete paths are appropriate; navigational slice links live under **Where to read contracts** below (tier (a)).
+**Examples in instruction text (tier (c)):** Process-oriented markdown (this file, skills, mandate, CONTRIBUTING-style notes, and **generic** code comments) should **not** use **real repository paths or filenames** as illustrations of “general rules” (for example listing specific `specs/*.md` files to mean “and any related normative docs”). That pattern **couples** guidance to the current layout: a spec split or rename forces wide, low-value churn. **Prefer contrived placeholders** (“the applicable area spec(s) under `specs/`”, `specs/<slice>.md`) when the point is universal. **Exception:** when the text is **literally about that exact file**—not a stand-in for “any normative doc”—concrete paths are appropriate; navigational slice links live in **Where to read contracts** (following section) and in **[specs/README.md](./specs/README.md)** (tier (a)).
 
 ## Skills vs agents (orchestration)
 
@@ -40,9 +40,9 @@ This document captures conventions, gotchas, and guidance for AI agents and cont
 
 **Layer order**, **repair direction** when spec, tests, and code disagree on product behavior, **`docs/` demotion**, **alignment vs divergence**, **rollout and ongoing test/spec pairing**, **spec scope**, **conflict examples**, and **required agent behaviors** are defined in **[HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md](./HIERARCHICAL_TRUTH_AND_ALIGNMENT_MANDATE.md)** (**§2**, **Summary**, and related sections). **Read that document** for the full stack; this section does not duplicate it.
 
-**Where to read contracts:** Within a slice, use the area specs—for example [`specs/pin-semantics.md`](./specs/pin-semantics.md) for `pin_set` / session-pin / branch-ref rules, [`specs/core.md`](./specs/core.md) for shared library behavior, [`specs/cli.md`](./specs/cli.md) for CLI behavior, and [`specs/mcp.md`](./specs/mcp.md) for MCP tools, errors, and transport parity.
+**Where to read contracts:** Use **[specs/README.md](./specs/README.md)** as the slice hub—each **area spec** lives at **`specs/<slice>.md`** (stem matches the slice name unless the hub documents an exception). Cross-cutting slices (for example **reconcile** semantics shared by CLI and MCP) are listed there too. For a given change, open the **slice** you are touching (CLI, MCP, core, pin semantics, reconciliation, …) via the hub rather than assuming filenames from prose here.
 
-**Pairing slice specs with user-visible strings:** **[specs/cli.md](./specs/cli.md)** and **CLI help text** (and other user-visible CLI contract text) should stay **intentionally in sync**. **[specs/mcp.md](./specs/mcp.md)** and **MCP tool descriptions / user-visible MCP strings** should stay **intentionally in sync**. **A conflict between the slice spec and its paired user-facing strings is a bug**—fix help, descriptions, spec, or implementation **together**; do not silently prefer one side. Slice specs **do not** need to cite AGENTS or restate the full repo-wide stack.
+**Pairing slice specs with user-visible strings:** **CLI** help and other user-visible CLI contract text **MUST** stay **intentionally in sync** with the **CLI** area spec; **MCP** tool descriptions and user-visible MCP strings **MUST** stay in sync with the **MCP** area spec; shared **reconcile** behavior **MUST** stay alignable with the **reconciliation** slice and with CLI/MCP surface text for **`gl reconcile`** / **`giterloper_reconcile_pending`**. Paths for those specs are in **[specs/README.md](./specs/README.md)**. **A conflict between the slice spec and its paired user-facing strings is a bug**—fix help, descriptions, spec, or implementation **together**; do not silently prefer one side. Slice specs **do not** need to cite AGENTS or restate the full repo-wide stack.
 
 **Normative MCP behavior** is defined only under the **MCP slice** (see **[specs/README.md](./specs/README.md)** and linked area specs); there is no separate MCP contract at the repository root.
 
@@ -64,11 +64,11 @@ Ticket-related workflows are defined under **`.cursor/skills/`** (inline procedu
 
 ### memsearch (install and `PATH`)
 
-Giterloper invokes the **`memsearch`** CLI as a subprocess; see `lib/memsearch-adapter.ts` and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions. **MCP** still **fails fast** if `memsearch` is not on **`PATH`** at process start (see **MCP** in **[specs/README.md](./specs/README.md)**).
+Giterloper invokes the **`memsearch`** CLI as a subprocess; see the memsearch adapter under **`lib/`** and [docs/DEPLOYMENT_REQUIREMENTS.md](./docs/DEPLOYMENT_REQUIREMENTS.md) §2 for runtime assumptions. **MCP** still **fails fast** if `memsearch` is not on **`PATH`** at process start (see **MCP** in **[specs/README.md](./specs/README.md)**).
 
-**Default ingress (no manual venv step):** **`./scripts/check_all.sh`**, **`deno task check`**, **`deno task test`**, and the **`mcp:serve` / `mcp:serve-stdio` / `mcp:serve:test` / `mcp:serve-stdio:test`** **`deno.json`** tasks run through **`scripts/bootstrap-memsearch.ts`** / **`scripts/with-memsearch.ts`**. If `memsearch` is not already available, they create **repo-root `.venv`**, **`pip install memsearch`** there, and prepend **`.venv/bin`** (or **`.venv/Scripts`** on Windows) to **`PATH`** for that process and its children. **Python 3** must be on **`PATH`** (`python3 -m venv`).
+**Default ingress (no manual venv step):** the repo **`check_all`** script under **`scripts/`**, **`deno task check`**, **`deno task test`**, and the MCP **`deno task`** variants run through the bootstrap / **`with-memsearch`** wrappers in **`scripts/`** (see **`deno.json`** for task names). If `memsearch` is not already available, they create **repo-root `.venv`**, **`pip install memsearch`** there, and prepend **`.venv/bin`** (or **`.venv/Scripts`** on Windows) to **`PATH`** for that process and its children. **Python 3** must be on **`PATH`** (`python3 -m venv`).
 
-**Manual install** (optional—for shells where you invoke **`deno run lib/gl-mcp-server.ts`** directly without **`with-memsearch`**, or to match production Docker):
+**Manual install** (optional—for shells where you invoke **`deno run`** on the MCP server entrypoint in **`lib/`** directly without the **`with-memsearch`** wrapper, or to match production Docker):
 
 ```bash
 pip install memsearch
@@ -77,11 +77,11 @@ pip install memsearch
 
 The **`gl`** / **`gl-maintenance`** CLIs do **not** require memsearch at process startup (see **CLI** in **[specs/README.md](./specs/README.md)**); search- or index-backed commands may fail at invocation time if memsearch is missing.
 
-- **CLI:** `./.cursor/skills/gl/scripts/gl` from workspace root.
-- **MCP server:** `deno task mcp:serve` / `mcp:serve-stdio` from workspace root (these **`deno.json`** tasks pass **`--env-file=.env`**; copy **`.env.example`** → **`.env`** and fill remotes first). For MCP test mode (session under **`.giterloper_test`**), use **`mcp:serve:test`** / **`mcp:serve-stdio:test`**. A raw **`deno run`** without **`--env-file`** does **not** load repo **`.env`**—use the tasks or pass **`--env-file=.env`** yourself.
-- **Tests:** `deno task test` or `deno run -A scripts/run-tests.ts`; harness layout, discovery, and topic tests are documented in [tests/README.md](./tests/README.md). Typecheck: `deno check lib/gl.ts`.
+- **CLI:** invoke **`gl`** via the **`gl`** skill script under **`.cursor/skills/gl/`** from workspace root (see that skill for the stable path).
+- **MCP server:** **`deno task`** targets for MCP (see **`deno.json`**—typically **`mcp:serve`** / **`mcp:serve-stdio`**) from workspace root; they pass **`--env-file=.env`**; copy **`.env.example`** → **`.env`** and fill remotes first. For MCP test mode (session under **`.giterloper_test`**), use the **`:test`** variants of those tasks. A raw **`deno run`** without **`--env-file`** does **not** load repo **`.env`**—use the tasks or pass **`--env-file=.env`** yourself.
+- **Tests:** **`deno task test`** or **`deno run -A`** on the unified harness entrypoint in **`scripts/`** (see **`deno.json`**); harness layout, discovery, and topic tests are documented in [tests/README.md](./tests/README.md). **Typecheck:** **`deno task check`** (see **`deno.json`**).
 
-**Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (`./scripts/run-docker.sh`); day-to-day dev and tests remain native.
+**Production** uses **Docker**. The same image runs on Fly.io (see [docs/FLY_IO_DEPLOYMENT.md](./docs/FLY_IO_DEPLOYMENT.md)). Optional: run the MCP server in Docker locally for parity with production (Docker helper under **`scripts/`**); day-to-day dev and tests remain native.
 
 ## Coding Conventions
 
@@ -126,11 +126,7 @@ CLI and MCP integration tests run in this environment when the token is availabl
 
 ### Running the CLI
 
-All `gl` commands run from the workspace root:
-
-```bash
-./.cursor/skills/gl/scripts/gl <command>
-```
+All **`gl`** commands run from the workspace root. Use the **`gl`** skill (**`.cursor/skills/gl/`**) for the supported wrapper command; the skill README stays authoritative if the path changes.
 
 **Setup:** For **`gl`** alone, git and Deno suffice. For the **MCP server** or suites that exercise **memsearch**-backed search, install **memsearch** on **`PATH`** first (see **Run environment** → **memsearch**). Use `gl pin add` to add a pin (clones automatically) or `gl pin load` to clone existing pins. Run `gl diagnostic` to verify state.
 
@@ -138,15 +134,9 @@ All `gl` commands run from the workspace root:
 
 A separate **gl maintenance** CLI exposes low-level commands for debugging and maintenance. It has **no overlap** with main gl commands.
 
-**Invoke gl maintenance:**
+**Invoke gl maintenance:** the **`gl-maintenance`** script under **`scripts/`**, or **`deno run -A`** on the matching entrypoint in **`lib/`** (see **`deno.json`** / tree layout if names shift).
 
-```bash
-./scripts/gl-maintenance <command>
-# or
-deno run -A lib/gl-maintenance.ts <command>
-```
-
-**Commands:** `status`, `verify`, `clone`, `teardown`, `stage`, `stage-cleanup`, `promote`. Run `./scripts/gl-maintenance --help` for usage.
+**Commands:** `status`, `verify`, `clone`, `teardown`, `stage`, `stage-cleanup`, `promote`. Run **`--help`** on that entrypoint for usage.
 
 **When to use:** Only when debugging failed operations, performing manual maintenance (e.g. re-cloning without pin add), or running tests. Prefer main `gl` commands (`diagnostic`, `pin add`, `pin update`, `pin load`, etc.) for normal agent workflows.
 
@@ -158,9 +148,9 @@ See [tests/README.md](./tests/README.md) for canonical test execution commands a
 
 ### MCP server (operational)
 
-Tool names, session pin semantics, transport parity, env requirements, HTTP endpoints, and auth are normative in **[specs/mcp.md](./specs/mcp.md)** and **[specs/README.md](./specs/README.md)**.
+Tool names, session pin semantics, transport parity, env requirements, HTTP endpoints, and auth are normative in the **MCP** area spec (see **[specs/README.md](./specs/README.md)** for the path).
 
-**Run (native):** Prefer **`deno task mcp:serve`** / **`mcp:serve-stdio`** so **`--env-file=.env`** is applied (requires a Deno build that supports **`deno run --env-file=...`**). MCP test mode: **`mcp:serve:test`** / **`mcp:serve-stdio:test`** (append **`--mcp-test-mode`** if you invoke **`deno run`** manually). Copy **`.env.example`** → **`.env`**; variable semantics and test-mode rules are in the MCP slice.
+**Run (native):** Prefer the MCP **`deno task`** targets (see **`deno.json`**) so **`--env-file=.env`** is applied (requires a Deno build that supports **`deno run --env-file=...`**). MCP test mode uses the **`:test`** task variants (append **`--mcp-test-mode`** if you invoke **`deno run`** manually). Copy **`.env.example`** → **`.env`**; variable semantics and test-mode rules are in the MCP slice.
 
 **Cursor (stdio MCP):** Whether repo **`.env`** is loaded depends on how the server is started—the **`deno.json`** tasks pass **`--env-file=.env`**; a raw **`deno run`** without that flag does not load it. If your Cursor MCP launch command omits **`--env-file`**, provide the same variable **names** and **values** via **Cursor Settings → MCP** (or the parent environment) so the process sees **`KNOWLEDGE_STORE_REMOTE`** / **`TEST_KNOWLEDGE_STORE_REMOTE`** as needed.
 
@@ -168,4 +158,4 @@ For production (Fly.io) or optional local Docker run, see [docs/FLY_IO_DEPLOYMEN
 
 ### Typecheck
 
-Run `deno check lib/gl.ts` to verify TypeScript. No build step required—Deno runs TypeScript directly.
+Run **`deno task check`** (see **`deno.json`**) for the canonical check pipeline. No separate build step—Deno runs TypeScript directly.
