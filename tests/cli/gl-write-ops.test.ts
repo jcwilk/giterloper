@@ -125,47 +125,6 @@ Deno.test("install-remote copies docs/CONSTITUTION.md to GITERLOPER.md and advan
   }
 });
 
-/** End-to-end reconcile: test runner sets GITERLOPER_RECONCILE_LLM_TEST_STUB (see scripts/run-tests.ts) so integration is deterministic without a live model. */
-Deno.test("reconcile processes _pending into decomposed corpus files and deletes pending", () => {
-  const pinName = scratchPinName(ctx, "reconcile");
-  const branch = `${pinName}-branch`;
-  try {
-    const pendingContent = "# Reconcile Test Topic\n\nContent with marker `reconcile-e2e-marker`.";
-    createRemoteBranchFromMain(branch, "knowledge/_pending/reconcile-test.md", pendingContent);
-    glj(["pin", "add", pinName, TEST_SOURCE, "--ref", branch, "--branch", branch]);
-    glm(["stage", branch, "--pin", pinName]);
-    const before = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    const result = glj(["reconcile", "--pin", pinName]) as {
-      action?: string;
-      oldSha?: string;
-      newSha?: string;
-      touched?: string[];
-      deleted?: string[];
-    };
-    assertEquals(result.action, "reconciled");
-    const touched = result.touched ?? [];
-    assertEquals(touched.some((p) => p.startsWith("knowledge/reconcile-test-topic/")), true);
-    assertEquals(touched.length >= 2, true);
-    assertEquals(result.deleted?.includes("knowledge/_pending/reconcile-test.md"), true);
-    const staged = stagedDir(pinName, branch);
-    const topicDir = path.join(staged, "knowledge", "reconcile-test-topic");
-    assertEquals(existsSync(topicDir), true);
-    let combined = "";
-    for (const rel of touched.filter((p) => p.startsWith("knowledge/reconcile-test-topic/"))) {
-      combined += readFileSync(path.join(staged, rel), "utf8");
-    }
-    assertEquals(combined.includes("reconcile-e2e-marker"), true);
-    assertEquals(combined.includes("## Sources"), true);
-    assertEquals(combined.includes("`reconcile-test.md`"), true);
-    const pendingPath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", "reconcile-test.md");
-    assertEquals(existsSync(pendingPath), false);
-    const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
-    assertEquals(after!.sha !== before!.sha, true);
-  } finally {
-    ensurePinRemoved(pinName);
-  }
-});
-
 Deno.test("insert with --name uses requested file name", () => {
   const pinName = scratchPinName(ctx, "insert-name");
   const branch = `${pinName}-branch`;

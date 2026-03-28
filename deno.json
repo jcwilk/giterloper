@@ -7,6 +7,7 @@
     "test:core": "deno run -A scripts/deno-test-topic.ts -- test -A --parallel tests/core/",
     "test:pin-semantics": "deno run -A scripts/with-memsearch.ts -- run -A scripts/deno-test-topic.ts -- test -A tests/pin-semantics/",
     "test:cli": "deno run -A scripts/deno-test-topic.ts -- test -A tests/cli/",
+    "test:reconciliation": "deno run -A scripts/deno-test-topic.ts -- test -A tests/reconciliation/",
     "test:mcp": "deno run -A scripts/deno-test-topic.ts -- test -A tests/mcp/",
     "mcp:serve": "deno run -A scripts/with-memsearch.ts -- run -A --env-file=.env lib/gl-mcp-server.ts",
     "mcp:serve-stdio": "deno run -A scripts/with-memsearch.ts -- run -A --env-file=.env lib/gl-mcp-server-stdio.ts",

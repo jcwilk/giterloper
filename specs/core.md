@@ -1,8 +1,8 @@
 # Core library product contract
 
-This document is the **normative** product-behavior spec for **shared library logic** exercised by **`tests/core/`** (executable checks do not override this text). It describes paths, pin file handling, reconciliation paths and helpers (inbox → corpus semantics: **[`specs/reconciliation.md`](./reconciliation.md)**), read/search adapters, external retry policy, and other cross-cutting contracts that **CLI and MCP** must stay aligned with. **Pin configuration at the user-facing boundary** (session vs named pins, branch/ref matrix, **`giterloper_pin_set`**) is specified in **[`specs/pin-semantics.md`](./pin-semantics.md)**; this file covers **`pinned.yaml`** formats, **`resolvePin`**, and session pin naming rules that pair with that document. Day-to-day discovery SHOULD follow **`gl` / MCP tool help** and the **CLI** and **MCP** area specs for command- and transport-specific rules.
+This document is the **normative** product-behavior spec for **shared library logic** exercised by **`tests/core/`** and, for **`lib/reconcile.ts`** helpers, **`tests/reconciliation/`** (executable checks do not override this text). It describes paths, pin file handling, reconciliation paths and helpers (inbox → corpus semantics: **[`specs/reconciliation.md`](./reconciliation.md)**), read/search adapters, external retry policy, and other cross-cutting contracts that **CLI and MCP** must stay aligned with. **Pin configuration at the user-facing boundary** (session vs named pins, branch/ref matrix, **`giterloper_pin_set`**) is specified in **[`specs/pin-semantics.md`](./pin-semantics.md)**; this file covers **`pinned.yaml`** formats, **`resolvePin`**, and session pin naming rules that pair with that document. Day-to-day discovery SHOULD follow **`gl` / MCP tool help** and the **CLI** and **MCP** area specs for command- and transport-specific rules.
 
-Executable coverage for this slice lives under **`tests/core/`**; helper modules under **`tests/helpers/`** are harness-only and are not mirrored here.
+Executable coverage for most of this slice lives under **`tests/core/`**; **reconciliation** helper tests for **`lib/reconcile.ts`** live under **`tests/reconciliation/`** (pairing: **[`specs/reconciliation.md`](./reconciliation.md)** and **[specs/README.md](./README.md)**). Helper modules under **`tests/helpers/`** are harness-only and are not mirrored here.
 
 ---
 
@@ -41,11 +41,11 @@ Executable coverage for this slice lives under **`tests/core/`**; helper modules
 
 ## Reconciliation (`knowledge/_pending/` → corpus)
 
-- **Authoritative semantics:** End-to-end **reconcile** behavior (**CLI** **`gl reconcile`**, MCP **`giterloper_reconcile_pending`**) is normatively specified in **[`specs/reconciliation.md`](./reconciliation.md)**. This section records **paths**, **library** expectations, and **test-scope** notes that pair with **`tests/core/`**; it **MUST NOT** contradict **`specs/reconciliation.md`**.
+- **Authoritative semantics:** End-to-end **reconcile** behavior (**CLI** **`gl reconcile`**, MCP **`giterloper_reconcile_pending`**) is normatively specified in **[`specs/reconciliation.md`](./reconciliation.md)**. This section records **paths**, **library** expectations, and **test-scope** notes that pair with **`tests/reconciliation/`**; it **MUST NOT** contradict **`specs/reconciliation.md`**.
 - **Paths:** **`knowledge/_pending/`** is the **inbox**; durable knowledge lives under **`knowledge/`** outside that inbox. **Pending queue filenames** follow **Pending queue filenames** above.
 - **Provenance:** **`## Sources`** obligations for integrated corpus files are normative in **`specs/reconciliation.md`**.
 - **Ordering:** **`addEpoch`** ordering for a reconcile run is normative in **`specs/reconciliation.md`** — **Ordering when multiple pending entries apply**.
-- **Helpers:** **`lib/reconcile.ts`** (topic keys, merges, boilerplate stripping, etc.) reflects **implementation** details; **`tests/core/`** unit tests validate those helpers and do **not** replace end-to-end **reconcile** contract coverage under **`tests/cli/`** / **`tests/mcp/`** (those pair with **`specs/reconciliation.md`** and surface specs).
+- **Helpers:** **`lib/reconcile.ts`** (topic keys, merges, boilerplate stripping, etc.) reflects **implementation** details; **`tests/reconciliation/`** unit tests validate those helpers and do **not** replace end-to-end **reconcile** contract coverage under **`tests/cli/`** / **`tests/mcp/`** (those pair with **`specs/reconciliation.md`** and surface specs).
 
 ---
 
