@@ -46,6 +46,7 @@ export interface ReconcileOptions {
   integrationOverride?: ReconcileIntegrationOverride;
 }
 
+/** Called once per pending file from `reconcile()`; `entries` has length 1 in that path. */
 export type ReconcileIntegrationOverride = (
   repoDir: string,
   entries: PendingEntry[],
@@ -299,6 +300,44 @@ export function listCorpusMarkdownRelPaths(repoDir: string): string[] {
   return out.map((p) => `${KNOWLEDGE_DIR}/${p}`.replace(/\\/g, "/"));
 }
 
+/** All `.md` paths under `knowledge/` including `knowledge/_pending/` (for snapshot/rollback). */
+function listAllKnowledgeMarkdownRelPaths(repoDir: string): string[] {
+  const corpus = listCorpusMarkdownRelPaths(repoDir);
+  const pendingDir = path.join(repoDir, PENDING_DIR);
+  const pending: string[] = [];
+  if (existsSync(pendingDir)) {
+    for (const f of readdirSync(pendingDir)) {
+      if (f.endsWith(".md")) pending.push(`${PENDING_DIR}/${f}`.replace(/\\/g, "/"));
+    }
+  }
+  return [...corpus, ...pending].sort((a, b) => a.localeCompare(b, "en"));
+}
+
+function snapshotKnowledgeMarkdown(repoDir: string): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const rel of listAllKnowledgeMarkdownRelPaths(repoDir)) {
+    const full = path.join(repoDir, rel);
+    m.set(rel, readFileSync(full, "utf8"));
+  }
+  return m;
+}
+
+function restoreKnowledgeMarkdownSnapshot(repoDir: string, snapshot: Map<string, string>): void {
+  const now = listAllKnowledgeMarkdownRelPaths(repoDir);
+  for (const rel of now) {
+    if (!snapshot.has(rel)) {
+      const full = path.join(repoDir, rel);
+      if (existsSync(full)) rmSync(full);
+    }
+  }
+  for (const [rel, content] of snapshot) {
+    const full = path.join(repoDir, rel);
+    mkdirSync(path.dirname(full), { recursive: true });
+    const body = content.endsWith("\n") ? content : `${content}\n`;
+    writeFileSync(full, body, "utf8");
+  }
+}
+
 function appendSourcesSection(markdown: string, sources: string[]): string {
   const uniq = [...new Set(sources)].sort();
   const block = `\n\n## Sources\n\n${uniq.map((s) => `- \`${s}\``).join("\n")}`;
@@ -421,7 +460,8 @@ async function runLlmIntegration(
 }
 
 /**
- * Reconcile: LLM-backed integration (OpenAI); atomic commit or rollback on failure.
+ * Reconcile: LLM-backed integration (OpenAI); one pending file per LLM pass (see **Batching and overall success**
+ * in the reconciliation slice under specs/); single commit after all passes succeed or full rollback on failure.
  */
 export async function reconcile(
   repoDir: string,
@@ -448,75 +488,66 @@ export async function reconcile(
     mkdirSync(knowledgePath, { recursive: true });
   }
 
-  const corpusPaths = listCorpusMarkdownRelPaths(repoDir);
-  const corpusBefore = new Map<string, string>();
-  for (const rel of corpusPaths) {
-    const full = path.join(repoDir, rel);
-    corpusBefore.set(rel, readFileSync(full, "utf8"));
-  }
+  const initialKnowledgeSnapshot = snapshotKnowledgeMarkdown(repoDir);
+  const touchedAccum = new Set<string>();
 
-  const integrated = await runLlmIntegration(repoDir, entries, corpusBefore, opts);
-  if (!integrated.ok) {
-    return {
-      ok: false,
-      message: integrated.message,
-      unresolved: entries.map((e) => e.path),
-    };
-  }
-
-  const corpus = integrated.corpus;
-
-  if (!validatePendingRepresented(entries, corpus)) {
-    return {
-      ok: false,
-      message:
-        "reconcile: could not represent all substantive pending content in corpus (integration failed)",
-      unresolved: entries.map((e) => e.path),
-    };
-  }
-
-  for (const e of entries) {
-    if (violatesSingleTopicFileShortcut(e, corpus)) {
-      return {
-        ok: false,
-        message:
-          "reconcile: integration must not use single-file knowledge/<topic>.md shortcut per the reconciliation slice under specs/",
-        unresolved: entries.map((x) => x.path),
-      };
-    }
-  }
-
-  const snapshotPaths = new Set([...corpusPaths, ...corpus.keys()]);
-  const snapshot = new Map<string, string | null>();
-  for (const rel of snapshotPaths) {
-    const full = path.join(repoDir, rel);
-    snapshot.set(rel, existsSync(full) ? readFileSync(full, "utf8") : null);
-  }
-
-  const pendingSnapshot = entries.map((e) => ({
-    rel: e.path,
-    content: readFileSync(path.join(repoDir, e.path), "utf8"),
-  }));
-
-  const touched: string[] = [];
   try {
-    for (const [rel, content] of corpus.entries()) {
-      const full = path.join(repoDir, rel);
-      mkdirSync(path.dirname(full), { recursive: true });
-      writeFileSync(full, content.endsWith("\n") ? content : `${content}\n`, "utf8");
-      touched.push(rel);
-    }
-
-    for (const rel of corpusPaths) {
-      if (!corpus.has(rel)) {
+    for (const entry of entries) {
+      const corpusPaths = listCorpusMarkdownRelPaths(repoDir);
+      const corpusBefore = new Map<string, string>();
+      for (const rel of corpusPaths) {
         const full = path.join(repoDir, rel);
-        if (existsSync(full)) rmSync(full);
+        corpusBefore.set(rel, readFileSync(full, "utf8"));
       }
-    }
 
-    for (const p of pendingSnapshot) {
-      const full = path.join(repoDir, p.rel);
-      if (existsSync(full)) rmSync(full);
+      const integrated = await runLlmIntegration(repoDir, [entry], corpusBefore, opts);
+      if (!integrated.ok) {
+        restoreKnowledgeMarkdownSnapshot(repoDir, initialKnowledgeSnapshot);
+        return {
+          ok: false,
+          message: integrated.message,
+          unresolved: entries.map((e) => e.path),
+        };
+      }
+
+      const corpus = integrated.corpus;
+
+      if (!validatePendingRepresented([entry], corpus)) {
+        restoreKnowledgeMarkdownSnapshot(repoDir, initialKnowledgeSnapshot);
+        return {
+          ok: false,
+          message:
+            "reconcile: could not represent all substantive pending content in corpus (integration failed)",
+          unresolved: entries.map((e) => e.path),
+        };
+      }
+
+      if (violatesSingleTopicFileShortcut(entry, corpus)) {
+        restoreKnowledgeMarkdownSnapshot(repoDir, initialKnowledgeSnapshot);
+        return {
+          ok: false,
+          message:
+            "reconcile: integration must not use single-file knowledge/<topic>.md shortcut per the reconciliation slice under specs/",
+          unresolved: entries.map((x) => x.path),
+        };
+      }
+
+      for (const [rel, content] of corpus.entries()) {
+        const full = path.join(repoDir, rel);
+        mkdirSync(path.dirname(full), { recursive: true });
+        writeFileSync(full, content.endsWith("\n") ? content : `${content}\n`, "utf8");
+        touchedAccum.add(rel);
+      }
+
+      for (const rel of corpusPaths) {
+        if (!corpus.has(rel)) {
+          const full = path.join(repoDir, rel);
+          if (existsSync(full)) rmSync(full);
+        }
+      }
+
+      const pendingFull = path.join(repoDir, entry.path);
+      if (existsSync(pendingFull)) rmSync(pendingFull);
     }
 
     run("git", ["-C", repoDir, "add", "-A", PENDING_DIR, KNOWLEDGE_DIR]);
@@ -528,31 +559,14 @@ export async function reconcile(
       ok: true,
       oldSha,
       newSha,
-      touched: [...new Set(touched)].sort(),
+      touched: [...touchedAccum].sort(),
       deleted,
     };
   } catch (e) {
-    for (const [rel, prev] of snapshot.entries()) {
-      const full = path.join(repoDir, rel);
-      try {
-        if (prev === null) {
-          if (existsSync(full)) rmSync(full);
-        } else {
-          mkdirSync(path.dirname(full), { recursive: true });
-          writeFileSync(full, prev, "utf8");
-        }
-      } catch {
-        /* best-effort rollback */
-      }
-    }
-    for (const p of pendingSnapshot) {
-      try {
-        const full = path.join(repoDir, p.rel);
-        mkdirSync(path.dirname(full), { recursive: true });
-        writeFileSync(full, p.content, "utf8");
-      } catch {
-        /* best-effort rollback */
-      }
+    try {
+      restoreKnowledgeMarkdownSnapshot(repoDir, initialKnowledgeSnapshot);
+    } catch {
+      /* best-effort rollback */
     }
     const msg = e instanceof Error ? e.message : String(e);
     return {

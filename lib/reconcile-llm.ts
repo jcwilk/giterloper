@@ -7,8 +7,10 @@ import { getOpenAiVcrMode, openAiFetch } from "./reconcile-openai-vcr.ts";
 
 /**
  * Wire payload for `integrateCorpusWithOpenAi` (same shape as `PendingEntry` in `reconcile.ts`; duplicated to avoid circular imports).
- * **`path` / `content`** are sent inside `pendingItems`. Callers should pass pending in **paper-trail order** (e.g. from
- * `sequencePendingByPaperTrail` in `reconcile.ts`); this function preserves array order and does not send ordering metadata to the model.
+ * **`path` / `content`** are sent inside `pendingItems`. **`reconcile()`** passes **one** pending item per LLM call (batching
+ * in the reconciliation slice under specs/); tests or other callers may pass multiple items in one request.
+ * When multiple items are present, preserve **paper-trail order** (e.g. from `sequencePendingByPaperTrail` in `reconcile.ts`);
+ * this function preserves array order and does not send ordering metadata to the model.
  */
 export interface PendingEntryForLlm {
   path: string;
@@ -49,7 +51,8 @@ function validateKnowledgePath(p: string): boolean {
 }
 
 /**
- * Calls OpenAI to produce the full integrated corpus (recursive markdown under knowledge/, excluding _pending).
+ * Calls OpenAI to produce the full integrated corpus (recursive markdown under knowledge/, excluding _pending) for the
+ * given `pendingItems` (typically one item when invoked from `reconcile()`).
  */
 export async function integrateCorpusWithOpenAi(
   entries: PendingEntryForLlm[],

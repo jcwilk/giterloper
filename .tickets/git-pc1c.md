@@ -1,6 +1,6 @@
 ---
 id: git-pc1c
-status: open
+status: closed
 deps: [git-u9ax]
 links: []
 created: 2026-03-28T19:15:19Z

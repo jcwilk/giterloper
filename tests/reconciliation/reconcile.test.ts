@@ -1,5 +1,6 @@
 import { assertEquals } from "jsr:@std/assert";
 import { existsSync } from "node:fs";
+import path from "node:path";
 
 import { integrateCorpusWithOpenAi } from "../../lib/reconcile-llm.ts";
 import {
@@ -157,6 +158,62 @@ Deno.test("reconcile returns failure when LLM integration reports ok: false (no 
     if (r.ok) return;
     assertEquals(r.message.includes("simulated LLM failure"), true);
     assertEquals(existsSync(`${pendingDir}/p.md`), true);
+  } finally {
+    Deno.removeSync(tmp, { recursive: true });
+  }
+});
+
+Deno.test("reconcile integrates one pending per LLM pass until queue empty (multi-pending)", async () => {
+  const tmp = Deno.makeTempDirSync({ prefix: "reconcile-multi-" });
+  try {
+    run("git", ["-C", tmp, "init"]);
+    run("git", ["-C", tmp, "config", "user.email", "t@test"]);
+    run("git", ["-C", tmp, "config", "user.name", "t"]);
+    const pendingDir = `${tmp}/knowledge/_pending`;
+    Deno.mkdirSync(pendingDir, { recursive: true });
+    Deno.writeTextFileSync(`${pendingDir}/first.md`, "# One\n\nalpha body for split.");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "first"], {
+      env: {
+        ...Deno.env.toObject(),
+        GIT_AUTHOR_DATE: "2020-01-01T12:00:00",
+        GIT_COMMITTER_DATE: "2020-01-01T12:00:00",
+      },
+    });
+    Deno.writeTextFileSync(`${pendingDir}/second.md`, "# Two\n\nbeta body for split.");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "second"], {
+      env: {
+        ...Deno.env.toObject(),
+        GIT_AUTHOR_DATE: "2020-01-01T15:00:00",
+        GIT_COMMITTER_DATE: "2020-01-01T15:00:00",
+      },
+    });
+    let pass = 0;
+    const r = await reconcile(tmp, {
+      integrationOverride: async (_dir, entries, corpusBefore) => {
+        pass++;
+        assertEquals(entries.length, 1);
+        const base = path.basename(entries[0].path);
+        const topic = base === "first.md" ? "one" : "two";
+        const a = `knowledge/${topic}/${base.replace(".md", "")}-part-01.md`;
+        const b = `knowledge/${topic}/${base.replace(".md", "")}-part-02.md`;
+        const next = new Map(corpusBefore);
+        next.set(a, `# A\n\nfrom ${base}\n\n## Sources\n\n- \`${base}\`\n`);
+        next.set(b, `# B\n\nmore ${base}\n\n## Sources\n\n- \`${base}\`\n`);
+        return { ok: true, corpus: next };
+      },
+    });
+    assertEquals(pass, 2);
+    assertEquals(r.ok, true);
+    if (!r.ok) return;
+    assertEquals(r.deleted?.length, 2);
+    assertEquals(r.deleted?.includes("knowledge/_pending/first.md"), true);
+    assertEquals(r.deleted?.includes("knowledge/_pending/second.md"), true);
+    assertEquals(existsSync(`${pendingDir}/first.md`), false);
+    assertEquals(existsSync(`${pendingDir}/second.md`), false);
+    assertEquals(r.touched?.some((p) => p.includes("first-part")), true);
+    assertEquals(r.touched?.some((p) => p.includes("second-part")), true);
   } finally {
     Deno.removeSync(tmp, { recursive: true });
   }
