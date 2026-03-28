@@ -21,3 +21,18 @@ export function integrationMcpModeChildEnv(): Record<string, string> {
   }
   return out;
 }
+
+/**
+ * For `gl` / MCP child processes: default `GITERLOPER_OPENAI_VCR=replay-only` and a dummy
+ * `OPENAI_API_KEY` when none is set so `integrateCorpusWithOpenAi` passes its gate while VCR replays tapes.
+ */
+export function applyOpenAiVcrChildDefaults(env: Record<string, string>): void {
+  if (env.GITERLOPER_OPENAI_VCR === undefined) {
+    env.GITERLOPER_OPENAI_VCR = "replay-only";
+  }
+  const vcrMode = (env.GITERLOPER_OPENAI_VCR ?? "").trim().toLowerCase();
+  if (vcrMode !== "" && vcrMode !== "off" && !env.OPENAI_API_KEY?.trim() &&
+    !env.GITERLOPER_RECONCILE_OPENAI_API_KEY?.trim()) {
+    env.OPENAI_API_KEY = "sk-dummy-vcr-replay";
+  }
+}

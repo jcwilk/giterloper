@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 
-import { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
+import { applyOpenAiVcrChildDefaults, integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 import { GITERLOPER_REPO_ROOT } from "./gl.ts";
 
 function withMemsearchWrap(inner: string[]): string[] {
@@ -115,9 +115,7 @@ export function spawnMcpHttpIntegrationServer(opts: {
     MCP_INSECURE: "true",
   };
   mergeOpenAiKeyFromRepoDotenv(env);
-  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
-    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
-  }
+  applyOpenAiVcrChildDefaults(env);
   if (opts.mcpStateSessionId != null && opts.mcpStateSessionId !== "") {
     env.GITERLOPER_TEST_MCP_STATE_SESSION_ID = opts.mcpStateSessionId;
   }
@@ -146,9 +144,7 @@ export function spawnMcpStdioIntegrationServer(opts?: {
     ...integrationMcpModeChildEnv(),
   };
   mergeOpenAiKeyFromRepoDotenv(env);
-  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
-    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
-  }
+  applyOpenAiVcrChildDefaults(env);
   if (opts?.projectRoot != null && opts.projectRoot !== "") {
     env.GITERLOPER_PROJECT_ROOT = opts.projectRoot;
   }

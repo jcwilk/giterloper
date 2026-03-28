@@ -117,7 +117,7 @@ For a **newly created branch** (pin added from base ref with a branch name not y
 
 **CLI-only:** Command name **`reconcile`**; optional **`--pin <name>`**; structured output via **`--json`** (same semantic fields as MCP success body per **`specs/reconciliation.md`**). Successful reconcile **advances the pin SHA** after push when the clone was mutated.
 
-**Integration:** Pending→corpus integration is **LLM-backed** (OpenAI Chat Completions in this implementation; configure **`OPENAI_API_KEY`** or **`GITERLOPER_RECONCILE_OPENAI_API_KEY`**). See **`specs/reconciliation.md`**. The test harness may set **`GITERLOPER_RECONCILE_LLM_TEST_STUB=1`** for deterministic CI; production must not treat that stub as satisfying the normative LLM requirement.
+**Integration:** Pending→corpus integration is **LLM-backed** (OpenAI Chat Completions in this implementation; configure **`OPENAI_API_KEY`** or **`GITERLOPER_RECONCILE_OPENAI_API_KEY`**). See **`specs/reconciliation.md`**. Automated tests default **`GITERLOPER_OPENAI_VCR=replay-only`** to replay recorded HTTP fixtures (no live API in CI when tapes are committed). **`GITERLOPER_OPENAI_VCR=off`** (or unset) uses the network; **`record-new`** / **`rerecord-all`** refresh tapes when recording.
 
 ### `install-remote <pin>`
 

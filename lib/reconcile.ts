@@ -1,18 +1,14 @@
 /**
  * Reconcile: integrate knowledge/_pending into the corpus under knowledge/ (recursive
- * .md files). Integration MUST be LLM-backed (OpenAI API) except empty pending, test stub,
- * or explicit test override — see the reconciliation slice under specs/.
+ * .md files). Integration MUST be LLM-backed (OpenAI API) except empty pending or explicit
+ * test override — see the reconciliation slice under specs/. Tests use `GITERLOPER_OPENAI_VCR` to replay fixtures.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { getRemoteOriginUrl } from "./git.ts";
 import { getFileAddEpochViaApi, parseGithubSource } from "./github.ts";
-import {
-  integrateCorpusWithOpenAi,
-  reconcileLlmTestStubEnabled,
-  type LlmCorpusResult,
-} from "./reconcile-llm.ts";
+import { integrateCorpusWithOpenAi, type LlmCorpusResult } from "./reconcile-llm.ts";
 import { run, runSoft } from "./run.ts";
 import type { RetryLogContext } from "./types.ts";
 
@@ -42,11 +38,11 @@ export interface ReconcileError {
   unresolved?: string[];
 }
 
-/** Optional hooks (tests); production uses env + OpenAI or harness test stub. */
+/** Optional hooks (tests); production uses env + OpenAI (or VCR when `GITERLOPER_OPENAI_VCR` is set). */
 export interface ReconcileOptions {
   retryLog?: RetryLogContext;
   /**
-   * When set, used instead of OpenAI / test stub (unit tests).
+   * When set, used instead of OpenAI integration (unit tests).
    * MUST perform LLM-equivalent integration or return ok: false — never deterministic-only success.
    */
   integrationOverride?: ReconcileIntegrationOverride;
@@ -326,7 +322,11 @@ function validatePendingRepresented(entries: PendingEntry[], corpus: Map<string,
   for (const e of entries) {
     if (!isSubstantive(e.content)) continue;
     const base = path.basename(e.path);
-    if (!union.includes(`\`${base}\``)) return false;
+    const withTicks = `\`${base}\``;
+    if (union.includes(withTicks)) continue;
+    // LLMs sometimes list Sources as `- basename.md` without backticks; still attributable.
+    if (/\n## Sources\n/i.test(union) && union.includes(base)) continue;
+    return false;
   }
   return true;
 }
@@ -346,8 +346,8 @@ export function violatesSingleTopicFileShortcut(entry: PendingEntry, corpus: Map
 }
 
 /**
- * Test-only deterministic integration (same structure as pre-LLM pipeline): multi-file decomposition,
- * incoming-wins stripping, ## Sources. Used only when GITERLOPER_RECONCILE_LLM_TEST_STUB=1.
+ * Unit-test helper: deterministic multi-file decomposition, incoming-wins stripping, ## Sources.
+ * Not used by `reconcile()`; tests call it directly to lock helper behavior.
  */
 export function buildCorpusDeterministicIntegrate(
   repoDir: string,
@@ -421,14 +421,11 @@ async function runLlmIntegration(
   if (opts.integrationOverride) {
     return await opts.integrationOverride(repoDir, entries, corpusBefore);
   }
-  if (reconcileLlmTestStubEnabled()) {
-    return buildCorpusDeterministicIntegrate(repoDir, entries);
-  }
   return await integrateCorpusWithOpenAi(entries, corpusBefore);
 }
 
 /**
- * Reconcile: LLM-backed integration (OpenAI), optional test stub; atomic commit or rollback on failure.
+ * Reconcile: LLM-backed integration (OpenAI); atomic commit or rollback on failure.
  */
 export async function reconcile(
   repoDir: string,

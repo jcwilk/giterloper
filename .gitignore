@@ -17,3 +17,6 @@ logs/giterloper-retry.log
 
 # Per-harness MCP test session parent trees (git-jp1p); allocated under tests/roots/giterloper-test-runs/
 tests/roots/
+
+# OpenAI VCR rerecord-all coordination (exclusive create; not part of committed tapes)
+tests/fixtures/.openai-vcr-rerecord-once

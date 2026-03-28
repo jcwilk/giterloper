@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { effectiveGiterloperSessionsRoot } from "../../lib/session-layout.ts";
 import type { TestRuntimeContext } from "./test-runtime-context.ts";
-import { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
+import { applyOpenAiVcrChildDefaults, integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
 
 export type { TestRuntimeContext } from "./test-runtime-context.ts";
 export { integrationMcpModeChildEnv } from "./integration-mcp-env.ts";
@@ -85,9 +85,7 @@ export function runGl(args: string[], opts: GlCliRunOpts) {
   const { cwd, sessionId, parseJson, stdin } = resolveGlRun(opts);
   const cliArgs = ["--json", "--mcp-test-mode", "--session-id", sessionId, ...args];
   const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
-  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
-    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
-  }
+  applyOpenAiVcrChildDefaults(env);
   const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -150,9 +148,7 @@ export function runGlMaintenance(args: string[], opts: GlCliRunOpts) {
   const sessionArgs = ["--mcp-test-mode", "--session-id", sessionId];
   const cliArgs = parseJson ? ["--json", ...sessionArgs, ...args] : [...sessionArgs, ...args];
   const env = { ...Deno.env.toObject(), ...integrationMcpModeChildEnv() };
-  if (env.GITERLOPER_RECONCILE_LLM_TEST_STUB === undefined) {
-    env.GITERLOPER_RECONCILE_LLM_TEST_STUB = "1";
-  }
+  applyOpenAiVcrChildDefaults(env);
   const maxAttempts = 2;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

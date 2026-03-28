@@ -36,7 +36,7 @@ const { absoluteParent } = await allocateTestRunRoot(REPO_ROOT);
 const env = {
   ...Deno.env.toObject(),
   [GITERLOPER_MCP_TEST_SESSION_PARENT]: absoluteParent,
-  GITERLOPER_RECONCILE_LLM_TEST_STUB: Deno.env.get("GITERLOPER_RECONCILE_LLM_TEST_STUB") ?? "1",
+  GITERLOPER_OPENAI_VCR: Deno.env.get("GITERLOPER_OPENAI_VCR") ?? "replay-only",
 };
 
 const { code } = await new Deno.Command(Deno.execPath(), {

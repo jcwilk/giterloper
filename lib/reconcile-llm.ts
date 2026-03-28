@@ -1,9 +1,11 @@
 /**
  * LLM-backed pending→corpus integration for reconcile (reconciliation slice under specs/).
- * OpenAI Chat Completions JSON mode; test stub via GITERLOPER_RECONCILE_LLM_TEST_STUB.
+ * OpenAI Chat Completions JSON mode. Optional HTTP VCR via `GITERLOPER_OPENAI_VCR` (see `reconcile-openai-vcr.ts`).
  */
 
-/** Aligns with PendingEntry in reconcile.ts (no circular import). */
+import { getOpenAiVcrMode, openAiFetch } from "./reconcile-openai-vcr.ts";
+
+/** Aligns with PendingEntry in reconcile.ts (no circular import). `addEpoch` is not sent to the LLM—ordering is the array order (commit order from the caller). */
 export interface PendingEntryForLlm {
   path: string;
   addEpoch: number;
@@ -26,11 +28,6 @@ export function getReconcileOpenAiApiKey(): string | undefined {
   const a = Deno.env.get("GITERLOPER_RECONCILE_OPENAI_API_KEY")?.trim();
   const b = Deno.env.get("OPENAI_API_KEY")?.trim();
   return a || b || undefined;
-}
-
-/** When "1", use in-process test integration (harness / CI only — not for production). */
-export function reconcileLlmTestStubEnabled(): boolean {
-  return Deno.env.get("GITERLOPER_RECONCILE_LLM_TEST_STUB") === "1";
 }
 
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
@@ -64,16 +61,25 @@ export async function integrateCorpusWithOpenAi(
     };
   }
 
-  const model = Deno.env.get("GITERLOPER_RECONCILE_OPENAI_MODEL")?.trim() || "gpt-4o-mini";
-  const baseUrl = Deno.env.get("GITERLOPER_RECONCILE_OPENAI_BASE_URL")?.trim() || OPENAI_CHAT_URL;
+  // When VCR is on, pin model and URL so tape hashes match across machines (ignore .env drift).
+  const vcrOn = getOpenAiVcrMode() !== "off";
+  const model = vcrOn
+    ? "gpt-4o-mini"
+    : (Deno.env.get("GITERLOPER_RECONCILE_OPENAI_MODEL")?.trim() || "gpt-4o-mini");
+  const baseUrl = vcrOn
+    ? OPENAI_CHAT_URL
+    : (Deno.env.get("GITERLOPER_RECONCILE_OPENAI_BASE_URL")?.trim() || OPENAI_CHAT_URL);
   const url = baseUrl.endsWith("/chat/completions") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/chat/completions`;
 
+  // Commit / addEpoch order is the array order (see getPendingInCommitOrder); do not send addEpoch—git history
+  // already determined ordering; duplicating epoch in JSON was unstable for VCR and unnecessary for the model.
   const pendingPayload = entries.map((e) => ({
     path: e.path,
-    addEpoch: e.addEpoch,
     content: e.content,
   }));
-  const corpusPayload = [...corpusBefore.entries()].map(([path, content]) => ({ path, content }));
+  const corpusPayload = [...corpusBefore.entries()]
+    .map(([p, content]) => ({ path: p, content }))
+    .sort((a, b) => a.path.localeCompare(b.path, "en"));
 
   const system = `You are a knowledge corpus integrator. You MUST integrate pending markdown items into the durable corpus under knowledge/ (not knowledge/_pending/).
 
@@ -96,7 +102,7 @@ Rules (normative):
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await openAiFetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -1,0 +1,36 @@
+{
+  "key": "0880f70711e4aa7c905adcba3a60a02f0dbb6c8c582fb72586472cb1791f1c99",
+  "request": {
+    "method": "POST",
+    "url": "https://api.openai.com/v1/chat/completions",
+    "body": "{\"model\":\"gpt-4o-mini\",\"response_format\":{\"type\":\"json_object\"},\"messages\":[{\"role\":\"system\",\"content\":\"You are a knowledge corpus integrator. You MUST integrate pending markdown items into the durable corpus under knowledge/ (not knowledge/_pending/).\\n\\nRules (normative):\\n- Use LLM reasoning to merge, deduplicate, place, and revise corpus markdown across one or more files and subdirectories under knowledge/.\\n- When new pending content conflicts with existing corpus substance, treat pending as authoritative: revise or remove conflicting corpus passages.\\n- Conceptually merge pending into the corpus (gardening on write): weave content coherently, not a raw paste beside unrelated text.\\n- Every corpus file that receives integrated content MUST include a \\\"## Sources\\\" section listing contributing pending entry basenames as `basename.md` list items.\\n- Paths MUST be relative with forward slashes, under knowledge/, ending in .md, and MUST NOT point at knowledge/_pending/.\\n- Return ONLY valid JSON with shape: {\\\"files\\\":[{\\\"path\\\":\\\"knowledge/...\\\",\\\"content\\\":\\\"full markdown\\\"}]}. The \\\"files\\\" array is the complete set of knowledge/**/*.md files that should exist after integration (excluding _pending). Omit files that should be deleted from the corpus.\"},{\"role\":\"user\",\"content\":\"{\\n  \\\"pendingItems\\\": [\\n    {\\n      \\\"path\\\": \\\"knowledge/_pending/note.md\\\",\\n      \\\"content\\\": \\\"# Alpha\\\\n\\\\nHello world.\\\"\\n    }\\n  ],\\n  \\\"existingCorpusMarkdownFiles\\\": [\\n    {\\n      \\\"path\\\": \\\"knowledge/existing.md\\\",\\n      \\\"content\\\": \\\"# Existing\\\\n\\\\nBody.\\\"\\n    }\\n  ]\\n}\"}]}"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "access-control-expose-headers": "X-Request-ID",
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "cf-cache-status": "DYNAMIC",
+      "cf-ray": "9e3815b538801d99-SJC",
+      "content-type": "application/json",
+      "date": "Sat, 28 Mar 2026 16:41:53 GMT",
+      "openai-organization": "jcwilk-and-co",
+      "openai-processing-ms": "1083",
+      "openai-project": "proj_fB7VShlBas9X6nJh3BpG6GwX",
+      "openai-version": "2020-10-01",
+      "server": "cloudflare",
+      "set-cookie": "__cf_bm=4z9h_E8ZSo1_4oigith.4j7K0lfJdO9WRWy3LaN1Nkc-1774716112.193161-1.0.1.1-ZqnRea1_IrnIXIfUjuswKOQys4czdzcB3DIceFZ_Inz6YnBsc0C7j90BFm.vjBGfNQOLXkk8MsD7hinlGe093AcXBDj7QY3TyEUzSZx8KvnD1qVcWQ3mAU_A7J6.Pa7T; HttpOnly; Secure; Path=/; Domain=api.openai.com; Expires=Sat, 28 Mar 2026 17:11:53 GMT",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-content-type-options": "nosniff",
+      "x-openai-proxy-wasm": "v0.1",
+      "x-ratelimit-limit-requests": "10000",
+      "x-ratelimit-limit-tokens": "10000000",
+      "x-ratelimit-remaining-requests": "9999",
+      "x-ratelimit-remaining-tokens": "9999646",
+      "x-ratelimit-reset-requests": "6ms",
+      "x-ratelimit-reset-tokens": "2ms",
+      "x-request-id": "req_641b6cd1299743c198f1b901af6eff4d"
+    },
+    "body": "{\n  \"id\": \"chatcmpl-DOR1M7kjO3NXJApaVmz2zWOTMXNZK\",\n  \"object\": \"chat.completion\",\n  \"created\": 1774716112,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\n  \\\"files\\\": [\\n    {\\n      \\\"path\\\": \\\"knowledge/existing.md\\\",\\n      \\\"content\\\": \\\"# Existing\\\\n\\\\nBody.\\\\n\\\\n## Alpha\\\\n\\\\nHello world.\\\\n\\\\n## Sources\\\\n- note.md\\\"\\n    }\\n  ]\\n}\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 309,\n    \"completion_tokens\": 51,\n    \"total_tokens\": 360,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_162d3c480f\"\n}\n"
+  }
+}

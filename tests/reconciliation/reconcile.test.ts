@@ -161,8 +161,8 @@ Deno.test("integrateCorpusWithOpenAi does not succeed without API key", async ()
   }
 });
 
-/** Harness-only: same shape as LLM success path when GITERLOPER_RECONCILE_LLM_TEST_STUB=1 (not a production substitute). */
-Deno.test("buildCorpusDeterministicIntegrate (test stub path) produces multi-file corpus with Sources", () => {
+/** Unit-test helper `buildCorpusDeterministicIntegrate` (not used by `reconcile()`). */
+Deno.test("buildCorpusDeterministicIntegrate (unit helper) produces multi-file corpus with Sources", () => {
   const tmp = Deno.makeTempDirSync({ prefix: "reconcile-det-" });
   try {
     const pendingDir = `${tmp}/knowledge/_pending`;

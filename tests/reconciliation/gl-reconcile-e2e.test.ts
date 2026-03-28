@@ -64,7 +64,7 @@ function createRemoteBranchFromMain(
   }
 }
 
-/** End-to-end reconcile: test runner sets GITERLOPER_RECONCILE_LLM_TEST_STUB (see scripts/run-tests.ts) so integration is deterministic without a live model. */
+/** End-to-end reconcile: test runner defaults GITERLOPER_OPENAI_VCR=replay-only (see scripts/run-tests.ts) so OpenAI calls use committed HTTP tapes. */
 Deno.test("reconcile processes _pending into decomposed corpus files and deletes pending", () => {
   const pinName = scratchPinName(ctx, "reconcile");
   const branch = `${pinName}-branch`;
@@ -83,19 +83,19 @@ Deno.test("reconcile processes _pending into decomposed corpus files and deletes
     };
     assertEquals(result.action, "reconciled");
     const touched = result.touched ?? [];
-    assertEquals(touched.some((p) => p.startsWith("knowledge/reconcile-test-topic/")), true);
-    assertEquals(touched.length >= 2, true);
+    const corpusTouched = touched.filter((p) =>
+      p.startsWith("knowledge/") && !p.includes("/_pending/")
+    );
+    assertEquals(corpusTouched.length >= 1, true);
     assertEquals(result.deleted?.includes("knowledge/_pending/reconcile-test.md"), true);
     const staged = stagedDir(pinName, branch);
-    const topicDir = path.join(staged, "knowledge", "reconcile-test-topic");
-    assertEquals(existsSync(topicDir), true);
     let combined = "";
-    for (const rel of touched.filter((p) => p.startsWith("knowledge/reconcile-test-topic/"))) {
+    for (const rel of corpusTouched) {
       combined += readFileSync(path.join(staged, rel), "utf8");
     }
     assertEquals(combined.includes("reconcile-e2e-marker"), true);
     assertEquals(combined.includes("## Sources"), true);
-    assertEquals(combined.includes("`reconcile-test.md`"), true);
+    assertEquals(/reconcile-test\.md/.test(combined), true);
     const pendingPath = path.join(stagedDir(pinName, branch), "knowledge", "_pending", "reconcile-test.md");
     assertEquals(existsSync(pendingPath), false);
     const after = pinByName(glj(["pin", "list"]) as { name?: string; sha?: string }[], pinName);
