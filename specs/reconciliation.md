@@ -16,15 +16,21 @@ This document is the **normative** product contract for **reconcile** semantics 
 
 **Normative requirement — large language models:** Integration **MUST** use a **large language model** (LLM)—invoked via an **LLM API** or an **in-process** step that performs **LLM inference**—as an **essential** part of producing the integrated corpus for each reconcile run.
 
-**LLM inference** **MUST** be applied to **integrate** pending content into the corpus for that run—placement, deduplication, merging, and revision of corpus text per this section—not solely for classification, routing, metadata, or surface formatting while substantive integration is performed **without** LLM inference.
+**LLM-led product path:** Reconciliation into the knowledge store **MUST** be **LLM-led** on the integration path this document defines. **LLM inference** **MUST** be applied to **integrate** pending content into the corpus for that run—placement, deduplication, merging, and revision of corpus text per this section—not solely for classification, routing, metadata, or surface formatting while substantive integration is performed **without** LLM inference.
 
-The integrated corpus **MUST NOT** be produced using only **deterministic** or **purely mechanical** pipelines (rule-based append/split, fixed heuristics, string or template transforms without LLM inference), even when they rearrange or copy text. **Human-only** editing, **scripted** transforms, or other assistance **without** **LLM inference** as required here **MUST NOT** satisfy this section. **No** purported **“equivalent”** substitute—including **agent-assisted** workflows that **skip** **LLM inference** for integration—relaxes these **MUST**s.
+The integrated corpus **MUST NOT** be produced using only **deterministic** or **purely mechanical** pipelines (rule-based append/split, fixed heuristics, string or template transforms without LLM inference), even when they rearrange or copy text. **Human-only** editing, **scripted** transforms, or other assistance **without** **LLM inference** as required here **MUST NOT** satisfy this section. **Any** **automatic script-based integration**—rule pipelines, or heuristics that place or name corpus content **without** **LLM inference** as required here—is **not** an acceptable substitute for the normative integration **MUST**s. **No** purported **“equivalent”** substitute—including **agent-assisted** workflows that **skip** **LLM inference** for integration—relaxes these **MUST**s.
 
 **Why LLMs are required:** The product assumes **open-ended, continuous** insertion of knowledge into a growing corpus. Mechanical append/split strategies **cannot** reliably prevent **near-duplicate** or **overlapping** facts from accumulating, or keep **contradictions** from persisting unreconciled, at the level this contract demands. That product goal **requires** the **semantic** integration capability that **LLM inference** provides; the **normative** rules above are **not** satisfied by automation, tooling, or labeling that omits **LLM inference** as specified.
 
 **Gardening on write:** Pending input **MUST** be **conceptually merged** into the existing corpus—**woven** into the same fabric—not merely **pasted**, **chunked beside** existing text, or **indexed** next to it without integration. The intended analogy is a human **revising a reference article** after learning new information: the **whole** remains **coherent**; the writer may **restructure** headings, sections, or hierarchy to reflect **updated** understanding. Integration **MUST** pursue that quality bar: **deduplication** of overlapping substance where it would otherwise bloat or confuse readers; **revision or resolution** where facts **contrast** (subject to **Conflict resolution (incoming knowledge wins)** below); and **coherent restructuring** of files and **`knowledge/`** layout when needed—not only additive edits.
 
 The operation **MUST** process each pending item and use LLM-backed decomposition to **break up** inbox content and **integrate** it **throughout** the existing markdown under **`knowledge/`**, including creating or updating **multiple** **`.md`** files and **`knowledge/`** **subdirectories** when a hierarchy improves navigation. Model vendor and exact API are **not** specified; **LLM inference** **is** specified.
+
+### Anti-pattern: mechanical shortcuts
+
+**Not a substitute for LLM integration:** **Filename/topic extraction heuristics**, fixed placement rules, and similar **mechanical** steps **MUST NOT** replace or satisfy the **LLM integration** **MUST**s in this section; **semantic integration via LLM inference** remains normative.
+
+**Hidden invariants:** Mechanical shortcuts such as **deriving filenames or placement from the first markdown heading** (or similar fixed heuristics) are **wrong** for this slice because they encode **hidden invariants**—for example that content **must** have a heading, that the heading **must** be suitable as a filename segment, and that ordering and edge cases become **undeclared** product rules carried by the heuristic rather than by explicit contract text.
 
 The implementation **MUST NOT** satisfy the contract by only merging each pending file into a **single** existing topic file keyed solely by first heading or filename stem (i.e. **not** a “single-file-append” shortcut for the whole run).
 
@@ -82,6 +88,12 @@ There is **no** “partial success” body: if the run does not fully succeed, t
 ## Errors: `reconciliation_conflict`
 
 Normative structured tool failures use the shared error envelope (**`specs/mcp.md`** — **Error envelope and codes**). The code **`reconciliation_conflict`** is among the normative codes. Because **incoming knowledge wins** over conflicting corpus text (**Conflict resolution (incoming knowledge wins)** above), **`reconciliation_conflict`** is **not** for “corpus vs pending disagree.” Implementations **SHOULD** use **`reconciliation_conflict`** when reconcile fails because integration still cannot be completed—for example **contradictory pending items within the same run** that the product cannot sequence or merge, or another **irreconcilable** semantic situation **not** solvable by editing the corpus toward pending—as opposed to generic external or argument failures—so callers can distinguish **reconcile-specific** integration failures.
+
+---
+
+## Testing and the normative contract
+
+This document **MUST NOT** prescribe **test implementation minutiae** (exact assertions, helper names, or white-box structure). **However**, **tests that only lock deterministic decomposition helpers**—without validating **LLM-backed integration** against the **MUST** themes in this document—are **insufficient** as **contract tests** for reconciliation. The **normative** contract is **semantic** pending→corpus integration **via** **LLM inference**, not endorsement of a particular mechanical pipeline. **Alignment** is against **MUST**s in **this** specification (LLM integration, **`## Sources`**, atomicity, ordering, failure behavior, and related rules here)—not **incidental** implementation details. This section **states** contract scope for tests; it is **not** a testing guide.
 
 ---
 
