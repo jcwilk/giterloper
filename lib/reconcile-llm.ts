@@ -3,6 +3,7 @@
  * OpenAI Chat Completions JSON mode. Optional HTTP VCR via `GITERLOPER_OPENAI_VCR` (see `reconcile-openai-vcr.ts`).
  */
 
+import type { ReconcileCorpusContextSnippet } from "./reconcile-context.ts";
 import { getOpenAiVcrMode, openAiFetch } from "./reconcile-openai-vcr.ts";
 
 /**
@@ -29,6 +30,12 @@ export interface LlmCorpusFailure {
 
 export type LlmCorpusResult = LlmCorpusSuccess | LlmCorpusFailure;
 
+/** Options for **`integrateCorpusWithOpenAi`** (search-backed context is optional per reconciliation slice under specs/). */
+export interface IntegrateCorpusWithOpenAiOptions {
+  /** Optional snippets from memsearch or tests; merged into the user JSON for the model. */
+  corpusContextSnippets?: ReconcileCorpusContextSnippet[];
+}
+
 export function getReconcileOpenAiApiKey(): string | undefined {
   const a = Deno.env.get("GITERLOPER_RECONCILE_OPENAI_API_KEY")?.trim();
   const b = Deno.env.get("OPENAI_API_KEY")?.trim();
@@ -53,10 +60,13 @@ function validateKnowledgePath(p: string): boolean {
 /**
  * Calls OpenAI to produce the full integrated corpus (recursive markdown under knowledge/, excluding _pending) for the
  * given `pendingItems` (typically one item when invoked from `reconcile()`).
+ * **`corpusContextSnippets`** (optional): inject or test search-backed context without going through **`reconcile()`** —
+ * see **`reconcile-context.ts`** module doc.
  */
 export async function integrateCorpusWithOpenAi(
   entries: PendingEntryForLlm[],
   corpusBefore: Map<string, string>,
+  options?: IntegrateCorpusWithOpenAiOptions,
 ): Promise<LlmCorpusResult> {
   const apiKey = getReconcileOpenAiApiKey();
   if (!apiKey) {
@@ -95,14 +105,20 @@ Rules (normative):
 - Paths MUST be relative with forward slashes, under knowledge/, ending in .md, and MUST NOT point at knowledge/_pending/.
 - Return ONLY valid JSON with shape: {"files":[{"path":"knowledge/...","content":"full markdown"}]}. The "files" array is the complete set of knowledge/**/*.md files that should exist after integration (excluding _pending). Omit files that should be deleted from the corpus.`;
 
-  const user = JSON.stringify(
-    {
-      pendingItems: pendingPayload,
-      existingCorpusMarkdownFiles: corpusPayload,
-    },
-    null,
-    2,
-  );
+  const userObj: Record<string, unknown> = {
+    pendingItems: pendingPayload,
+    existingCorpusMarkdownFiles: corpusPayload,
+  };
+  const snippets = options?.corpusContextSnippets?.filter((s) => s.snippet?.trim());
+  if (snippets?.length) {
+    userObj.additionalCorpusContextFromSearch = snippets.map((s) => ({
+      path: s.path,
+      title: s.title,
+      snippet: s.snippet,
+      ...(s.score !== undefined ? { score: s.score } : {}),
+    }));
+  }
+  const user = JSON.stringify(userObj, null, 2);
 
   let res: Response;
   try {

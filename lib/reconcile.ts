@@ -8,6 +8,8 @@ import path from "node:path";
 
 import { getRemoteOriginUrl } from "./git.ts";
 import { getFileAddEpochViaApi, parseGithubSource } from "./github.ts";
+import type { ReconcileCorpusContextRetriever, ReconcileCorpusContextSnippet } from "./reconcile-context.ts";
+import { retrieveCorpusContextViaMemsearch } from "./reconcile-context.ts";
 import { integrateCorpusWithOpenAi, type LlmCorpusResult } from "./reconcile-llm.ts";
 import { run, runSoft } from "./run.ts";
 import type { RetryLogContext } from "./types.ts";
@@ -36,14 +38,23 @@ export interface ReconcileError {
   unresolved?: string[];
 }
 
-/** Optional hooks (tests); production uses env + OpenAI (or VCR when `GITERLOPER_OPENAI_VCR` is set). */
+/**
+ * Optional hooks (tests); production uses env + OpenAI (or VCR when `GITERLOPER_OPENAI_VCR` is set).
+ * **Integration test seam:** **`retrieveCorpusContext`** — see **`reconcile-context.ts`** module doc.
+ */
 export interface ReconcileOptions {
   retryLog?: RetryLogContext;
   /**
    * When set, used instead of OpenAI integration (unit tests).
    * MUST perform LLM-equivalent integration or return ok: false — never deterministic-only success.
+   * Receives optional **`corpusContextSnippets`** (search-backed or injected) when present.
    */
   integrationOverride?: ReconcileIntegrationOverride;
+  /**
+   * Override corpus context retrieval (e.g. inject snippets for tests). When omitted, **`retrieveCorpusContextViaMemsearch`**
+   * runs when **`GITERLOPER_RECONCILE_USE_MEMSEARCH_CONTEXT`** is set and **`memsearch`** is available; otherwise **[]**.
+   */
+  retrieveCorpusContext?: ReconcileCorpusContextRetriever;
 }
 
 /** Called once per pending file from `reconcile()`; `entries` has length 1 in that path. */
@@ -51,11 +62,15 @@ export type ReconcileIntegrationOverride = (
   repoDir: string,
   entries: PendingEntry[],
   corpusBefore: Map<string, string>,
+  corpusContextSnippets?: ReconcileCorpusContextSnippet[],
 ) => Promise<LlmCorpusResult>;
 
 function normalizeReconcileSecond(second?: RetryLogContext | ReconcileOptions): ReconcileOptions {
   if (!second) return {};
-  if (typeof second === "object" && ("integrationOverride" in second || "retryLog" in second)) {
+  if (
+    typeof second === "object" &&
+    ("integrationOverride" in second || "retryLog" in second || "retrieveCorpusContext" in second)
+  ) {
     return second as ReconcileOptions;
   }
   return { retryLog: second as RetryLogContext };
@@ -453,10 +468,13 @@ async function runLlmIntegration(
   corpusBefore: Map<string, string>,
   opts: ReconcileOptions,
 ): Promise<LlmCorpusResult> {
+  const corpusContextSnippets = opts.retrieveCorpusContext !== undefined
+    ? await opts.retrieveCorpusContext(repoDir, entries, corpusBefore)
+    : await retrieveCorpusContextViaMemsearch(repoDir, entries, corpusBefore);
   if (opts.integrationOverride) {
-    return await opts.integrationOverride(repoDir, entries, corpusBefore);
+    return await opts.integrationOverride(repoDir, entries, corpusBefore, corpusContextSnippets);
   }
-  return await integrateCorpusWithOpenAi(entries, corpusBefore);
+  return await integrateCorpusWithOpenAi(entries, corpusBefore, { corpusContextSnippets });
 }
 
 /**

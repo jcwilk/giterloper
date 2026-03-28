@@ -1,6 +1,6 @@
 ---
 id: git-4p5w
-status: open
+status: closed
 deps: [git-pc1c]
 links: []
 created: 2026-03-28T19:15:20Z

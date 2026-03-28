@@ -2,6 +2,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { reconcileContextQueryFromPending } from "../../lib/reconcile-context.ts";
 import { integrateCorpusWithOpenAi } from "../../lib/reconcile-llm.ts";
 import {
   buildCorpusDeterministicIntegrate,
@@ -19,6 +20,15 @@ import {
   type PendingEntry,
 } from "../../lib/reconcile.ts";
 import { run } from "../../lib/run.ts";
+
+Deno.test("reconcileContextQueryFromPending derives query from first pending body line", () => {
+  assertEquals(
+    reconcileContextQueryFromPending([
+      { path: "knowledge/_pending/x.md", content: "# Title Here\n\nBody paragraph." },
+    ]),
+    "Title Here",
+  );
+});
 
 Deno.test("extractTopic uses first # heading", () => {
   assertEquals(extractTopic("# Foo Bar\n\nbody", "x.md"), "foo-bar");
@@ -138,6 +148,40 @@ Deno.test("violatesSingleTopicFileShortcut detects single knowledge/<topic>.md i
     [`knowledge/${topic}/part-b.md`, "## B\n\n## Sources\n\n- \`x.md\`\n"],
   ]);
   assertEquals(violatesSingleTopicFileShortcut(entry, good), false);
+});
+
+Deno.test("reconcile runs retrieveCorpusContext before integrationOverride and passes snippets", async () => {
+  const tmp = Deno.makeTempDirSync({ prefix: "reconcile-ctx-seam-" });
+  try {
+    run("git", ["-C", tmp, "init"]);
+    run("git", ["-C", tmp, "config", "user.email", "t@test"]);
+    run("git", ["-C", tmp, "config", "user.name", "t"]);
+    const pendingDir = `${tmp}/knowledge/_pending`;
+    Deno.mkdirSync(pendingDir, { recursive: true });
+    Deno.writeTextFileSync(`${pendingDir}/p.md`, "# T\n\nbody");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "init"]);
+    const order: string[] = [];
+    const r = await reconcile(tmp, {
+      retrieveCorpusContext: async () => {
+        order.push("ctx");
+        return [{ path: "knowledge/corpus.md", snippet: "search hint for integration" }];
+      },
+      integrationOverride: async (_dir, _entries, _corpusBefore, snippets) => {
+        order.push("llm");
+        assertEquals(snippets?.length, 1);
+        assertEquals(snippets?.[0].snippet, "search hint for integration");
+        const next = new Map<string, string>();
+        next.set("knowledge/t/p-part-01.md", "## A\n\n## Sources\n\n- `p.md`\n");
+        next.set("knowledge/t/p-part-02.md", "## B\n\n## Sources\n\n- `p.md`\n");
+        return { ok: true, corpus: next };
+      },
+    });
+    assertEquals(order, ["ctx", "llm"]);
+    assertEquals(r.ok, true);
+  } finally {
+    Deno.removeSync(tmp, { recursive: true });
+  }
 });
 
 Deno.test("reconcile returns failure when LLM integration reports ok: false (no bogus success)", async () => {
