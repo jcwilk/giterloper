@@ -6,28 +6,13 @@
 import { getOpenAiVcrMode, openAiFetch } from "./reconcile-openai-vcr.ts";
 
 /**
- * Wire payload for `integrateCorpusWithOpenAi` (mirrors `PendingEntry` in `reconcile.ts`; no circular import).
- *
- * - **`path` / `content`:** sent to the model inside `pendingItems` (after ordering).
- * - **`addEpoch`:** **not** sent on the wire. It is metadata so callers can carry git/API “when added” timestamps;
- *   `integrateCorpusWithOpenAi` defensively sorts by `addEpoch` (same rules as `comparePendingByAddEpoch` in
- *   `reconcile.ts`) so LLM input order matches commit-time order even if the array is shuffled.
+ * Wire payload for `integrateCorpusWithOpenAi` (same shape as `PendingEntry` in `reconcile.ts`; duplicated to avoid circular imports).
+ * **`path` / `content`** are sent inside `pendingItems`. Callers should pass pending in **paper-trail order** (e.g. from
+ * `sequencePendingByPaperTrail` in `reconcile.ts`); this function preserves array order and does not send ordering metadata to the model.
  */
 export interface PendingEntryForLlm {
   path: string;
-  addEpoch: number;
   content: string;
-}
-
-/** Same ordering as `comparePendingByAddEpoch` in `reconcile.ts` — duplicated here to avoid importing `reconcile.ts`. */
-function comparePendingEntryForLlm(a: PendingEntryForLlm, b: PendingEntryForLlm): number {
-  return a.addEpoch === 0
-    ? b.addEpoch === 0
-      ? 0
-      : 1
-    : b.addEpoch === 0
-      ? -1
-      : a.addEpoch - b.addEpoch;
 }
 
 export interface LlmCorpusSuccess {
@@ -89,11 +74,7 @@ export async function integrateCorpusWithOpenAi(
     : (Deno.env.get("GITERLOPER_RECONCILE_OPENAI_BASE_URL")?.trim() || OPENAI_CHAT_URL);
   const url = baseUrl.endsWith("/chat/completions") ? baseUrl : `${baseUrl.replace(/\/$/, "")}/chat/completions`;
 
-  // Source of truth for “when added” is git/API via `getPendingInCommitOrder` → `addEpoch`. Do not send epochs to the
-  // model (keeps VCR bodies stable). Defensively sort by addEpoch so input order matches commit order even if callers
-  // pass a shuffled array.
-  const ordered = [...entries].sort(comparePendingEntryForLlm);
-  const pendingPayload = ordered.map((e) => ({
+  const pendingPayload = entries.map((e) => ({
     path: e.path,
     content: e.content,
   }));

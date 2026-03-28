@@ -28,7 +28,7 @@ Deno.test({
       }
 
       const result = await integrateCorpusWithOpenAi(
-        [{ path: "knowledge/_pending/note.md", addEpoch: 1, content: "# Alpha\n\nHello world." }],
+        [{ path: "knowledge/_pending/note.md", content: "# Alpha\n\nHello world." }],
         new Map([["knowledge/existing.md", "# Existing\n\nBody."]]),
       );
 

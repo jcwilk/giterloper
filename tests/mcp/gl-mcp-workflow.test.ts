@@ -37,6 +37,11 @@ Deno.test({
   sanitizeOps: false,
   sanitizeResources: false,
   fn: async () => {
+  // Two inserts produce content-hashed pending basenames and random markers; the reconcile request body is not
+  // stable across runs, so replay-only VCR cannot use a committed tape. Use live OpenAI when a key is available
+  // (spawn merges OPENAI_API_KEY from repo .env — see tests/helpers/mcp-subprocess.ts).
+  Deno.env.set("GITERLOPER_OPENAI_VCR", "off");
+
   const port = randomPort();
   let server: ReturnType<typeof spawnMcpHttpIntegrationServer> | null = null;
   const projectRoot = mkdtempSync(path.join(tmpdir(), "giterloper-mcp-workflow-"));

@@ -5,11 +5,11 @@ import { integrateCorpusWithOpenAi } from "../../lib/reconcile-llm.ts";
 import {
   buildCorpusDeterministicIntegrate,
   collectH2Keys,
-  comparePendingByAddEpoch,
   decomposePendingEntry,
   extractTopic,
   normalizeHeading,
   reconcile,
+  sequencePendingByPaperTrail,
   splitPreambleAndH2,
   splitTwoWays,
   stripBoilerplate,
@@ -49,7 +49,6 @@ Deno.test("splitPreambleAndH2 separates intro and H2 sections", () => {
 Deno.test("decomposePendingEntry yields at least two corpus paths", () => {
   const entry: PendingEntry = {
     path: "knowledge/_pending/x.md",
-    addEpoch: 1,
     content: "# One Topic\n\nOnly body no H2.",
   };
   const chunks = decomposePendingEntry(entry);
@@ -61,7 +60,6 @@ Deno.test("decomposePendingEntry yields at least two corpus paths", () => {
 Deno.test("decomposePendingEntry splits multiple H2 into multiple files", () => {
   const entry: PendingEntry = {
     path: "knowledge/_pending/y.md",
-    addEpoch: 1,
     content: "# T\n\n## First\n\na\n\n## Second\n\nb",
   };
   const chunks = decomposePendingEntry(entry);
@@ -87,20 +85,45 @@ Deno.test("splitTwoWays splits at paragraph boundary", () => {
   assertEquals(b.includes("line2"), true);
 });
 
-Deno.test("comparePendingByAddEpoch orders by addEpoch ascending with addEpoch 0 last", () => {
-  const entries: PendingEntry[] = [
-    { path: "knowledge/_pending/a.md", addEpoch: 100, content: "" },
-    { path: "knowledge/_pending/b.md", addEpoch: 0, content: "" },
-    { path: "knowledge/_pending/c.md", addEpoch: 50, content: "" },
-  ];
-  entries.sort(comparePendingByAddEpoch);
-  assertEquals(entries.map((e) => e.addEpoch), [50, 100, 0]);
+Deno.test("sequencePendingByPaperTrail orders by git first-add time (not lexicographic basename)", async () => {
+  const tmp = Deno.makeTempDirSync({ prefix: "reconcile-paper-" });
+  try {
+    run("git", ["-C", tmp, "init"]);
+    run("git", ["-C", tmp, "config", "user.email", "t@test"]);
+    run("git", ["-C", tmp, "config", "user.name", "t"]);
+    const pendingDir = `${tmp}/knowledge/_pending`;
+    Deno.mkdirSync(pendingDir, { recursive: true });
+    Deno.writeTextFileSync(`${pendingDir}/z-later-alpha.md`, "# Z\n\nfirst commit");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "add z"], {
+      env: {
+        ...Deno.env.toObject(),
+        GIT_AUTHOR_DATE: "2020-01-01T12:00:00",
+        GIT_COMMITTER_DATE: "2020-01-01T12:00:00",
+      },
+    });
+    Deno.writeTextFileSync(`${pendingDir}/a-earlier-beta.md`, "# A\n\nsecond commit");
+    run("git", ["-C", tmp, "add", "-A"]);
+    run("git", ["-C", tmp, "commit", "-m", "add a"], {
+      env: {
+        ...Deno.env.toObject(),
+        GIT_AUTHOR_DATE: "2020-01-01T15:00:00",
+        GIT_COMMITTER_DATE: "2020-01-01T15:00:00",
+      },
+    });
+    const entries = await sequencePendingByPaperTrail(tmp);
+    assertEquals(
+      entries.map((e) => e.path.replace(/^knowledge\/_pending\//, "")),
+      ["z-later-alpha.md", "a-earlier-beta.md"],
+    );
+  } finally {
+    Deno.removeSync(tmp, { recursive: true });
+  }
 });
 
 Deno.test("violatesSingleTopicFileShortcut detects single knowledge/<topic>.md integration", () => {
   const entry: PendingEntry = {
     path: "knowledge/_pending/x.md",
-    addEpoch: 1,
     content: "# My Topic\n\nbody",
   };
   const topic = extractTopic(entry.content, "x.md");
@@ -146,7 +169,7 @@ Deno.test("integrateCorpusWithOpenAi does not succeed without API key", async ()
     Deno.env.delete("OPENAI_API_KEY");
     Deno.env.delete("GITERLOPER_RECONCILE_OPENAI_API_KEY");
     const r = await integrateCorpusWithOpenAi(
-      [{ path: "knowledge/_pending/x.md", addEpoch: 1, content: "# A\n\nb" }],
+      [{ path: "knowledge/_pending/x.md", content: "# A\n\nb" }],
       new Map(),
     );
     assertEquals(r.ok, false);
@@ -174,7 +197,6 @@ Deno.test("buildCorpusDeterministicIntegrate (unit helper) produces multi-file c
     const entries: PendingEntry[] = [
       {
         path: "knowledge/_pending/p.md",
-        addEpoch: 1,
         content: Deno.readTextFileSync(`${pendingDir}/p.md`),
       },
     ];

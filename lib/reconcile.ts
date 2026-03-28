@@ -18,8 +18,6 @@ const KNOWLEDGE_DIR = "knowledge";
 export interface PendingEntry {
   /** Relative path e.g. knowledge/_pending/foo.md */
   path: string;
-  /** Commit timestamp (epoch seconds) when file was added, for ordering */
-  addEpoch: number;
   /** File content */
   content: string;
 }
@@ -213,12 +211,14 @@ export function decomposePendingEntry(entry: PendingEntry): PlannedChunk[] {
 }
 
 /**
- * Add-time epoch (seconds) for ordering pending files. **Source of truth:** GitHub Contents API when `useApi` and
- * token/network succeed (correct for **shallow** clones where `git log --diff-filter=A` may not reach the adding
- * commit), else first-add timestamp from `git log` on the local clone. If both fail, returns **0** (entry sorts
- * last; ordering is then undefined—prefer a full clone or working API for deterministic reconcile).
+ * Infer a **sort key** (seconds since epoch) from git / GitHub paper trail for one path. Not persisted and not part of
+ * `PendingEntry` — used only while sequencing (see **Ordering when multiple pending files apply** in the reconciliation slice).
+ *
+ * **Sources:** GitHub Contents API when `useApi` and token/network succeed (needed when **shallow** clones lack full
+ * history for `git log --diff-filter=A`), else first-add timestamp from `git log` on the local clone. If both fail,
+ * returns **0** (unknown; such paths sort last among pending).
  */
-async function addEpochForFile(
+async function paperTrailSortKeySecondsForPath(
   repoDir: string,
   rel: string,
   source: string | null,
@@ -233,28 +233,19 @@ async function addEpochForFile(
     }
   }
   const out = runSoft("git", ["-C", repoDir, "log", "-1", "--format=%ct", "--diff-filter=A", "--", rel]);
-  const addEpoch = out.ok && out.stdout ? parseInt(out.stdout.trim(), 10) : 0;
-  return isNaN(addEpoch) ? 0 : addEpoch;
+  const ct = out.ok && out.stdout ? parseInt(out.stdout.trim(), 10) : 0;
+  return isNaN(ct) ? 0 : ct;
+}
+
+function comparePaperTrailSortKeys(a: number, b: number): number {
+  return a === 0 ? (b === 0 ? 0 : 1) : b === 0 ? -1 : a - b;
 }
 
 /**
- * Comparator for PendingEntry by addEpoch: earliest first; addEpoch 0 (unknown) sorts last.
+ * Lists pending markdown under `knowledge/_pending/` and returns them in **paper-trail order** (earliest introduction
+ * first): sort keys from GitHub API and/or `git log` as above — **not** a stored field on each entry.
  */
-export function comparePendingByAddEpoch(a: PendingEntry, b: PendingEntry): number {
-  return a.addEpoch === 0
-    ? b.addEpoch === 0
-      ? 0
-      : 1
-    : b.addEpoch === 0
-      ? -1
-      : a.addEpoch - b.addEpoch;
-}
-
-/**
- * Get pending files in commit order (earliest add first). Uses GitHub API for add timestamp when repo is GitHub and token available (works with shallow clones).
- * Entries with addEpoch 0 (API and git log both yield 0, e.g. shallow clone without API) are included and ordered last.
- */
-export async function getPendingInCommitOrder(
+export async function sequencePendingByPaperTrail(
   repoDir: string,
   retryLog?: RetryLogContext
 ): Promise<PendingEntry[]> {
@@ -266,7 +257,7 @@ export async function getPendingInCommitOrder(
   const remoteUrl = getRemoteOriginUrl(repoDir);
   const useApi = !!(remoteUrl && parseGithubSource(remoteUrl));
 
-  const entries: PendingEntry[] = [];
+  const rows: { path: string; content: string; sortKey: number }[] = [];
   for (const f of files) {
     const rel = `${PENDING_DIR}/${f}`;
     const fullPath = path.join(repoDir, rel);
@@ -279,11 +270,11 @@ export async function getPendingInCommitOrder(
       if (code === "ENOENT") continue;
       throw e;
     }
-    const addEpoch = await addEpochForFile(repoDir, rel, remoteUrl, useApi, retryLog);
-    entries.push({ path: rel, addEpoch, content });
+    const sortKey = await paperTrailSortKeySecondsForPath(repoDir, rel, remoteUrl, useApi, retryLog);
+    rows.push({ path: rel, content, sortKey });
   }
-  entries.sort(comparePendingByAddEpoch);
-  return entries;
+  rows.sort((x, y) => comparePaperTrailSortKeys(x.sortKey, y.sortKey));
+  return rows.map(({ path: p, content }) => ({ path: p, content }));
 }
 
 function walkMarkdownFiles(dir: string, baseRel: string, out: string[]): void {
@@ -439,7 +430,7 @@ export async function reconcile(
   const opts = normalizeReconcileSecond(second);
   const retryLog = opts.retryLog;
   const oldSha = run("git", ["-C", repoDir, "rev-parse", "HEAD"]).trim();
-  const entries = await getPendingInCommitOrder(repoDir, retryLog);
+  const entries = await sequencePendingByPaperTrail(repoDir, retryLog);
   if (entries.length === 0) {
     return { ok: true, oldSha, newSha: oldSha, touched: [], deleted: [] };
   }
