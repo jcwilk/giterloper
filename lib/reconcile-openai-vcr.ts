@@ -11,6 +11,17 @@
  * Tapes: `tests/fixtures/openai-vcr/<sha256>.json`. The filename is the SHA-256 of method + URL + stable JSON body
  * (auth excluded). Each file stores `{ key, request, response }`: **response** is replayed; **request** is a snapshot of
  * the exact body sent (for debugging). Legacy tapes with only `{ status, headers, body }` at the top level still replay.
+ *
+ * **On-record hygiene:** Response headers are **not** stored verbatim. Only headers needed for replay (currently
+ * `content-type`) are kept; `set-cookie`, `cf-*`, `openai-*`, rate limits, `x-request-id`, etc. are dropped so
+ * committed tapes stay stable and free of secrets or CDN noise.
+ *
+ * **`rerecord-all` and parallelism:** `rerecord-all` deletes `tests/fixtures/openai-vcr/` once per `deno test` process
+ * (first worker that wins the `tests/fixtures/.openai-vcr-rerecord-once` marker). Other modes delete that marker on first
+ * fetch so the next `rerecord-all` run can wipe again. **Do not** run two `deno test` processes that both use
+ * `rerecord-all` against the same repo checkout simultaneously—they will race on the tape directory and marker file.
+ * The unified harness runs many workers in parallel; **each worker is a separate process**, so `rerecord-all` is safe
+ * per process but **not** safe across concurrent top-level `deno test` invocations without separate checkouts.
  */
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -117,6 +128,18 @@ function headersToPlain(h: Headers): Record<string, string> {
     o[k] = v;
   });
   return o;
+}
+
+/**
+ * Keep only headers replay needs. Strips cookies, CDN, OpenAI org/project/rate-limit noise, etc.
+ */
+function sanitizeHeadersForTape(headers: Record<string, string>): Record<string, string> {
+  const lower = new Map<string, string>();
+  for (const [k, v] of Object.entries(headers)) {
+    lower.set(k.toLowerCase(), v);
+  }
+  const ct = lower.get("content-type") ?? "application/json";
+  return { "content-type": ct };
 }
 
 function tapeToResponse(t: OpenAiVcrTapeResponse): Response {
@@ -247,7 +270,7 @@ export async function openAiFetch(input: RequestInfo | URL, init?: RequestInit):
     const text = await res.clone().text();
     const response: OpenAiVcrTapeResponse = {
       status: res.status,
-      headers: headersToPlain(res.headers),
+      headers: sanitizeHeadersForTape(headersToPlain(res.headers)),
       body: text,
     };
     const full: OpenAiVcrTape = {

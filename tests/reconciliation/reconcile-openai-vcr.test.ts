@@ -6,9 +6,10 @@ import { getOpenAiVcrMode } from "../../lib/reconcile-openai-vcr.ts";
 Deno.test({
   name: "integrateCorpusWithOpenAi: VCR replay/record (GITERLOPER_OPENAI_VCR; harness defaults replay-only)",
   async fn() {
-    if (getOpenAiVcrMode() === "off") {
-      assertEquals(getOpenAiVcrMode(), "off");
-      return;
+    const prevVcr = Deno.env.get("GITERLOPER_OPENAI_VCR");
+    const forcedReplayFromOff = getOpenAiVcrMode() === "off";
+    if (forcedReplayFromOff) {
+      Deno.env.set("GITERLOPER_OPENAI_VCR", "replay-only");
     }
 
     const mode = getOpenAiVcrMode();
@@ -39,6 +40,10 @@ Deno.test({
       assertEquals(joined.includes("## Sources"), true);
       assertEquals(/note\.md/.test(joined), true);
     } finally {
+      if (forcedReplayFromOff) {
+        if (prevVcr === undefined) Deno.env.delete("GITERLOPER_OPENAI_VCR");
+        else Deno.env.set("GITERLOPER_OPENAI_VCR", prevVcr);
+      }
       if (prevKey !== undefined) Deno.env.set("OPENAI_API_KEY", prevKey);
       else Deno.env.delete("OPENAI_API_KEY");
       if (prevDedicated !== undefined) {

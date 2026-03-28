@@ -8,28 +8,7 @@
   "response": {
     "status": 200,
     "headers": {
-      "access-control-expose-headers": "X-Request-ID",
-      "alt-svc": "h3=\":443\"; ma=86400",
-      "cf-cache-status": "DYNAMIC",
-      "cf-ray": "9e3815b538801d99-SJC",
-      "content-type": "application/json",
-      "date": "Sat, 28 Mar 2026 16:41:53 GMT",
-      "openai-organization": "jcwilk-and-co",
-      "openai-processing-ms": "1083",
-      "openai-project": "proj_fB7VShlBas9X6nJh3BpG6GwX",
-      "openai-version": "2020-10-01",
-      "server": "cloudflare",
-      "set-cookie": "__cf_bm=4z9h_E8ZSo1_4oigith.4j7K0lfJdO9WRWy3LaN1Nkc-1774716112.193161-1.0.1.1-ZqnRea1_IrnIXIfUjuswKOQys4czdzcB3DIceFZ_Inz6YnBsc0C7j90BFm.vjBGfNQOLXkk8MsD7hinlGe093AcXBDj7QY3TyEUzSZx8KvnD1qVcWQ3mAU_A7J6.Pa7T; HttpOnly; Secure; Path=/; Domain=api.openai.com; Expires=Sat, 28 Mar 2026 17:11:53 GMT",
-      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
-      "x-content-type-options": "nosniff",
-      "x-openai-proxy-wasm": "v0.1",
-      "x-ratelimit-limit-requests": "10000",
-      "x-ratelimit-limit-tokens": "10000000",
-      "x-ratelimit-remaining-requests": "9999",
-      "x-ratelimit-remaining-tokens": "9999646",
-      "x-ratelimit-reset-requests": "6ms",
-      "x-ratelimit-reset-tokens": "2ms",
-      "x-request-id": "req_641b6cd1299743c198f1b901af6eff4d"
+      "content-type": "application/json"
     },
     "body": "{\n  \"id\": \"chatcmpl-DOR1M7kjO3NXJApaVmz2zWOTMXNZK\",\n  \"object\": \"chat.completion\",\n  \"created\": 1774716112,\n  \"model\": \"gpt-4o-mini-2024-07-18\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\n  \\\"files\\\": [\\n    {\\n      \\\"path\\\": \\\"knowledge/existing.md\\\",\\n      \\\"content\\\": \\\"# Existing\\\\n\\\\nBody.\\\\n\\\\n## Alpha\\\\n\\\\nHello world.\\\\n\\\\n## Sources\\\\n- note.md\\\"\\n    }\\n  ]\\n}\",\n        \"refusal\": null,\n        \"annotations\": []\n      },\n      \"logprobs\": null,\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 309,\n    \"completion_tokens\": 51,\n    \"total_tokens\": 360,\n    \"prompt_tokens_details\": {\n      \"cached_tokens\": 0,\n      \"audio_tokens\": 0\n    },\n    \"completion_tokens_details\": {\n      \"reasoning_tokens\": 0,\n      \"audio_tokens\": 0,\n      \"accepted_prediction_tokens\": 0,\n      \"rejected_prediction_tokens\": 0\n    }\n  },\n  \"service_tier\": \"default\",\n  \"system_fingerprint\": \"fp_162d3c480f\"\n}\n"
   }

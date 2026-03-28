@@ -212,7 +212,12 @@ export function decomposePendingEntry(entry: PendingEntry): PlannedChunk[] {
   ];
 }
 
-/** Get add timestamp for a file: from GitHub API when available, else from git log. */
+/**
+ * Add-time epoch (seconds) for ordering pending files. **Source of truth:** GitHub Contents API when `useApi` and
+ * token/network succeed (correct for **shallow** clones where `git log --diff-filter=A` may not reach the adding
+ * commit), else first-add timestamp from `git log` on the local clone. If both fail, returns **0** (entry sorts
+ * last; ordering is then undefined—prefer a full clone or working API for deterministic reconcile).
+ */
 async function addEpochForFile(
   repoDir: string,
   rel: string,
