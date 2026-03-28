@@ -392,7 +392,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Insert pending knowledge",
       description:
-        "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert. Omit pin to use the session pin.",
+        "Queue new knowledge into knowledge/_pending/. Equivalent to CLI gl insert. Omit pin to use the session pin. Content is stored as UTF-8 markdown: use literal characters (e.g. angle brackets for placeholders); do not substitute HTML/XML character entities—they would be stored verbatim in the file.",
       inputSchema: z.object({
         pin: z
           .string()
@@ -400,7 +400,11 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
           .describe(
             'Pin name; omit for session pin. Do not pass the literal "_session" (reserved).'
           ),
-        content: z.string().describe("Markdown content to queue (required)"),
+        content: z
+          .string()
+          .describe(
+            "Markdown body written to a pending file as UTF-8 (required). Use literal markdown; do not HTML-encode angle brackets or other characters."
+          ),
         name: z
           .string()
           .optional()
@@ -460,7 +464,7 @@ export function createServer(options?: CreateServerOptions): McpServerBundle {
     {
       title: "Reconcile pending knowledge (LLM-backed)",
       description:
-        "Integrate knowledge/_pending into the corpus under knowledge/ (recursive .md files) using LLM-backed integration (OpenAI Chat Completions; same semantics as CLI gl reconcile). Requires API key configuration for production. Normative: reconciliation slice under specs/. All-or-nothing; omit pin to use the session pin.",
+        "Integrate knowledge/_pending into the corpus under knowledge/ (recursive .md files) using LLM-backed agentic integration (OpenAI Chat Completions; same semantics as CLI gl reconcile). At most one pending file per pass; succeeds only when all scoped pending are cleared. Requires API key configuration for production. Normative: reconciliation slice under specs/. All-or-nothing publish; omit pin to use the session pin.",
       inputSchema: z.object({
         pin: z
           .string()

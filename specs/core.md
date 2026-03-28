@@ -44,7 +44,7 @@ Executable coverage for most of this slice lives under **`tests/core/`**; **reco
 - **Authoritative semantics:** End-to-end **reconcile** behavior (**CLI** **`gl reconcile`**, MCP **`giterloper_reconcile_pending`**) is normatively specified in **[`specs/reconciliation.md`](./reconciliation.md)**. This section records **paths**, **library** expectations, and **test-scope** notes that pair with **`tests/reconciliation/`**; it **MUST NOT** contradict **`specs/reconciliation.md`**.
 - **Paths:** **`knowledge/_pending/`** is the **inbox**; durable knowledge lives under **`knowledge/`** outside that inbox. **Pending queue filenames** follow **Pending queue filenames** above.
 - **Provenance:** **`## Sources`** obligations for integrated corpus files are normative in **`specs/reconciliation.md`**.
-- **Ordering:** **`addEpoch`** ordering for a reconcile run is normative in **`specs/reconciliation.md`** — **Ordering when multiple pending entries apply**.
+- **Ordering / provenance (no stored epoch):** When multiple pending files exist, how the product picks **next** work and derives history-aware ordering is normative in **`specs/reconciliation.md`** — **Ordering when multiple pending files apply** (git / GitHub paper trail; shallow-clone caveat).
 - **Helpers:** **`lib/reconcile.ts`** (topic keys, merges, boilerplate stripping, etc.) reflects **implementation** details; **`tests/reconciliation/`** unit tests validate those helpers and do **not** replace end-to-end **reconcile** contract coverage under **`tests/cli/`** / **`tests/mcp/`** (those pair with **`specs/reconciliation.md`** and surface specs).
 
 ---

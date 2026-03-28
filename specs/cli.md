@@ -113,7 +113,7 @@ For a **newly created branch** (pin added from base ref with a branch name not y
 
 ### `reconcile [--pin <name>]`
 
-**Normative reconcile semantics** (inbox → corpus integration, provenance, completeness, ordering, structured fields, pin lifecycle) are defined in **[`specs/reconciliation.md`](./reconciliation.md)**. **CLI help** and **`--json`** field names **MUST** stay alignable with that document.
+**Normative reconcile semantics** (inbox → corpus integration, agentic integration obligations, one pending file per pass, overall success when all scoped pending are reconciled, provenance, completeness and publish atomicity, ordering from git/GitHub paper trail, structured fields, pin lifecycle, **`reconciliation_conflict`**) are defined in **[`specs/reconciliation.md`](./reconciliation.md)**. **CLI help** and **`--json`** field names **MUST** stay alignable with that document and with **`giterloper_reconcile_pending`** (**[`specs/mcp.md`](./mcp.md)**).
 
 **CLI-only:** Command name **`reconcile`**; optional **`--pin <name>`**; structured output via **`--json`** (same semantic fields as MCP success body per **`specs/reconciliation.md`**). Successful reconcile **advances the pin SHA** after push when the clone was mutated.
 
